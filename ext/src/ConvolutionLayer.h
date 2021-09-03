@@ -10,9 +10,9 @@
 
 #pragma once
 
-
 #include <iostream>
 
+#include <vector>
 #include <string>
 #include "Convolution.h"
 #include "Activations.h"
@@ -20,27 +20,28 @@
 class ConvolutionLayer
 {
 public:
-    ConvolutionLayer(size_t inputChannels,
-                     size_t outputChannels,
-                     int filterWidth,
-                     int dilation = 1,
-                     bool residual = false,
-                     std::string activationName = "linear");
-    ~ConvolutionLayer(){std::cerr << "Deleting layer" << std::endl;};
-    void process(float * data_in, float * data_out, int numSamples);
-    void process(float* data_in, float * data_out, float* skipdata, int numSamples);
-    void setConvolutionWeight(float * data, size_t num_params);
-    void setConvolutionBias(float * data, size_t num_params);
-    void setOutputWeight(float * data, size_t num_params);
-    void setOutputBias(float * data, size_t num_params);
+  ConvolutionLayer(size_t inputChannels,
+                   size_t outputChannels,
+                   int filterWidth,
+                   int dilation = 1,
+                   bool use_output_transform = false,
+                   std::string activationName = "linear");
+  void process(float *data_in, float *data_out, int64_t numSamples);
+  void process(float *data_in, float *data_out, float *skipdata, int64_t numSamples);
+  void reset();
+  void setConvolutionWeight(float *data, size_t num_params);
+  void setConvolutionBias(float *data, size_t num_params);
+  void setOutputWeight(float *data, size_t num_params);
+  void setOutputBias(float *data, size_t num_params);
 
-    
 private:
-    Convolution conv;
-    Convolution out1x1;
-    bool residual;
-    bool usesGating;
-    typedef void (* activationFunction)(float *x , size_t rows, size_t cols);
-    activationFunction activation;
-    void copySkipData(float *data, float *skipData, int numSamples);
+  Convolution conv;
+  Convolution out1x1;
+  bool use_output_transform;
+  bool use_gating;
+  std::vector<float> memory;
+  void prepare(size_t num_channels, size_t buffer_size);
+  typedef void (*activationFunction)(float *x, size_t rows, size_t cols);
+  activationFunction activation;
+  void copySkipData(float *data, float *skipData, int numSamples);
 };

@@ -24,6 +24,7 @@ public:
   void setKernel(float *W, size_t num_params);
   void setBias(float *b, size_t num_params);
   void resetFifo();
+  void resetKernel();
 
 private:
   std::vector<Eigen::MatrixXf, Eigen::aligned_allocator<Eigen::MatrixXf>> kernel;
@@ -36,7 +37,7 @@ private:
   const size_t outputChannels;
   const int filterWidth;
 
-  void resetKernel();
+  
   void processSingleSample(float * data_in, float * data_out, int i, int numSamples);
 
   int mod(int a, int b);
