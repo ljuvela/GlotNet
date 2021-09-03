@@ -1,0 +1,9 @@
+name: GlotNet
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python
+  - pytorch
+  - torchaudio
+  - eigen
