@@ -2,7 +2,7 @@ import torch
 
 from glotnet.convolution_layer import ConvolutionLayer
 
-if __name__ == "__main__":
+def test_layer_linear():
     print("Test layer with linear activations")
     torch.manual_seed(42)
     timesteps = 100
@@ -20,9 +20,8 @@ if __name__ == "__main__":
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
     print("   ok!")
 
-# def test_forward1():
-if __name__ == "__main__":
-    print("Test layer with linear activations")
+def test_layer_tanh():
+    print("Test layer with tanh activation")
     torch.manual_seed(42)
     timesteps = 100
     batch = 1 
@@ -39,7 +38,7 @@ if __name__ == "__main__":
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
     print("   ok!")
 
-if __name__ == "__main__":
+def test_layer_gated():
     print("Test layer with gated activations")
     torch.manual_seed(42)
     timesteps = 100
@@ -57,10 +56,10 @@ if __name__ == "__main__":
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
     print("   ok!")
 
-# if __name__ == "__main__":
-    # print("Testing forward pass with SISO, batch size 1")
-    # test_forward1()
-    # print("   ok!")
+if __name__ == "__main__":
+    test_layer_linear()
+    test_layer_tanh()
+    test_layer_gated()
 
 
 

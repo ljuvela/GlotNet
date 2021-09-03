@@ -25,7 +25,7 @@ std::vector<at::Tensor> forward(
     int64_t timesteps = input.size(2);
 
     int64_t filter_width = weight_conv.size(0);
-    int64_t input_channels = weight_conv.size(2);
+    int64_t input_channels = weight_conv.size(1);
 
     int64_t output_channels = weight_out.size(1);
 

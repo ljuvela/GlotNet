@@ -17,8 +17,6 @@ class ConvolutionLayerFunction(torch.autograd.Function):
                               weight_out, bias_out,
                               torch.tensor(dilation))
         
-        print(f"Conv weight shape {weight_conv.shape}")
-
         training = False
         output, skip = ext.convolution_layer_forward(
             input, weight_conv, bias_conv, weight_out, bias_out,
