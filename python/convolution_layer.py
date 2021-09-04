@@ -30,7 +30,8 @@ class ConvolutionLayer(torch.nn.Module):
     """
     Wavenet Convolution Layer (also known as Residual Block)
 
-    Uses a gated activation and residual connections by default
+    Uses a gated activation and a 1x1 output transformation by default
+    
     """
 
     def __init__(self, in_channels, out_channels, kernel_size, dilation=1, bias=True, device=None, dtype=None,

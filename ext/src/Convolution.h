@@ -41,5 +41,5 @@ private:
   void processSingleSample(float * data_in, float * data_out, int i, int numSamples);
 
   int mod(int a, int b);
-  int idx(int ch, int i, int numSamples);
+  inline int64_t idx(int64_t ch, int64_t i, int64_t numSamples);
 };

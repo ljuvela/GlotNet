@@ -88,7 +88,7 @@ int Convolution::mod(int a, int b)
     return r < 0 ? r + b : r;
 }
 
-int Convolution::idx(int ch, int i, int numSamples)
+inline int64_t Convolution::idx(int64_t ch, int64_t i, int64_t numSamples)
 {
     return ch * numSamples + i;
 }

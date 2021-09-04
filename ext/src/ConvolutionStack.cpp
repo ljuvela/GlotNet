@@ -20,37 +20,44 @@ ConvolutionStack::ConvolutionStack(int numChannels, int filterWidth, std::vector
     initLayers();
 }
 
-void ConvolutionStack::prepareToPlay(int newNumSamples)
+void ConvolutionStack::prepare(int buffer_size)
 {
-    samplesPerBlock = newNumSamples;
-    residualData.setSize(1, samplesPerBlock * numChannels);
+    samplesPerBlock = buffer_size;
+    residualData.resize(samplesPerBlock * numChannels);
+}
+
+void ConvolutionStack::reset()
+{
+    for (auto l : layers)
+        l.reset();
+    std::fill(residualData.begin(), residualData.end(), 0.0f);
 }
 
 void ConvolutionStack::copyResidual(float *data, int numSamples)
 {
-    auto writePtr = residualData.getWritePointer(0);
     for (size_t i = 0; i < numSamples * numChannels; ++i)
-        writePtr[i] = data[i];
+        residualData[i] = data[i];
 }
 
 void ConvolutionStack::addResidual(float *data, int numSamples)
 {
-    const auto readPtr = residualData.getWritePointer(0);
+    // const auto readPtr = residualData.getWritePointer(0);
     for (size_t i = 0; i < numSamples * numChannels; ++i)
-        data[i] = data[i] + readPtr[i];
+        data[i] = data[i] + residualData[i];
+
 }
 
 void ConvolutionStack::process(float *data, float* skipData, int numSamples)
 {
     if (numSamples > samplesPerBlock)
-        prepareToPlay(numSamples);
+        prepare(numSamples);
     for (int i = 0; i < dilations.size(); ++i)
     {
         if (residual)
             copyResidual(data, numSamples);
         // Get pointer to correct position at skipData
         float *skipPtr = getSkipPointer(skipData, i, numSamples);
-        layers[i].process(data, skipPtr, numSamples);
+        layers[i].process(data, data, skipPtr, numSamples);
         if (residual)
             addResidual(data, numSamples);
     }
@@ -63,14 +70,9 @@ float* ConvolutionStack::getSkipPointer(float *skipData, int layerIdx, int numSa
     return &skipData[startIdx];
 }
 
-int ConvolutionStack::idx(int ch, int i, int numSamples)
+inline unsigned int ConvolutionStack::idx(int ch, int i, int numSamples)
 {
     return ch * numSamples + i;
-}
-
-void ConvolutionStack::setWeight(std::vector<float> W, int layerIdx, std::string name)
-{
-    layers[layerIdx].setWeight(W, name);
 }
 
 void ConvolutionStack::setConvolutionWeight(float * data, size_t layerIdx, size_t num_params)
@@ -93,21 +95,6 @@ void ConvolutionStack::setOutputBias(float * data, size_t layerIdx, size_t num_p
     layers[layerIdx].setOutputBias(data, num_params);
 }
 
-
-void ConvolutionStack::setParams(int newNumChannels,
-                                 int newFilterWidth,
-                                 std::vector<int> newDilations,
-                                 std::string newActivation,
-                                 bool newResidual)
-{
-    numChannels = newNumChannels;
-    filterWidth = newFilterWidth;
-    dilations = newDilations;
-    activation = newActivation;
-    residual = newResidual;
-    initLayers();
-    prepareToPlay(samplesPerBlock);
-}
 
 void ConvolutionStack::initLayers()
 {

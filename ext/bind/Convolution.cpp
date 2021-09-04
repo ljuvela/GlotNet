@@ -39,7 +39,7 @@ std::vector<at::Tensor> forward(
     conv.setKernel(weight.data_ptr<float>(), filter_width * input_channels * output_channels);
     conv.setBias(bias.data_ptr<float>(), bias_size);
 
-    for (long long b = 0; b < batch_size; b++)
+    for (int64_t b = 0; b < batch_size; b++)
     {
         conv.resetFifo();
         conv.process(&(data_in[b * input_channels * timesteps]),

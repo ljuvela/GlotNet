@@ -13,7 +13,9 @@ include_dirs = []
 # sources += glob('ext/src/*.cpp')
 sources += ['ext/src/Activations.cpp',
             'ext/src/Convolution.cpp',
-            'ext/src/ConvolutionLayer.cpp']
+            'ext/src/ConvolutionLayer.cpp',
+            'ext/src/ConvolutionStack.cpp',
+            ]
 sources += glob('ext/bind/*.cpp')
 
 eigen_headers = os.path.join(os.environ['CONDA_PREFIX'], 'include', 'eigen3')
