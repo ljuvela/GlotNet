@@ -18,11 +18,11 @@ class Convolution
 public:
   Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation = 1);
   int getFilterOrder() const;
-  void process(float * data_in, float * data_out, int numSamples);
+  void process(const float * data_in, float * data_out, int numSamples);
   size_t getNumInputChannels() { return inputChannels; }
   size_t getNumOutputChannels() { return outputChannels; }
-  void setKernel(float *W, size_t num_params);
-  void setBias(float *b, size_t num_params);
+  void setKernel(const float *W, size_t num_params);
+  void setBias(const float *b, size_t num_params);
   void resetFifo();
   void resetKernel();
 
@@ -36,10 +36,7 @@ private:
   const size_t inputChannels;
   const size_t outputChannels;
   const int filterWidth;
-
-  
-  void processSingleSample(float * data_in, float * data_out, int i, int numSamples);
-
+  void processSingleSample(const float * data_in, float * data_out, int i, int numSamples);
   int mod(int a, int b);
   inline int64_t idx(int64_t ch, int64_t i, int64_t numSamples);
 };

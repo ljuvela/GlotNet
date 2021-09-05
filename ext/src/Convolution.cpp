@@ -54,7 +54,7 @@ int Convolution::getFilterOrder() const
     return (filterWidth - 1) * dilation + 1;
 }
 
-void Convolution::process(float *data_in, float *data_out, int numSamples)
+void Convolution::process(const float *data_in, float *data_out, int numSamples)
 {
     for (int i = 0; i < numSamples; ++i)
     {
@@ -62,7 +62,7 @@ void Convolution::process(float *data_in, float *data_out, int numSamples)
     }
 }
 
-void Convolution::processSingleSample(float *data_in, float *data_out, int i, int numSamples)
+void Convolution::processSingleSample(const float *data_in, float *data_out, int i, int numSamples)
 {
     auto fifo = memory.begin();
     for (int ch = 0; ch < inputChannels; ++ch)
@@ -93,7 +93,7 @@ inline int64_t Convolution::idx(int64_t ch, int64_t i, int64_t numSamples)
     return ch * numSamples + i;
 }
 
-void Convolution::setKernel(float *W, size_t num_params)
+void Convolution::setKernel(const float *W, size_t num_params)
 {
     assert(num_params == inputChannels * outputChannels * filterWidth);
     size_t i = 0;
@@ -103,7 +103,7 @@ void Convolution::setKernel(float *W, size_t num_params)
                 kernel[filterWidth - 1 - k](row, col) = W[i++];
 }
 
-void Convolution::setBias(float *b, size_t num_params)
+void Convolution::setBias(const float *b, size_t num_params)
 {
     assert(num_params == outputChannels);
     for (size_t i = 0; i < outputChannels; ++i)

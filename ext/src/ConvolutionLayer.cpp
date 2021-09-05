@@ -27,7 +27,7 @@ activation(Activations::getActivationFuncArray(activationName))
 {
 }
 
-void ConvolutionLayer::process(float * data_in, float * data_out, int64_t numSamples)
+void ConvolutionLayer::process(const float * data_in, float * data_out, int64_t numSamples)
 {
     this->prepare(conv.getNumOutputChannels(), numSamples);
     conv.process(data_in, memory.data(), numSamples);
@@ -37,7 +37,7 @@ void ConvolutionLayer::process(float * data_in, float * data_out, int64_t numSam
     }
 }
 
-void ConvolutionLayer::process(float * data_in,  float * data_out, float * skipData, int64_t numSamples)
+void ConvolutionLayer::process(const float * data_in,  float * data_out, float * skipData, int64_t numSamples)
 {
     this->prepare(conv.getNumOutputChannels(), numSamples);
     conv.process(data_in, memory.data(), numSamples);
@@ -48,42 +48,29 @@ void ConvolutionLayer::process(float * data_in,  float * data_out, float * skipD
     }
 }
 
-void ConvolutionLayer::copySkipData(float *data, float *skipData, int numSamples)
+void ConvolutionLayer::copySkipData(const float *data, float *skipData, int numSamples)
 {
     size_t skipChannels = use_gating ? conv.getNumOutputChannels()/2 : conv.getNumOutputChannels();
     for (size_t i = 0; i < (size_t)numSamples*skipChannels; ++i)
         skipData[i] = data[i];
 }
 
-
-// void ConvolutionLayer::setWeight(std::vector<float> W, std::string name)
-// {
-//     if ((name == "W_conv") || (name == "W"))
-//         conv.setWeight(W, "W");
-//     else if ((name == "b_conv") || (name == "b"))
-//         conv.setWeight(W, "b");
-//     else if (name == "W_out")
-//         out1x1.setWeight(W, "W");
-//     else if (name == "b_out")
-//         out1x1.setWeight(W, "b");
-// }
-
-void ConvolutionLayer::setConvolutionWeight(float * data, size_t num_params)
+void ConvolutionLayer::setConvolutionWeight(const float * data, size_t num_params)
 {
     conv.setKernel(data, num_params);
 }
 
-void ConvolutionLayer::setConvolutionBias(float * data, size_t num_params)
+void ConvolutionLayer::setConvolutionBias(const float * data, size_t num_params)
 {
     conv.setBias(data, num_params);
 }
 
-void ConvolutionLayer::setOutputWeight(float * data, size_t num_params)
+void ConvolutionLayer::setOutputWeight(const float * data, size_t num_params)
 {
     out1x1.setKernel(data, num_params);
 }
 
-void ConvolutionLayer::setOutputBias(float * data, size_t num_params)
+void ConvolutionLayer::setOutputBias(const float * data, size_t num_params)
 {
     out1x1.setBias(data, num_params);
 }

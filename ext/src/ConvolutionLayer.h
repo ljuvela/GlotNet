@@ -26,13 +26,13 @@ public:
                    int dilation = 1,
                    bool use_output_transform = false,
                    std::string activationName = "linear");
-  void process(float *data_in, float *data_out, int64_t numSamples);
-  void process(float *data_in, float *data_out, float *skipdata, int64_t numSamples);
+  void process(const float *data_in, float *data_out, int64_t numSamples);
+  void process(const float *data_in, float *data_out, float *skipdata, int64_t numSamples);
   void reset();
-  void setConvolutionWeight(float *data, size_t num_params);
-  void setConvolutionBias(float *data, size_t num_params);
-  void setOutputWeight(float *data, size_t num_params);
-  void setOutputBias(float *data, size_t num_params);
+  void setConvolutionWeight(const float *data, size_t num_params);
+  void setConvolutionBias(const float *data, size_t num_params);
+  void setOutputWeight(const float *data, size_t num_params);
+  void setOutputBias(const float *data, size_t num_params);
 
 private:
   Convolution conv;
@@ -43,5 +43,5 @@ private:
   void prepare(size_t num_channels, size_t buffer_size);
   typedef void (*activationFunction)(float *x, size_t rows, size_t cols);
   activationFunction activation;
-  void copySkipData(float *data, float *skipData, int numSamples);
+  void copySkipData(const float *data, float *skipData, int numSamples);
 };
