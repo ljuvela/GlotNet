@@ -32,8 +32,13 @@ void ConvolutionLayer::process(const float * data_in, float * data_out, int64_t 
     this->prepare(conv.getNumOutputChannels(), numSamples);
     conv.process(data_in, memory.data(), numSamples);
     activation(memory.data(), conv.getNumOutputChannels(), numSamples);
-    if (use_output_transform) {
+    if (use_output_transform)
+    {
         out1x1.process(memory.data(), data_out, numSamples);
+    }
+    else
+    {
+        copySkipData(memory.data(), data_out, numSamples);
     }
 }
 
@@ -43,8 +48,13 @@ void ConvolutionLayer::process(const float * data_in,  float * data_out, float *
     conv.process(data_in, memory.data(), numSamples);
     activation(memory.data(), conv.getNumOutputChannels(), numSamples);
     copySkipData(memory.data(), skipData, numSamples);
-    if (use_output_transform) {
+    if (use_output_transform)
+    {
         out1x1.process(memory.data(), data_out, numSamples);
+    }
+    else
+    {
+        copySkipData(memory.data(), data_out, numSamples);
     }
 }
 
@@ -55,24 +65,24 @@ void ConvolutionLayer::copySkipData(const float *data, float *skipData, int numS
         skipData[i] = data[i];
 }
 
-void ConvolutionLayer::setConvolutionWeight(const float * data, size_t num_params)
+void ConvolutionLayer::setConvolutionWeight(const torch::Tensor &W)
 {
-    conv.setKernel(data, num_params);
+    conv.setKernel(W);
 }
 
-void ConvolutionLayer::setConvolutionBias(const float * data, size_t num_params)
+void ConvolutionLayer::setConvolutionBias(const torch::Tensor &b)
 {
-    conv.setBias(data, num_params);
+    conv.setBias(b);
 }
 
-void ConvolutionLayer::setOutputWeight(const float * data, size_t num_params)
+void ConvolutionLayer::setOutputWeight(const torch::Tensor &W)
 {
-    out1x1.setKernel(data, num_params);
+    out1x1.setKernel(W);
 }
 
-void ConvolutionLayer::setOutputBias(const float * data, size_t num_params)
+void ConvolutionLayer::setOutputBias(const torch::Tensor &b)
 {
-    out1x1.setBias(data, num_params);
+    out1x1.setBias(b);
 }
 
 void ConvolutionLayer::reset()
