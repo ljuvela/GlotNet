@@ -24,36 +24,23 @@ std::vector<at::Tensor> forward(
     int64_t batch_size = input.size(0);
     int64_t channels = input.size(1);
     int64_t timesteps = input.size(2);
-    int64_t filter_width = weights_conv[0].size(0);
+    int64_t filter_width = weights_conv[0].size(2);
 
     int num_layers = dilations.size();
 
     auto stack = ConvolutionStack(channels, filter_width, dilations, activation, use_residual);
 
     for (size_t i = 0; i < weights_conv.size(); i++)
-    {
-        stack.setConvolutionWeight(
-            weights_conv[i].data_ptr<float>(), i,
-            weights_conv[i].size(0) * weights_conv[i].size(1) * weights_conv[i].size(2));
-    }
+        stack.setConvolutionWeight(weights_conv[i], i);
+
     for (size_t i = 0; i < biases_conv.size(); i++)
-    {
-        stack.setConvolutionBias(
-            biases_conv[i].data_ptr<float>(), i,
-            biases_conv[i].size(0));
-    }
+        stack.setConvolutionBias(biases_conv[i], i);
+
     for (size_t i = 0; i < weights_out.size(); i++)
-    {
-        stack.setOutputWeight(
-            weights_out[i].data_ptr<float>(), i,
-            weights_out[i].size(0) * weights_out[i].size(1) * weights_out[i].size(2));
-    }
+        stack.setOutputWeight(weights_out[i], i);
+    
     for (size_t i = 0; i < biases_out.size(); i++)
-    {
-        stack.setOutputBias(
-            biases_out[i].data_ptr<float>(), i,
-            biases_out[i].size(0));
-    }
+        stack.setOutputBias(biases_out[i], i);
 
     auto output = 1.0 * input;
     auto skip = torch::zeros({batch_size, num_layers * channels, timesteps});

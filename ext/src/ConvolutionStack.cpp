@@ -73,26 +73,25 @@ inline unsigned int ConvolutionStack::idx(int ch, int i, int numSamples)
     return ch * numSamples + i;
 }
 
-void ConvolutionStack::setConvolutionWeight(const float * data, size_t layerIdx, size_t num_params)
+void ConvolutionStack::setConvolutionWeight(const torch::Tensor &W, size_t layerIdx)
 {
-    layers[layerIdx].setConvolutionWeight(data, num_params);
+    layers[layerIdx].setConvolutionWeight(W);
 }
 
-void ConvolutionStack::setConvolutionBias(const float * data, size_t layerIdx, size_t num_params)
+void ConvolutionStack::setConvolutionBias(const torch::Tensor &b, size_t layerIdx)
 {
-    layers[layerIdx].setConvolutionBias(data, num_params);
+    layers[layerIdx].setConvolutionBias(b);
 }
 
-void ConvolutionStack::setOutputWeight(const float * data, size_t layerIdx, size_t num_params)
+void ConvolutionStack::setOutputWeight(const torch::Tensor &W, size_t layerIdx)
 {
-    layers[layerIdx].setOutputWeight(data, num_params);
+    layers[layerIdx].setOutputWeight(W);
 }
 
-void ConvolutionStack::setOutputBias(const float * data, size_t layerIdx, size_t num_params)
+void ConvolutionStack::setOutputBias(const torch::Tensor &b, size_t layerIdx)
 {
-    layers[layerIdx].setOutputBias(data, num_params);
+    layers[layerIdx].setOutputBias(b);
 }
-
 
 void ConvolutionStack::initLayers()
 {

@@ -10,11 +10,6 @@ class ConvolutionStackFunction(torch.autograd.Function):
         num_layers = len(dilations)
 
         input = input.contiguous()
-        # weights (OUT_CH, IN_CH, W) -> (W, IN_CH, OUT_CH)
-        weights_conv = [w.permute(2, 1, 0).contiguous() for w in weights_conv]
-        weights_out = [w.permute(2, 1, 0).contiguous() for w in weights_out]
-        biases_conv = [b.contiguous() for b in biases_conv]
-        biases_out = [b.contiguous() for b in biases_out]
         ctx.save_for_backward(input, weights_conv, biases_conv,
                               weights_out, biases_out,
                               torch.tensor(dilations))
@@ -42,6 +37,7 @@ class ConvolutionStack(torch.nn.Module):
                  training=True,
                  activation="gated",
                  use_residual=True,
+                 use_1x1_block_out=True,
                  ):
         super().__init__()
 
@@ -50,9 +46,17 @@ class ConvolutionStack(torch.nn.Module):
         self.activation = activation
         self.dilations = dilations
         self.use_residual = use_residual
+        self.use_1x1_block_out = use_1x1_block_out
+        self.num_layers = len(dilations)
 
         self.layers = torch.nn.ModuleList()
-        for d in dilations:
+        for i, d in enumerate(dilations):
+
+            use_output_transform = self.use_1x1_block_out
+            # Always disable output 1x1 for last layer
+            if i == self.num_layers - 1:
+                use_output_transform = False
+            # Add ConvolutionLayer to Stack
             self.layers.append(
                 ConvolutionLayer(
                     in_channels=channels, out_channels=channels,
@@ -60,10 +64,25 @@ class ConvolutionStack(torch.nn.Module):
                     causal=causal,
                     training=training,
                     activation=activation,
-                    use_output_transform=True
+                    use_output_transform=use_output_transform
                 )
             )
 
+    @property
+    def weights_conv(self):
+        return [layer.conv.weight for layer in self.layers]
+    
+    @property
+    def biases_conv(self):
+        return [layer.conv.bias for layer in self.layers]
+
+    @property
+    def weights_out(self):
+        return [layer.out.weight for layer in self.layers]
+
+    @property
+    def biases_out(self):
+        return [layer.out.bias for layer in self.layers]
 
     def forward(self, input, training=None):
         """ 
@@ -92,17 +111,11 @@ class ConvolutionStack(torch.nn.Module):
                 skips.append(s)
             return x, skips
         else:
-            conv_weights = []
-            conv_biases = []
-            out_weights = []
-            out_biases = []
-            for layer in self.layers:
-                conv_weights.append(layer.conv.weight)
-                conv_biases.append(layer.conv.bias)
-                out_weights.append(layer.out.weight)
-                out_biases.append(layer.out.bias)
+
             output, skips = ConvolutionStackFunction.apply(
-                input, conv_weights, conv_biases,
-                out_weights, out_biases, self.dilations, self.activation, self.use_residual)
+                input,
+                self.weights_conv, self.biases_conv,
+                self.weights_out, self.biases_out,
+                self.dilations, self.activation, self.use_residual)
             return output, skips
 

@@ -7,9 +7,6 @@ class ConvolutionFunction(torch.autograd.Function):
     def forward(ctx, input, weight, bias, dilation):
 
         input = input.contiguous()
-        # weight (OUT_CH, IN_CH, W) -> (W, IN_CH, OUT_CH)
-        weight = weight.permute(2, 1, 0).contiguous()
-        bias = bias.contiguous()
         ctx.save_for_backward(input, weight, bias)
         
         training = False
@@ -35,10 +32,12 @@ class Convolution(torch.nn.Conv1d):
 
         if self.training:
             padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
-            input = torch.nn.functional.pad(input, (padding, 0))
-            output = torch.nn.functional.conv1d(input, self.weight, bias=self.bias, 
-            stride=self.stride, padding=0, 
-            dilation=self.dilation, groups=self.groups) 
+            if padding > 0:
+                input = torch.nn.functional.pad(input, (padding, 0))
+            output = torch.nn.functional.conv1d(
+                input, self.weight, bias=self.bias,
+                stride=self.stride, padding=0,
+                dilation=self.dilation, groups=self.groups)
             return output
         else:
             output = ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0])

@@ -8,6 +8,7 @@
 */
 
 #pragma once
+#include <torch/extension.h>
 
 #include "ConvolutionLayer.h"
 
@@ -20,11 +21,11 @@ public:
     void prepare(int buffer_size);
     void reset();
     size_t getNumLayers() { return dilations.size(); }
-    void setConvolutionWeight(const float * data, size_t layerIdx, size_t num_params);
-    void setConvolutionBias(const float * data, size_t layerIdx, size_t num_params);
-    void setOutputWeight(const float * data, size_t layerIdx, size_t num_params);
-    void setOutputBias(const float * data, size_t layerIdx, size_t num_params);
-    
+    void setConvolutionWeight(const torch::Tensor &W, size_t layerIdx);
+    void setConvolutionBias(const torch::Tensor &b, size_t layerIdx);
+    void setOutputWeight(const torch::Tensor &W, size_t layerIdx);
+    void setOutputBias(const torch::Tensor &b, size_t layerIdx);
+
 private:
     std::vector<ConvolutionLayer> layers;
     std::vector<int> dilations;

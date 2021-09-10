@@ -8,11 +8,6 @@ class ConvolutionLayerFunction(torch.autograd.Function):
     def forward(ctx, input, weight_conv, bias_conv, weight_out, bias_out, dilation, activation, use_output_transform):
 
         input = input.contiguous()
-        # weights (OUT_CH, IN_CH, W) -> (W, IN_CH, OUT_CH)
-        weight_conv = weight_conv.permute(2, 1, 0).contiguous()
-        weight_out = weight_out.permute(2, 1, 0).contiguous()
-        bias_conv = bias_conv.contiguous()
-        bias_out = bias_out.contiguous()
         ctx.save_for_backward(input, weight_conv, bias_conv,
                               weight_out, bias_out,
                               torch.tensor(dilation))
@@ -46,6 +41,9 @@ class ConvolutionLayer(torch.nn.Module):
         residual_channels = out_channels
         self.activation = activation
         self.activation_fun, self.channel_mul = self._parse_activation(activation)
+        self.use_output_transform = use_output_transform
+        self.residual_channels = residual_channels
+        self.dilation = dilation
         self.conv = Convolution(
             in_channels=in_channels,
             out_channels=self.channel_mul*residual_channels,
@@ -56,9 +54,6 @@ class ConvolutionLayer(torch.nn.Module):
             out_channels=residual_channels,
             kernel_size=1, dilation=1, bias=bias, device=device, dtype=dtype,
             training=training)
-        self.residual_channels = residual_channels
-        self.dilation = dilation
-        self.use_output_transform = use_output_transform
         
     def _parse_activation(self, activation):
         activations = {

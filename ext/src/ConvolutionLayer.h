@@ -10,10 +10,10 @@
 
 #pragma once
 
-#include <iostream>
-
 #include <vector>
 #include <string>
+#include <torch/extension.h>
+
 #include "Convolution.h"
 #include "Activations.h"
 
@@ -29,10 +29,10 @@ public:
   void process(const float *data_in, float *data_out, int64_t numSamples);
   void process(const float *data_in, float *data_out, float *skipdata, int64_t numSamples);
   void reset();
-  void setConvolutionWeight(const float *data, size_t num_params);
-  void setConvolutionBias(const float *data, size_t num_params);
-  void setOutputWeight(const float *data, size_t num_params);
-  void setOutputBias(const float *data, size_t num_params);
+  void setConvolutionWeight(const torch::Tensor &W);
+  void setConvolutionBias(const torch::Tensor &b);
+  void setOutputWeight(const torch::Tensor &W);
+  void setOutputBias(const torch::Tensor &b);
 
 private:
   Convolution conv;

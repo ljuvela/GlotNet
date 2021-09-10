@@ -1,6 +1,5 @@
 #include <torch/extension.h>
 #include <vector>
-#include <iostream>
 
 #include "../src/Convolution.h"
 
@@ -20,9 +19,8 @@ std::vector<at::Tensor> forward(
     int64_t input_channels = input.size(1);
     int64_t timesteps = input.size(2);
 
-    int64_t filter_width = weight.size(0);
-    int64_t output_channels = weight.size(2);
-
+    int64_t filter_width = weight.size(2);
+    int64_t output_channels = weight.size(0);
    
     int64_t bias_size = bias.size(0);
 
@@ -36,8 +34,8 @@ std::vector<at::Tensor> forward(
     float * data_out = output.data_ptr<float>();
 
     auto conv = Convolution(input_channels, output_channels, filter_width, dilation);
-    conv.setKernel(weight.data_ptr<float>(), filter_width * input_channels * output_channels);
-    conv.setBias(bias.data_ptr<float>(), bias_size);
+    conv.setKernel(weight);
+    conv.setBias(bias);
 
     for (int64_t b = 0; b < batch_size; b++)
     {
