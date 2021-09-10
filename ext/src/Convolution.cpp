@@ -62,12 +62,43 @@ void Convolution::process(const float *data_in, float *data_out, int numSamples)
     }
 }
 
+void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int numSamples)
+{
+    for (int i = 0; i < numSamples; ++i)
+    {
+        processSingleSampleConditional(data_in, conditioning, data_out, i, numSamples);
+    }
+}
+
 void Convolution::processSingleSample(const float *data_in, float *data_out, int i, int numSamples)
 {
     auto fifo = memory.begin();
     for (int ch = 0; ch < inputChannels; ++ch)
         (*(fifo + pos))[ch] = data_in[idx(ch, i, numSamples)];
     outVec.setZero();
+    std::vector<Eigen::MatrixXf>::iterator it;
+    int j = 0;
+    for (auto it = kernel.begin(); it != kernel.end(); it++)
+    {
+        int readPos = mod((pos - j * dilation), getFilterOrder());
+        outVec = outVec + *(fifo + readPos) * (*it);
+        j += 1;
+    }
+    outVec = outVec + bias;
+    for (int ch = 0; ch < outputChannels; ++ch)
+        data_out[idx(ch, i, numSamples)] = outVec[ch];
+    pos = mod(pos + 1, getFilterOrder());
+}
+
+void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int numSamples)
+{
+    auto fifo = memory.begin();
+    for (int ch = 0; ch < inputChannels; ++ch)
+        (*(fifo + pos))[ch] = data_in[idx(ch, i, numSamples)];
+
+    for (int ch = 0; ch < outputChannels; ++ch)
+        outVec(ch) = conditioning[idx(ch, i, numSamples)];
+
     std::vector<Eigen::MatrixXf>::iterator it;
     int j = 0;
     for (auto it = kernel.begin(); it != kernel.end(); it++)
@@ -93,19 +124,23 @@ inline int64_t Convolution::idx(int64_t ch, int64_t i, int64_t numSamples)
     return ch * numSamples + i;
 }
 
-void Convolution::setKernel(const float *W, size_t num_params)
+void Convolution::setKernel(const torch::Tensor &W)
 {
-    assert(num_params == inputChannels * outputChannels * filterWidth);
-    size_t i = 0;
+    auto W_a = W.accessor<float, 3>(); // (out_channels, in_channels, kernel_size)
+    assert(inputChannels == W.size(1));
+    assert(outputChannels == W.size(0));
+    assert(filterWidth == W.size(2));
+
     for (size_t k = 0; k < filterWidth; ++k)
         for (size_t row = 0; row < inputChannels; ++row)
             for (size_t col = 0; col < outputChannels; ++col)
-                kernel[filterWidth - 1 - k](row, col) = W[i++];
+                kernel[filterWidth - 1 - k](row, col) = W_a[col][row][k];
 }
 
-void Convolution::setBias(const float *b, size_t num_params)
-{
-    assert(num_params == outputChannels);
+ void Convolution::setBias(const torch::Tensor &b)
+ {
+    auto b_a = b.accessor<float, 1>(); // (out_channels,)
+    assert(b.size(0) == outputChannels);
     for (size_t i = 0; i < outputChannels; ++i)
-        bias(i) = b[i];
-}
+        bias(i) = b_a[i];
+ }

@@ -12,6 +12,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/StdVector>
+#include <torch/extension.h>
 
 class Convolution
 {
@@ -19,10 +20,11 @@ public:
   Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation = 1);
   int getFilterOrder() const;
   void process(const float * data_in, float * data_out, int numSamples);
+  void processConditional(const float *data_in, const float *conditioning, float *data_out, int numSamples);
   size_t getNumInputChannels() { return inputChannels; }
   size_t getNumOutputChannels() { return outputChannels; }
-  void setKernel(const float *W, size_t num_params);
-  void setBias(const float *b, size_t num_params);
+  void setKernel(const torch::Tensor &W);
+  void setBias(const torch::Tensor &b);
   void resetFifo();
   void resetKernel();
 
@@ -37,6 +39,7 @@ private:
   const size_t outputChannels;
   const int filterWidth;
   void processSingleSample(const float * data_in, float * data_out, int i, int numSamples);
+  void processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int numSamples);
   int mod(int a, int b);
   inline int64_t idx(int64_t ch, int64_t i, int64_t numSamples);
 };
