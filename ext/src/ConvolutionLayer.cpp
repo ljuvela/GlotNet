@@ -33,13 +33,9 @@ void ConvolutionLayer::process(const float * data_in, float * data_out, int64_t 
     conv.process(data_in, memory.data(), numSamples);
     activation(memory.data(), conv.getNumOutputChannels(), numSamples);
     if (use_output_transform)
-    {
         out1x1.process(memory.data(), data_out, numSamples);
-    }
     else
-    {
         copySkipData(memory.data(), data_out, numSamples);
-    }
 }
 
 void ConvolutionLayer::process(const float * data_in,  float * data_out, float * skipData, int64_t numSamples)
@@ -49,13 +45,9 @@ void ConvolutionLayer::process(const float * data_in,  float * data_out, float *
     activation(memory.data(), conv.getNumOutputChannels(), numSamples);
     copySkipData(memory.data(), skipData, numSamples);
     if (use_output_transform)
-    {
         out1x1.process(memory.data(), data_out, numSamples);
-    }
     else
-    {
         copySkipData(memory.data(), data_out, numSamples);
-    }
 }
 
 void ConvolutionLayer::copySkipData(const float *data, float *skipData, int numSamples)

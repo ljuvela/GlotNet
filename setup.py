@@ -15,6 +15,7 @@ sources += ['ext/src/Activations.cpp',
             'ext/src/Convolution.cpp',
             'ext/src/ConvolutionLayer.cpp',
             'ext/src/ConvolutionStack.cpp',
+            'ext/src/WaveNet.cpp',
             ]
 sources += glob('ext/bind/*.cpp')
 
