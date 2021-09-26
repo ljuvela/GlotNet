@@ -49,7 +49,7 @@ void Convolution::resetFifo()
     pos = 0;
 }
 
-int Convolution::getFilterOrder() const
+inline int Convolution::getFilterOrder() const
 {
     return (filterWidth - 1) * dilation + 1;
 }
@@ -59,14 +59,6 @@ void Convolution::process(const float *data_in, float *data_out, int numSamples)
     for (int i = 0; i < numSamples; ++i)
     {
         processSingleSample(data_in, data_out, i, numSamples);
-    }
-}
-
-void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int numSamples)
-{
-    for (int i = 0; i < numSamples; ++i)
-    {
-        processSingleSampleConditional(data_in, conditioning, data_out, i, numSamples);
     }
 }
 
@@ -88,6 +80,14 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
     for (int ch = 0; ch < outputChannels; ++ch)
         data_out[idx(ch, i, numSamples)] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
+}
+
+void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int numSamples)
+{
+    for (int i = 0; i < numSamples; ++i)
+    {
+        processSingleSampleConditional(data_in, conditioning, data_out, i, numSamples);
+    }
 }
 
 void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int numSamples)

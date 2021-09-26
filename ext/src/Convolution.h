@@ -18,7 +18,7 @@ class Convolution
 {
 public:
   Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation = 1);
-  int getFilterOrder() const;
+  inline int getFilterOrder() const;
   void process(const float * data_in, float * data_out, int numSamples);
   void processConditional(const float *data_in, const float *conditioning, float *data_out, int numSamples);
   size_t getNumInputChannels() { return inputChannels; }

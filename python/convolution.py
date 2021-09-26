@@ -16,6 +16,22 @@ class ConvolutionFunction(torch.autograd.Function):
     def backward(self, d_output):
         raise NotImplementedError
 
+class ConvolutionCondFunction(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, input, cond_input, weight, bias, dilation):
+
+        input = input.contiguous()
+        ctx.save_for_backward(input, weight, bias)
+        
+        training = False
+        output, = ext.convolution_forward(input, cond_input, weight, bias, training, dilation)
+        return output 
+
+    def backward(self, d_output):
+        raise NotImplementedError
+
+
 class Convolution(torch.nn.Conv1d):
 
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None,
@@ -25,7 +41,7 @@ class Convolution(torch.nn.Conv1d):
         self.causal = causal
         self.training = training
 
-    def forward(self, input, training=None):
+    def forward(self, input, cond_input=None, training=None):
         
         if training is not None:
             self.training = training
@@ -38,9 +54,14 @@ class Convolution(torch.nn.Conv1d):
                 input, self.weight, bias=self.bias,
                 stride=self.stride, padding=0,
                 dilation=self.dilation, groups=self.groups)
+            if cond_input is not None:
+                output = output + cond_input
             return output
         else:
-            output = ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0])
+            if cond_input is None:
+                output = ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0])
+            else:
+                output = ConvolutionFunction.apply()
             return output
 
 

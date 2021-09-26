@@ -18,16 +18,52 @@ std::vector<at::Tensor> forward(
     int64_t batch_size = input.size(0);
     int64_t input_channels = input.size(1);
     int64_t timesteps = input.size(2);
-
     int64_t filter_width = weight.size(2);
     int64_t output_channels = weight.size(0);
-   
     int64_t bias_size = bias.size(0);
 
     assert (input_channels == weight.size(1));
     assert (bias_size == output_channels);
 
-    // auto output = 1.0 * input; // convenient copy
+    auto output = torch::zeros({batch_size, output_channels, timesteps});
+
+    float * data_in = input.data_ptr<float>();
+    float * data_out = output.data_ptr<float>();
+
+    auto conv = Convolution(input_channels, output_channels, filter_width, dilation);
+    conv.setKernel(weight);
+    conv.setBias(bias);
+
+    for (int64_t b = 0; b < batch_size; b++)
+    {
+        conv.resetFifo();
+        conv.process(&(data_in[b * input_channels * timesteps]),
+                     &(data_out[b * output_channels * timesteps]),
+                     timesteps); // time first (rightmost)
+    }
+
+    return {output};
+}
+
+
+std::vector<at::Tensor> forward_cond(
+    torch::Tensor input,
+    torch::Tensor cond_input,
+    torch::Tensor weight,
+    torch::Tensor bias,
+    bool training=true,
+    int dilation=1)
+{
+    int64_t batch_size = input.size(0);
+    int64_t input_channels = input.size(1);
+    int64_t timesteps = input.size(2);
+    int64_t filter_width = weight.size(2);
+    int64_t output_channels = weight.size(0);
+    int64_t bias_size = bias.size(0);
+
+    assert (input_channels == weight.size(1));
+    assert (bias_size == output_channels);
+
     auto output = torch::zeros({batch_size, output_channels, timesteps});
 
     float * data_in = input.data_ptr<float>();
