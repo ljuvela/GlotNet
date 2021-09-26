@@ -67,6 +67,7 @@ std::vector<at::Tensor> forward_cond(
     auto output = torch::zeros({batch_size, output_channels, timesteps});
 
     float * data_in = input.data_ptr<float>();
+    float * data_cond = cond_input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
 
     auto conv = Convolution(input_channels, output_channels, filter_width, dilation);
@@ -76,7 +77,8 @@ std::vector<at::Tensor> forward_cond(
     for (int64_t b = 0; b < batch_size; b++)
     {
         conv.resetFifo();
-        conv.process(&(data_in[b * input_channels * timesteps]),
+        conv.processConditional(&(data_in[b * input_channels * timesteps]),
+                     &(data_cond[b * output_channels * timesteps]),
                      &(data_out[b * output_channels * timesteps]),
                      timesteps); // time first (rightmost)
     }
@@ -110,5 +112,7 @@ std::vector<torch::Tensor> backward(
 void init_convolution(py::module &m)
 {
     m.def("convolution_forward", &(glotnet::convolution::forward), "Convolution forward");
+    m.def("convolution_cond_forward", &(glotnet::convolution::forward_cond), "Convolution conditional forward");
     m.def("convolution_backward", &(glotnet::convolution::backward), "Convolution backward");
+    //m.def("convolution_cond_backward", &(glotnet::convolution::backward_cond), "Convolution conditional backward");
 }

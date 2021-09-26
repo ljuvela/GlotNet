@@ -25,7 +25,7 @@ class ConvolutionCondFunction(torch.autograd.Function):
         ctx.save_for_backward(input, weight, bias)
         
         training = False
-        output, = ext.convolution_forward(input, cond_input, weight, bias, training, dilation)
+        output, = ext.convolution_cond_forward(input, cond_input, weight, bias, training, dilation)
         return output 
 
     def backward(self, d_output):
@@ -46,6 +46,10 @@ class Convolution(torch.nn.Conv1d):
         if training is not None:
             self.training = training
 
+        if cond_input is not None:
+            assert cond_input.size(1) == self.out_channels, f"Cond input number of channels mismatch. Expected {self.out_channels}, got {cond_input.size(1)}"
+            assert cond_input.size(2) == input.size(2), f"Mismatching timesteps, input has {input.size(2)}, cond_input has {cond_input.size(2)}" 
+
         if self.training:
             padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
             if padding > 0:
@@ -61,7 +65,7 @@ class Convolution(torch.nn.Conv1d):
             if cond_input is None:
                 output = ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0])
             else:
-                output = ConvolutionFunction.apply()
+                output = ConvolutionCondFunction.apply(input, cond_input, self.weight, self.bias, self.dilation[0])
             return output
 
 

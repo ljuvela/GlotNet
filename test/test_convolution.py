@@ -112,6 +112,41 @@ def test_forward_mimo_dilated_multibatch():
     print("   ok!")  
 
 
+def test_forward_cond_siso():
+    print("Testing conditional forward pass with Single-In-Single-Out, batch size 1")
+    torch.manual_seed(42)
+    timesteps = 100
+    batch = 1
+    in_channels = 1
+    out_channels= 1
+    kernel_size = 50
+    dilation = 1
+    x = torch.randn(batch, in_channels, timesteps)
+    c = torch.randn(batch, out_channels, timesteps)
+    conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
+    y1 = conv(x, c, training=True)
+    y2 = conv(x, c, training=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    print("   ok!")
+
+
+def test_forward_cond_mimo():
+    print("Testing conditional forward pass with Multi-In-Multi-Out, batch size 1")
+    torch.manual_seed(42)
+    timesteps = 100
+    batch = 1 
+    in_channels = 20
+    out_channels= 50
+    kernel_size = 30
+    dilation = 1
+    x = torch.randn(batch, in_channels, timesteps)
+    c = torch.randn(batch, out_channels, timesteps)
+    conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
+    y1 = conv(x, c, training=True)
+    y2 = conv(x, c, training=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    print("   ok!")
+
 if __name__ == "__main__":
 
     test_causal_conv()  
@@ -121,6 +156,9 @@ if __name__ == "__main__":
     test_forward_mimo()
     test_forward_mimo_dilated()
     test_forward_mimo_dilated_multibatch()
+
+    test_forward_cond_siso()
+    test_forward_cond_mimo()
 
 
 
