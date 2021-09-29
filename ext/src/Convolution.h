@@ -19,8 +19,8 @@ class Convolution
 public:
   Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation = 1);
   inline int getFilterOrder() const;
-  void process(const float * data_in, float * data_out, int numSamples);
-  void processConditional(const float *data_in, const float *conditioning, float *data_out, int numSamples);
+  void process(const float * data_in, float * data_out, int64_t numSamples);
+  void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t numSamples);
   size_t getNumInputChannels() { return inputChannels; }
   size_t getNumOutputChannels() { return outputChannels; }
   void setKernel(const torch::Tensor &W);

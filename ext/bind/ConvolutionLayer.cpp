@@ -54,6 +54,54 @@ std::vector<at::Tensor> forward(
     return {output, skip};
 }
 
+std::vector<at::Tensor> forward_cond(
+    torch::Tensor input,
+    torch::Tensor cond_input,
+    torch::Tensor weight_conv,
+    torch::Tensor bias_conv,
+    torch::Tensor weight_out,
+    torch::Tensor bias_out,
+    bool training=true,
+    int dilation=1,
+    bool use_output_transform=true,
+    std::string activationName="gated"
+    )
+{
+    int64_t batch_size = input.size(0);
+    int64_t timesteps = input.size(2);
+
+    int64_t filter_width = weight_conv.size(2);
+    int64_t input_channels = weight_conv.size(1);
+
+    int64_t output_channels = weight_out.size(1);
+
+    auto layer = ConvolutionLayer(input_channels, output_channels, filter_width, dilation, use_output_transform, activationName);
+    layer.setConvolutionWeight(weight_conv);
+    layer.setConvolutionBias(bias_conv);
+    if (use_output_transform)
+    {
+        layer.setOutputWeight(weight_out);
+        layer.setOutputBias(bias_out);
+    }
+
+    auto output = torch::zeros({batch_size, output_channels, timesteps});
+    auto skip = torch::zeros({batch_size, output_channels, timesteps});
+    float * data_in = input.data_ptr<float>();
+    float * data_cond = cond_input.data_ptr<float>();
+    float * data_out = output.data_ptr<float>();
+    float * data_skip = skip.data_ptr<float>();
+    for (long long b = 0; b < batch_size; b++)
+    {
+        layer.reset();
+        layer.processConditional(&(data_in[b * input_channels * timesteps]),
+                                 &(data_cond[b * input_channels * timesteps]),
+                                 &(data_out[b * output_channels * timesteps]),
+                                 &(data_skip[b * output_channels * timesteps]),
+                                 timesteps); // time first (rightmost)
+    }
+    return {output, skip};
+}
+
 std::vector<torch::Tensor> backward(
     torch::Tensor d_output,
     torch::Tensor input,
@@ -80,5 +128,6 @@ std::vector<torch::Tensor> backward(
 void init_convolution_layer(py::module &m)
 {
     m.def("convolution_layer_forward", &(glotnet::convolution_layer::forward), "ConvolutionLayer forward");
+    m.def("convolution_layer_cond_forward", &(glotnet::convolution_layer::forward_cond), "ConvolutionLayer conditional forward");
     m.def("convolution_layer_backward", &(glotnet::convolution_layer::backward), "ConvolutionLayer backward");
 }

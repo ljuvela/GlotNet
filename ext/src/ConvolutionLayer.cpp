@@ -38,10 +38,26 @@ void ConvolutionLayer::process(const float * data_in, float * data_out, int64_t 
         copySkipData(memory.data(), data_out, numSamples);
 }
 
-void ConvolutionLayer::process(const float * data_in,  float * data_out, float * skipData, int64_t numSamples)
+void ConvolutionLayer::process(
+    const float *data_in, float *data_out,
+    float *skipData, int64_t numSamples)
 {
     this->prepare(conv.getNumOutputChannels(), numSamples);
     conv.process(data_in, memory.data(), numSamples);
+    activation(memory.data(), conv.getNumOutputChannels(), numSamples);
+    copySkipData(memory.data(), skipData, numSamples);
+    if (use_output_transform)
+        out1x1.process(memory.data(), data_out, numSamples);
+    else
+        copySkipData(memory.data(), data_out, numSamples);
+}
+
+void ConvolutionLayer::processConditional(
+    const float *data_in, const float *conditioning,
+    float *data_out, float *skipData, int64_t numSamples)
+{
+    this->prepare(conv.getNumOutputChannels(), numSamples);
+    conv.processConditional(data_in, conditioning, memory.data(), numSamples);
     activation(memory.data(), conv.getNumOutputChannels(), numSamples);
     copySkipData(memory.data(), skipData, numSamples);
     if (use_output_transform)

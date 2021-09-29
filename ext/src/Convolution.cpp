@@ -54,7 +54,7 @@ inline int Convolution::getFilterOrder() const
     return (filterWidth - 1) * dilation + 1;
 }
 
-void Convolution::process(const float *data_in, float *data_out, int numSamples)
+void Convolution::process(const float *data_in, float *data_out, int64_t numSamples)
 {
     for (int i = 0; i < numSamples; ++i)
     {
@@ -82,7 +82,7 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
     pos = mod(pos + 1, getFilterOrder());
 }
 
-void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int numSamples)
+void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t numSamples)
 {
     for (int i = 0; i < numSamples; ++i)
     {

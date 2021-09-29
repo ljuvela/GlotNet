@@ -23,7 +23,7 @@ class ConvolutionStackFunction(torch.autograd.Function):
         return output, skips
 
     def backward(self, d_output, d_skip):
-        raise NotImplementedError
+        raise NotImplementedError("Backward function not implemented for sequential processing")
 
 class ConvolutionStack(torch.nn.Module):
     """
@@ -111,7 +111,6 @@ class ConvolutionStack(torch.nn.Module):
                 skips.append(s)
             return x, skips
         else:
-
             output, skips = ConvolutionStackFunction.apply(
                 input,
                 self.weights_conv, self.biases_conv,

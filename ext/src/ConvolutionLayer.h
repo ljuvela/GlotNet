@@ -28,6 +28,8 @@ public:
                    std::string activationName = "linear");
   void process(const float *data_in, float *data_out, int64_t numSamples);
   void process(const float *data_in, float *data_out, float *skipdata, int64_t numSamples);
+  void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t numSamples);
+  void processConditional(const float *data_in, const float *conditioning, float *data_out, float *skipdata, int64_t numSamples);
   void reset();
   void setConvolutionWeight(const torch::Tensor &W);
   void setConvolutionBias(const torch::Tensor &b);
