@@ -54,7 +54,7 @@ std::vector<at::Tensor> forward(
     return {output, skip};
 }
 
-std::vector<at::Tensor> forward_cond(
+std::vector<at::Tensor> cond_forward(
     torch::Tensor input,
     torch::Tensor cond_input,
     torch::Tensor weight_conv,
@@ -128,6 +128,6 @@ std::vector<torch::Tensor> backward(
 void init_convolution_layer(py::module &m)
 {
     m.def("convolution_layer_forward", &(glotnet::convolution_layer::forward), "ConvolutionLayer forward");
-    m.def("convolution_layer_cond_forward", &(glotnet::convolution_layer::forward_cond), "ConvolutionLayer conditional forward");
+    m.def("convolution_layer_cond_forward", &(glotnet::convolution_layer::cond_forward), "ConvolutionLayer conditional forward");
     m.def("convolution_layer_backward", &(glotnet::convolution_layer::backward), "ConvolutionLayer backward");
 }

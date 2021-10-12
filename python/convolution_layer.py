@@ -93,11 +93,11 @@ class ConvolutionLayer(torch.nn.Module):
             raise NotImplementedError
         return activation_fun, channel_mul
 
-    def forward(self, input, cond_input=None, training=None):
+    def forward(self, input, cond_input=None, sequential=False):
         """ 
         Args:
             input, torch.Tensor of shape (batch_size, in_channels, timesteps)
-            training (optional), 
+            sequential (optional), 
                 if True, use CUDA compatible parallel implementation
                 if False, use custom C++ sequential implementation 
 
@@ -107,9 +107,6 @@ class ConvolutionLayer(torch.nn.Module):
         
         """
 
-        if training is not None:
-            self.training = training
-
         if cond_input is not None and not self.use_conditioning:
             raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
 
@@ -118,7 +115,17 @@ class ConvolutionLayer(torch.nn.Module):
         else:
             c = None
 
-        if self.training:
+        if sequential:
+            if c is None:
+                output, skip = ConvolutionLayerFunction.apply(
+                input, self.conv.weight, self.conv.bias,
+                self.out.weight, self.out.bias, self.dilation, self.activation, self.use_output_transform)
+            else:
+                output, skip = ConvolutionLayerCondFunction.apply(
+                input, c, self.conv.weight, self.conv.bias,
+                self.out.weight, self.out.bias, self.dilation, self.activation, self.use_output_transform)
+            return output, skip
+        else:
             x = self.conv(input, cond_input=c)
             if self.channel_mul == 2:
                 R = self.residual_channels
@@ -131,16 +138,6 @@ class ConvolutionLayer(torch.nn.Module):
             else:
                 output = x
             return output, skip
-        else:
-            if c is None:
-                output, skip = ConvolutionLayerFunction.apply(
-                input, self.conv.weight, self.conv.bias,
-                self.out.weight, self.out.bias, self.dilation, self.activation, self.use_output_transform)
-            else:
-                output, skip = ConvolutionLayerCondFunction.apply(
-                input, c, self.conv.weight, self.conv.bias,
-                self.out.weight, self.out.bias, self.dilation, self.activation, self.use_output_transform)
 
-            return output, skip
 
 

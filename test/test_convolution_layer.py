@@ -14,8 +14,8 @@ def test_layer_linear():
     x = 0.1 * torch.randn(batch, in_channels, timesteps)
     conv = ConvolutionLayer(in_channels, out_channels, kernel_size,
                             dilation=dilation, activation="linear")
-    y1, s1 = conv(x, training=True)
-    y2, s2 = conv(x, training=False)
+    y1, s1 = conv(x, sequential=True)
+    y2, s2 = conv(x, sequential=False)
     assert torch.allclose(s1, s2, atol=1e-6, rtol=1e-5), "Assert skip output match"
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
     print("   ok!")
@@ -32,8 +32,8 @@ def test_layer_tanh():
     x = 0.1 * torch.randn(batch, in_channels, timesteps)
     conv = ConvolutionLayer(in_channels, out_channels,
                             kernel_size, dilation=dilation, activation="tanh")
-    y1, s1 = conv(x, training=True)
-    y2, s2 = conv(x, training=False)
+    y1, s1 = conv(x, sequential=True)
+    y2, s2 = conv(x, sequential=False)
     assert torch.allclose(s1, s2, atol=1e-6, rtol=1e-5), "Assert skip output match"
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
     print("   ok!")
@@ -50,8 +50,8 @@ def test_layer_gated():
     x = 0.1 * torch.randn(batch, in_channels, timesteps)
     conv = ConvolutionLayer(in_channels, out_channels,
                             kernel_size, dilation=dilation, activation="gated")
-    y1, s1 = conv(x, training=True)
-    y2, s2 = conv(x, training=False)
+    y1, s1 = conv(x, sequential=True)
+    y2, s2 = conv(x, sequential=False)
     assert torch.allclose(s1, s2, atol=1e-6, rtol=1e-5), "Assert skip output match"
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
     print("   ok!")
@@ -70,8 +70,8 @@ def test_layer_gated_cond():
     c = 0.1 * torch.randn(batch, cond_channels, timesteps)
     conv = ConvolutionLayer(in_channels, out_channels, kernel_size,
                             dilation=dilation, activation="gated", cond_channels=cond_channels)
-    y1, s1 = conv(x, cond_input=c, training=True)
-    y2, s2 = conv(x, cond_input=c, training=False)
+    y1, s1 = conv(x, cond_input=c, sequential=False)
+    y2, s2 = conv(x, cond_input=c, sequential=True)
     assert torch.allclose(s1, s2, atol=1e-6, rtol=1e-5), "Assert skip output match"
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
     print("   ok!")
