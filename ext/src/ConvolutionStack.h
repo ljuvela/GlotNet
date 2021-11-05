@@ -18,6 +18,7 @@ public:
     ConvolutionStack(int numChannels, int filterWidth, std::vector<int> dilations,
                      std::string activation, bool residual = true);
     void process(float * data, float * skipData, int numSamples);
+    void processConditional(float * data, const float *conditioning, float * skipData, int numSamples);
     void prepare(int buffer_size);
     void reset();
     size_t getNumLayers() { return dilations.size(); }
@@ -39,5 +40,6 @@ private:
     void copyResidual(const float *data, int numSamples);
     void addResidual(float *data, int numSamples);
     float* getSkipPointer(float *skipData, int layerIdx, int numSamples);
+    const float* getCondPointer(const float *data, int layerIdx, int numSamples);
     void initLayers();
 };

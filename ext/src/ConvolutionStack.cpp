@@ -61,11 +61,37 @@ void ConvolutionStack::process(float *data, float* skipData, int numSamples)
     }
 }
 
-float* ConvolutionStack::getSkipPointer(float *skipData, int layerIdx, int numSamples)
+void ConvolutionStack::processConditional(float *data, const float *conditioning, float* skipData, int numSamples)
 {
-    int startCh = numChannels * layerIdx;
-    int startIdx = idx(startCh, 0, numSamples);
-    return &skipData[startIdx];
+    if (numSamples > samplesPerBlock)
+        prepare(numSamples);
+    for (int i = 0; i < dilations.size(); ++i)
+    {
+        if (residual)
+            copyResidual(data, numSamples);
+        // Get pointer to correct position at skipData
+        float *skipPtr = getSkipPointer(skipData, i, numSamples);
+        const float *condPtr = getCondPointer(conditioning, i, numSamples);
+        layers[i].processConditional(data, condPtr,
+                                     data, skipPtr, numSamples);
+        if (residual)
+            addResidual(data, numSamples);
+    }
+}
+
+float* ConvolutionStack::getSkipPointer(float *data, int layerIdx, int numSamples)
+{
+    const int startCh = numChannels * layerIdx;
+    const int startIdx = idx(startCh, 0, numSamples);
+    return &data[startIdx];
+}
+
+const float* ConvolutionStack::getCondPointer(const float *data, int layerIdx, int numSamples)
+{
+    // conditioning has twice the number of residual channels (one for each gate)
+    const int startCh = 2 * numChannels * layerIdx;
+    const int startIdx = idx(startCh, 0, numSamples);
+    return &data[startIdx];
 }
 
 inline unsigned int ConvolutionStack::idx(int ch, int i, int numSamples)
