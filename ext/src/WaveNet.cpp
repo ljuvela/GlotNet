@@ -51,10 +51,19 @@ void WaveNet::process(const float *inputData, float *outputData, int numSamples)
         prepare(numSamples);
     inputLayer.process(inputData, convData.data(), numSamples);
     convStack.process(convData.data(), skipData.data(), numSamples);
-
     outputLayer1.process(skipData.data(), convData.data(), numSamples);
     outputLayer2.process(convData.data(), outputData, numSamples);
+}
 
+void WaveNet::processConditional(const float *inputData, const float *conditioning,
+                                 float *outputData, int numSamples)
+{
+    if (numSamples > samplesPerBlock)
+        prepare(numSamples);
+    inputLayer.process(inputData, convData.data(), numSamples);
+    convStack.processConditional(convData.data(), conditioning, skipData.data(), numSamples);
+    outputLayer1.process(skipData.data(), convData.data(), numSamples);
+    outputLayer2.process(convData.data(), outputData, numSamples);
 }
 
 inline int WaveNet::idx(int ch, int i, int numSamples)

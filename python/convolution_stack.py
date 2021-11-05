@@ -49,7 +49,6 @@ class ConvolutionStackCondFunction(torch.autograd.Function):
     def backward(self, d_output, d_skip):
         raise NotImplementedError("Backward function not implemented for sequential processing")
 
-
 class ConvolutionStack(torch.nn.Module):
     """
     Wavenet Convolution Stack
@@ -59,7 +58,6 @@ class ConvolutionStack(torch.nn.Module):
 
     def __init__(self, channels, kernel_size, dilations=[1], bias=True, device=None, dtype=None,
                  causal=True,
-                 training=True,
                  activation="gated",
                  use_residual=True,
                  use_1x1_block_out=True,
@@ -67,7 +65,6 @@ class ConvolutionStack(torch.nn.Module):
                  ):
         super().__init__()
 
-        self.training = training
         self.channels = channels
         self.activation = activation
         self.dilations = dilations
@@ -89,7 +86,6 @@ class ConvolutionStack(torch.nn.Module):
                     in_channels=channels, out_channels=channels,
                     kernel_size=kernel_size, dilation=d, bias=bias, device=device, dtype=dtype,
                     causal=causal,
-                    training=training,
                     activation=activation,
                     use_output_transform=use_output_transform,
                     cond_channels=self.cond_channels
@@ -112,10 +108,34 @@ class ConvolutionStack(torch.nn.Module):
     def biases_out(self):
         return [layer.out.bias for layer in self.layers]
 
+    def project_conditioning(self, cond_input):
+        """ Project conditioning
+
+        Args:
+            cond_input: torch.tensor 
+                of size (batch, cond_channels, timesteps)
+
+        Returns:
+            conditioning: torch tensor 
+                of size (batch, 2 * num_layers * channels, timesteps)
+        
+        Note:
+            This function assumes that the full conditioning sequence is known beforehand.
+            While efficient and GPU friendly, this operation mode is not suitable for streaming mode conditioning.
+        
+        """
+        c_list = []
+        for layer in self.layers:
+            c = layer.cond_1x1(cond_input)
+            c_list.append(c)
+        return torch.cat(c_list, dim=1)
+
     def forward(self, input, cond_input=None, sequential=False):
         """ 
         Args:
             input, torch.Tensor of shape (batch_size, channels, timesteps)
+            cond_input (optional),
+                torch.Tensor of shape (batch_size, cond_channels, timesteps)
             sequential (optional), 
                 if True, use CUDA compatible parallel implementation
                 if False, use custom C++ sequential implementation 
@@ -138,14 +158,9 @@ class ConvolutionStack(torch.nn.Module):
                     self.weights_out, self.biases_out,
                     self.dilations, self.activation, self.use_residual)
             else:
-                # project conditioning for each layer
-                c_list = []
-                for layer in self.layers:
-                    c = layer.cond_1x1(cond_input)
-                    c_list.append(c)
-                cond_inputs = torch.cat(c_list, dim=1)
+                conditioning = self.project_conditioning(cond_input)
                 output, skips = ConvolutionStackCondFunction.apply(
-                    input, cond_inputs,
+                    input, conditioning,
                     self.weights_conv, self.biases_conv,
                     self.weights_out, self.biases_out,
                     self.dilations, self.activation, self.use_residual)
