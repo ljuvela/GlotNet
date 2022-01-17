@@ -34,7 +34,7 @@ std::vector<at::Tensor> forward(
     int64_t input_channels = input_weight.size(1);
     int64_t output_channels = output_weights.back().size(0); 
     
-    // Instansiate model
+    // Instantiate model
     auto wavenet = WaveNet(input_channels, output_channels, residual_channels,
                            filter_width, activation, dilations);
 
@@ -97,7 +97,7 @@ std::vector<at::Tensor> cond_forward(
     int64_t input_channels = input_weight.size(1);
     int64_t output_channels = output_weights.back().size(0); 
     
-    // Instansiate model
+    // instantiate model
     auto wavenet = WaveNet(input_channels, output_channels, residual_channels,
                            filter_width, activation, dilations);
 

@@ -3,7 +3,7 @@ import glotnet.cpp_extensions as ext
 from glotnet.convolution_layer import ConvolutionLayer
 from glotnet.convolution_stack import ConvolutionStack
 
-class WaveNetFunction(torch.autograd.Function):
+class WaveNetARFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input,
@@ -15,13 +15,15 @@ class WaveNetFunction(torch.autograd.Function):
 
         num_layers = len(dilations)
 
-        input = input.contiguous()
+        import ipdb; ipdb.set_trace()
+        # Transpose input (batch, channels, time) -> (batch, time, channels)
+        input = input.permute(0, 2, 1).contiguous()
 
         # TODO:
         # ctx.save_for_backward(...)
-        
+
         training = False
-        output, = ext.wavenet_forward(input,
+        output, = ext.wavenet_ar_forward(input,
             stack_weights_conv, stack_biases_conv,
             stack_weights_out, stack_biases_out,
             input_weight, input_bias,
@@ -33,7 +35,7 @@ class WaveNetFunction(torch.autograd.Function):
     def backward(self, d_output, d_skip):
         raise NotImplementedError
 
-class WaveNetCondFunction(torch.autograd.Function):
+class WaveNetARCondFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, cond_input,
@@ -51,7 +53,7 @@ class WaveNetCondFunction(torch.autograd.Function):
         # ctx.save_for_backward(...)
         
         training = False
-        output, = ext.wavenet_cond_forward(input, cond_input,
+        output, = ext.wavenet_ar_cond_forward(input, cond_input,
             stack_weights_conv, stack_biases_conv,
             stack_weights_out, stack_biases_out,
             input_weight, input_bias,
@@ -63,11 +65,11 @@ class WaveNetCondFunction(torch.autograd.Function):
     def backward(self, d_output, d_skip):
         raise NotImplementedError
 
-class WaveNet(torch.nn.Module):
+class WaveNetAR(torch.nn.Module):
     """
-    Wavenet
+    WaveNetAR
 
-    Full wavenet
+    Autoregressive WaveNet
 
     """
 
@@ -118,28 +120,33 @@ class WaveNet(torch.nn.Module):
     def output_biases(self):
         return [self.output1.conv.bias, self.output2.conv.bias]
 
-    def forward(self, input, cond_input=None, sequential=False):
+    def forward(self, cond_input=None, timesteps=None, use_cpu=False):
         """ 
         Args:
-            input, torch.Tensor of shape (batch_size, input_channels, timesteps)
             cond_input (optional),
                 torch.Tensor of shape (batch_size, cond_channels, timesteps)
-            sequential (optional), 
-                if True, use CUDA compatible parallel implementation
-                if False, use custom C++ sequential implementation 
+            use_cpu (optional), 
+                if False, use CUDA compatible implementation
+                if True, use custom C++ sequential implementation 
 
         Returns:
             output, torch.Tensor of shape (batch_size, output_channels, timesteps)
      
         """
 
+        import ipdb; ipdb.set_trace()
+        if cond_input is None and timesteps is None:
+            raise RuntimeError("Either 'cond_input' or 'timesteps' must be specified")
+
+        if cond_input is not None and timesteps is not None:
+            raise RuntimeError("'cond_input' and 'timesteps' cannot both be specified")
+
         if cond_input is not None and not self.use_conditioning:
             raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
 
-        if sequential:
-            #assert input.size(0)
+        if use_cpu:
             if cond_input is None:
-                output = WaveNetFunction.apply(
+                output = WaveNetARFunction.apply(
                     input,
                     self.stack.weights_conv, self.stack.biases_conv,
                     self.stack.weights_out, self.stack.biases_out,
@@ -149,7 +156,7 @@ class WaveNet(torch.nn.Module):
                 )
             else:
                 conditioning = self.stack.project_conditioning(cond_input)
-                output = WaveNetCondFunction.apply(
+                output = WaveNetARCondFunction.apply(
                     input, conditioning,
                     self.stack.weights_conv, self.stack.biases_conv,
                     self.stack.weights_out, self.stack.biases_out,
@@ -159,11 +166,30 @@ class WaveNet(torch.nn.Module):
                 )
             return output
         else:
-            x = input
-            x, _ = self.input(x)
-            _, skips = self.stack(x, cond_input)
-            x = torch.cat(skips, dim=1)
-            x, _ = self.output1(x)
-            x, _ = self.output2(x)
-            return x
+            # This implementation is just for checking correctness, 
+            # never use this for processing
+            if timesteps is None:
+                timesteps = cond_input.size(-1)
+            if cond_input is None:
+                batch_size = 1
+            else:
+                batch_size = cond_input.size(0)
+
+            with torch.no_grad():
+                
+                import ipdb; ipdb.set_trace()
+                context = torch.zeros(batch_size, self.input_channels, timesteps)
+                # Loop over time
+                for t in range(timesteps):
+                    x, _ = self.input(context)
+                    _, skips = self.stack(x, cond_input)
+                    x = torch.cat(skips, dim=1)
+                    x, _ = self.output1(x)
+                    x, _ = self.output2(x)
+
+                    # Update context circular buffer
+                    context = torch.roll(context, 1, dim=-1)
+                    context[:, :, -1] = x
+            
+            return context
 
