@@ -1,18 +1,11 @@
-/*
-  ==============================================================================
-
-    Activations.cpp
-    Created: 11 Jan 2019 11:15:47am
-    Author:  Damskägg Eero-Pekka
-
-  ==============================================================================
-*/
 
 #include "Activations.h"
 
 namespace {
     typedef float (* activationFunction)(float x);
-    void applyActivation(float **data, size_t rows, size_t cols, activationFunction activation)
+
+    template <activationFunction activation>
+    void applyActivation(float **data, size_t rows, size_t cols)
     {
         for (size_t i = 0; i < rows; ++i)
         {
@@ -21,45 +14,48 @@ namespace {
         }
     }
     
-    void applyActivation(float *data, size_t rows, size_t cols, activationFunction activation)
+    template <activationFunction activation>
+    void applyActivation(float *data, size_t rows, size_t cols)
     {
-        for (size_t i = 0; i < rows*cols; ++i)
+        for (size_t i = 0; i < rows * cols; ++i)
         {
-                data[i] = activation(data[i]);
+            data[i] = activation(data[i]);
         }
     }
     
-    size_t idx(size_t row, size_t col, size_t cols)
+    inline size_t idx(size_t row, size_t col, size_t cols)
     {
         return row * cols + col;
     }
     
     typedef float (* gatedActivationFunction)(float x1, float x2);
-    void applyGatedActivation(float *data, size_t rows, size_t cols, gatedActivationFunction activation)
+    template<gatedActivationFunction activation>
+    void applyGatedActivation(float *data, size_t rows, size_t cols)
     {
-        size_t rowsHalf = rows / 2;
+        const size_t rowsHalf = rows / 2;
         for (size_t row = 0; row < rowsHalf; ++row)
         {
-            size_t startIdx1 = idx(row, 0, cols);
-            size_t startIdx2 = idx(row+rowsHalf, 0, cols);
+            const size_t startIdx1 = idx(row, 0, cols);
+            const size_t startIdx2 = idx(row + rowsHalf, 0, cols);
             for (size_t col = 0; col < cols; ++col)
-                data[startIdx1+col] = activation(data[startIdx1+col], data[startIdx2+col]);
+                data[startIdx1+col] = activation(data[startIdx1 + col], data[startIdx2 + col]);
         }
     }
 }
 
 namespace Activations {
-    float tanh(float x)
+    
+    inline float tanh(float x)
     {
         return tanhf(x);
     }
     
-    float sigmoid(float x)
+    inline float sigmoid(float x)
     {
         return 1.0f / (1.0f + expf(-x));
     }
     
-    float relu(float x)
+    inline float relu(float x)
     {
         if (x < 0.0f)
             return 0.0f;
@@ -67,41 +63,41 @@ namespace Activations {
             return x;
     }
     
-    float softsign(float x)
+    inline float softsign(float x)
     {
         return x / (1.0f + fabsf(x));
     }
     
-    float linear(float x)
+    inline float linear(float x)
     {
         return x;
     }
     
-    float gated(float x1, float x2)
+    inline float gated(float x1, float x2)
     {
         return tanh(x1)*sigmoid(x2);
     }
     
-    float softgated(float x1, float x2)
+    inline float softgated(float x1, float x2)
     {
         return softsign(x1) * softsign(x2);
     }
     
     void tanh(float** data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)tanh);
+        applyActivation<(activationFunction)tanh>(data, rows, cols);
     }
     void sigmoid(float** data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)sigmoid);
+        applyActivation<(activationFunction)sigmoid>(data, rows, cols);
     }
     void relu(float** data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)relu);
+        applyActivation<(activationFunction)relu>(data, rows, cols);
     }
     void softsign(float** data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)softsign);
+        applyActivation<(activationFunction)softsign>(data, rows, cols);
     }
     void linear(float** data, size_t rows, size_t cols)
     {
@@ -110,19 +106,19 @@ namespace Activations {
     
     void tanh(float* data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)tanh);
+        applyActivation<(activationFunction)tanh>(data, rows, cols);
     }
     void sigmoid(float* data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)sigmoid);
+        applyActivation<(activationFunction)sigmoid>(data, rows, cols);
     }
     void relu(float* data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)relu);
+        applyActivation<(activationFunction)relu>(data, rows, cols);
     }
     void softsign(float* data, size_t rows, size_t cols)
     {
-        applyActivation(data, rows, cols, (activationFunction)softsign);
+        applyActivation<(activationFunction)softsign>(data, rows, cols);
     }
     void linear(float* data, size_t rows, size_t cols)
     {
@@ -131,12 +127,12 @@ namespace Activations {
     void gated(float* data, size_t rows, size_t cols)
     {
         assert(rows % 2 == 0);
-        applyGatedActivation(data, rows, cols, (gatedActivationFunction)gated);
+        applyGatedActivation<(gatedActivationFunction)gated>(data, rows, cols);
     }
     void softgated(float* data, size_t rows, size_t cols)
     {
         assert(rows % 2 == 0);
-        applyGatedActivation(data, rows, cols, (gatedActivationFunction)softgated);
+        applyGatedActivation<(gatedActivationFunction)softgated>(data, rows, cols);
     }
     
     bool isGated(std::string name)
@@ -195,6 +191,6 @@ namespace Activations {
         else if (name == "linear")
             return linear;
         else
-            throw std::invalid_argument("Received unkown activation name.");
+            throw std::invalid_argument("Received unknown activation name.");
     }
 }
