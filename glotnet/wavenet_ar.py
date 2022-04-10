@@ -6,7 +6,7 @@ from glotnet.convolution_stack import ConvolutionStack
 class WaveNetARFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input,
+    def forward(ctx, timesteps,
                 stack_weights_conv, stack_biases_conv,
                 stack_weights_out, stack_biases_out,
                 input_weight, input_bias,
@@ -15,20 +15,20 @@ class WaveNetARFunction(torch.autograd.Function):
 
         num_layers = len(dilations)
 
-        import ipdb; ipdb.set_trace()
         # Transpose input (batch, channels, time) -> (batch, time, channels)
-        input = input.permute(0, 2, 1).contiguous()
 
         # TODO:
         # ctx.save_for_backward(...)
 
         training = False
-        output, = ext.wavenet_ar_forward(input,
+        output, = ext.wavenet_ar_forward(timesteps,
             stack_weights_conv, stack_biases_conv,
             stack_weights_out, stack_biases_out,
             input_weight, input_bias,
             output_weights, output_biases,
             dilations, training, use_residual, activation)
+
+        print(f"ext output {output}")
 
         return output
 
@@ -38,7 +38,7 @@ class WaveNetARFunction(torch.autograd.Function):
 class WaveNetARCondFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, cond_input,
+    def forward(ctx, cond_input,
                 stack_weights_conv, stack_biases_conv,
                 stack_weights_out, stack_biases_out,
                 input_weight, input_bias,
@@ -47,13 +47,11 @@ class WaveNetARCondFunction(torch.autograd.Function):
 
         num_layers = len(dilations)
 
-        input = input.contiguous()
-
         # TODO:
         # ctx.save_for_backward(...)
         
         training = False
-        output, = ext.wavenet_ar_cond_forward(input, cond_input,
+        output, = ext.wavenet_ar_cond_forward(cond_input,
             stack_weights_conv, stack_biases_conv,
             stack_weights_out, stack_biases_out,
             input_weight, input_bias,
@@ -134,7 +132,6 @@ class WaveNetAR(torch.nn.Module):
      
         """
 
-        import ipdb; ipdb.set_trace()
         if cond_input is None and timesteps is None:
             raise RuntimeError("Either 'cond_input' or 'timesteps' must be specified")
 
@@ -147,7 +144,7 @@ class WaveNetAR(torch.nn.Module):
         if use_cpu:
             if cond_input is None:
                 output = WaveNetARFunction.apply(
-                    input,
+                    timesteps,
                     self.stack.weights_conv, self.stack.biases_conv,
                     self.stack.weights_out, self.stack.biases_out,
                     self.input.conv.weight, self.input.conv.bias,
@@ -157,7 +154,7 @@ class WaveNetAR(torch.nn.Module):
             else:
                 conditioning = self.stack.project_conditioning(cond_input)
                 output = WaveNetARCondFunction.apply(
-                    input, conditioning,
+                    conditioning,
                     self.stack.weights_conv, self.stack.biases_conv,
                     self.stack.weights_out, self.stack.biases_out,
                     self.input.conv.weight, self.input.conv.bias,
@@ -177,7 +174,6 @@ class WaveNetAR(torch.nn.Module):
 
             with torch.no_grad():
                 
-                import ipdb; ipdb.set_trace()
                 context = torch.zeros(batch_size, self.input_channels, timesteps)
                 # Loop over time
                 for t in range(timesteps):
@@ -187,9 +183,12 @@ class WaveNetAR(torch.nn.Module):
                     x, _ = self.output1(x)
                     x, _ = self.output2(x)
 
+                    x_t = x[:, :, t]
+
                     # Update context circular buffer
-                    context = torch.roll(context, 1, dim=-1)
-                    context[:, :, -1] = x
+                    context = torch.roll(context, -1, dims=-1)
+                    context[:, :, -1] = x_t
+                    print(f"time {t}, context {context}")
             
             return context
 

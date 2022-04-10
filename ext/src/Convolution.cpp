@@ -66,7 +66,7 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
 {
     auto fifo = memory.begin();
     for (int ch = 0; ch < inputChannels; ++ch)
-        (*(fifo + pos))[ch] = data_in[idx(ch, i, numSamples)];
+        (*(fifo + pos))[ch] = data_in[idx_time_major(ch, i, numSamples)];
     outVec.setZero();
     std::vector<Eigen::MatrixXf>::iterator it;
     int j = 0;
@@ -78,7 +78,7 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
     }
     outVec = outVec + bias;
     for (int ch = 0; ch < outputChannels; ++ch)
-        data_out[idx(ch, i, numSamples)] = outVec[ch];
+        data_out[idx_time_major(ch, i, numSamples)] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
 }
 
@@ -94,10 +94,10 @@ void Convolution::processSingleSampleConditional(const float * data_in, const fl
 {
     auto fifo = memory.begin();
     for (int ch = 0; ch < inputChannels; ++ch)
-        (*(fifo + pos))[ch] = data_in[idx(ch, i, numSamples)];
+        (*(fifo + pos))[ch] = data_in[idx_time_major(ch, i, numSamples)];
 
     for (int ch = 0; ch < outputChannels; ++ch)
-        outVec(ch) = conditioning[idx(ch, i, numSamples)];
+        outVec(ch) = conditioning[idx_time_major(ch, i, numSamples)];
 
     std::vector<Eigen::MatrixXf>::iterator it;
     int j = 0;
@@ -109,7 +109,7 @@ void Convolution::processSingleSampleConditional(const float * data_in, const fl
     }
     outVec = outVec + bias;
     for (int ch = 0; ch < outputChannels; ++ch)
-        data_out[idx(ch, i, numSamples)] = outVec[ch];
+        data_out[idx_time_major(ch, i, numSamples)] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
 }
 
@@ -119,9 +119,14 @@ int Convolution::mod(int a, int b)
     return r < 0 ? r + b : r;
 }
 
-inline int64_t Convolution::idx(int64_t ch, int64_t i, int64_t numSamples)
+inline int64_t Convolution::idx_time_major(int64_t ch, int64_t i, int64_t numSamples)
 {
     return ch * numSamples + i;
+}
+
+inline int64_t Convolution::idx_channel_major(int64_t ch, int64_t i, int64_t numChannels)
+{
+    return ch + numChannels * i;
 }
 
 void Convolution::setKernel(const torch::Tensor &W)
