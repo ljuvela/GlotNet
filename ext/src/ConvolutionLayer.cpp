@@ -27,49 +27,49 @@ activation(Activations::getActivationFuncArray(activationName))
 {
 }
 
-void ConvolutionLayer::process(const float * data_in, float * data_out, int64_t numSamples)
+void ConvolutionLayer::process(const float * data_in, float * data_out, int64_t total_samples)
 {
-    this->prepare(conv.getNumOutputChannels(), numSamples);
-    conv.process(data_in, memory.data(), numSamples);
-    activation(memory.data(), conv.getNumOutputChannels(), numSamples);
+    this->prepare(conv.getNumOutputChannels(), total_samples);
+    conv.process(data_in, memory.data(), total_samples);
+    activation(memory.data(), conv.getNumOutputChannels(), total_samples);
     if (use_output_transform)
-        out1x1.process(memory.data(), data_out, numSamples);
+        out1x1.process(memory.data(), data_out, total_samples);
     else
-        copySkipData(memory.data(), data_out, numSamples);
+        copySkipData(memory.data(), data_out, total_samples);
 }
 
 void ConvolutionLayer::process(
     const float *data_in, float *data_out,
-    float *skipData, int64_t numSamples)
+    float *skipData, int64_t total_samples)
 {
-    this->prepare(conv.getNumOutputChannels(), numSamples);
-    conv.process(data_in, memory.data(), numSamples);
-    activation(memory.data(), conv.getNumOutputChannels(), numSamples);
-    copySkipData(memory.data(), skipData, numSamples);
+    this->prepare(conv.getNumOutputChannels(), total_samples);
+    conv.process(data_in, memory.data(), total_samples);
+    activation(memory.data(), conv.getNumOutputChannels(), total_samples);
+    copySkipData(memory.data(), skipData, total_samples);
     if (use_output_transform)
-        out1x1.process(memory.data(), data_out, numSamples);
+        out1x1.process(memory.data(), data_out, total_samples);
     else
-        copySkipData(memory.data(), data_out, numSamples);
+        copySkipData(memory.data(), data_out, total_samples);
 }
 
 void ConvolutionLayer::processConditional(
     const float *data_in, const float *conditioning,
-    float *data_out, float *skipData, int64_t numSamples)
+    float *data_out, float *skipData, int64_t total_samples)
 {
-    this->prepare(conv.getNumOutputChannels(), numSamples);
-    conv.processConditional(data_in, conditioning, memory.data(), numSamples);
-    activation(memory.data(), conv.getNumOutputChannels(), numSamples);
-    copySkipData(memory.data(), skipData, numSamples);
+    this->prepare(conv.getNumOutputChannels(), total_samples);
+    conv.processConditional(data_in, conditioning, memory.data(), total_samples);
+    activation(memory.data(), conv.getNumOutputChannels(), total_samples);
+    copySkipData(memory.data(), skipData, total_samples);
     if (use_output_transform)
-        out1x1.process(memory.data(), data_out, numSamples);
+        out1x1.process(memory.data(), data_out, total_samples);
     else
-        copySkipData(memory.data(), data_out, numSamples);
+        copySkipData(memory.data(), data_out, total_samples);
 }
 
-void ConvolutionLayer::copySkipData(const float *data, float *skipData, int numSamples)
+void ConvolutionLayer::copySkipData(const float *data, float *skipData, int total_samples)
 {
     size_t skipChannels = use_gating ? conv.getNumOutputChannels()/2 : conv.getNumOutputChannels();
-    for (size_t i = 0; i < (size_t)numSamples*skipChannels; ++i)
+    for (size_t i = 0; i < (size_t)total_samples*skipChannels; ++i)
         skipData[i] = data[i];
 }
 

@@ -26,10 +26,10 @@ public:
                    int dilation = 1,
                    bool use_output_transform = false,
                    std::string activationName = "linear");
-  void process(const float *data_in, float *data_out, int64_t numSamples);
-  void process(const float *data_in, float *data_out, float *skipdata, int64_t numSamples);
-  void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t numSamples);
-  void processConditional(const float *data_in, const float *conditioning, float *data_out, float *skipdata, int64_t numSamples);
+  void process(const float *data_in, float *data_out, int64_t total_samples);
+  void process(const float *data_in, float *data_out, float *skipdata, int64_t total_samples);
+  void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples);
+  void processConditional(const float *data_in, const float *conditioning, float *data_out, float *skipdata, int64_t total_samples);
   void reset();
   void setConvolutionWeight(const torch::Tensor &W);
   void setConvolutionBias(const torch::Tensor &b);
@@ -45,5 +45,5 @@ private:
   void prepare(size_t num_channels, size_t buffer_size);
   typedef void (*activationFunction)(float *x, size_t rows, size_t cols);
   activationFunction activation;
-  void copySkipData(const float *data, float *skipData, int numSamples);
+  void copySkipData(const float *data, float *skipData, int total_samples);
 };

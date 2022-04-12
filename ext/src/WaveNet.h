@@ -20,8 +20,8 @@ public:
     WaveNet(int inputChannels, int outputChannels, int convolutionChannels,
             int filterWidth, std::string activation, std::vector<int> dilations);
     void prepare(int block_size);
-    void process(const float *inputData, float *outputData, int numSamples);
-    void processConditional(const float *inputData, const float *conditioning, float *outputData, int numSamples);
+    void process(const float *inputData, float *outputData, int total_samples);
+    void processConditional(const float *inputData, const float *conditioning, float *outputData, int total_samples);
     void reset();
     void setStackConvolutionWeight(const torch::Tensor &W, int layerIdx);
     void setStackConvolutionBias(const torch::Tensor &b, int layerIdx);
@@ -48,6 +48,6 @@ private:
     int samplesPerBlock = 0;
     std::vector<float> convData;
     std::vector<float> skipData;
-    inline int idx(int ch, int i, int numSamples);
+    inline int idx(int ch, int i, int total_samples);
    
 };

@@ -1,12 +1,3 @@
-/*
-  ==============================================================================
-
-    Convolution.cpp
-    Author:  Damskägg Eero-Pekka, Lauri Juvela
-
-  ==============================================================================
-*/
-
 #include "Convolution.h"
 
 Convolution::Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation) :
@@ -54,19 +45,19 @@ inline int Convolution::getFilterOrder() const
     return (filterWidth - 1) * dilation + 1;
 }
 
-void Convolution::process(const float *data_in, float *data_out, int64_t numSamples)
+void Convolution::process(const float *data_in, float *data_out, int64_t total_samples)
 {
-    for (int i = 0; i < numSamples; ++i)
+    for (int i = 0; i < total_samples; ++i)
     {
-        processSingleSample(data_in, data_out, i, numSamples);
+        processSingleSample(data_in, data_out, i, total_samples);
     }
 }
 
-void Convolution::processSingleSample(const float *data_in, float *data_out, int i, int numSamples)
+void Convolution::processSingleSample(const float *data_in, float *data_out, int i, int total_samples)
 {
     auto fifo = memory.begin();
     for (int ch = 0; ch < inputChannels; ++ch)
-        (*(fifo + pos))[ch] = data_in[idx_time_major(ch, i, numSamples)];
+        (*(fifo + pos))[ch] = data_in[idx_time_major(ch, i, total_samples)];
     outVec.setZero();
     std::vector<Eigen::MatrixXf>::iterator it;
     int j = 0;
@@ -78,26 +69,26 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
     }
     outVec = outVec + bias;
     for (int ch = 0; ch < outputChannels; ++ch)
-        data_out[idx_time_major(ch, i, numSamples)] = outVec[ch];
+        data_out[idx_time_major(ch, i, total_samples)] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
 }
 
-void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t numSamples)
+void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples)
 {
-    for (int i = 0; i < numSamples; ++i)
+    for (int i = 0; i < total_samples; ++i)
     {
-        processSingleSampleConditional(data_in, conditioning, data_out, i, numSamples);
+        processSingleSampleConditional(data_in, conditioning, data_out, i, total_samples);
     }
 }
 
-void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int numSamples)
+void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int total_samples)
 {
     auto fifo = memory.begin();
     for (int ch = 0; ch < inputChannels; ++ch)
-        (*(fifo + pos))[ch] = data_in[idx_time_major(ch, i, numSamples)];
+        (*(fifo + pos))[ch] = data_in[idx_time_major(ch, i, total_samples)];
 
     for (int ch = 0; ch < outputChannels; ++ch)
-        outVec(ch) = conditioning[idx_time_major(ch, i, numSamples)];
+        outVec(ch) = conditioning[idx_time_major(ch, i, total_samples)];
 
     std::vector<Eigen::MatrixXf>::iterator it;
     int j = 0;
@@ -109,7 +100,7 @@ void Convolution::processSingleSampleConditional(const float * data_in, const fl
     }
     outVec = outVec + bias;
     for (int ch = 0; ch < outputChannels; ++ch)
-        data_out[idx_time_major(ch, i, numSamples)] = outVec[ch];
+        data_out[idx_time_major(ch, i, total_samples)] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
 }
 
@@ -119,9 +110,9 @@ int Convolution::mod(int a, int b)
     return r < 0 ? r + b : r;
 }
 
-inline int64_t Convolution::idx_time_major(int64_t ch, int64_t i, int64_t numSamples)
+inline int64_t Convolution::idx_time_major(int64_t ch, int64_t i, int64_t total_samples)
 {
-    return ch * numSamples + i;
+    return ch * total_samples + i;
 }
 
 inline int64_t Convolution::idx_channel_major(int64_t ch, int64_t i, int64_t numChannels)

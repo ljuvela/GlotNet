@@ -17,8 +17,8 @@ class ConvolutionStack
 public:
     ConvolutionStack(int numChannels, int filterWidth, std::vector<int> dilations,
                      std::string activation, bool residual = true);
-    void process(float * data, float * skipData, int numSamples);
-    void processConditional(float * data, const float *conditioning, float * skipData, int numSamples);
+    void process(float * data, float * skipData, int total_samples);
+    void processConditional(float * data, const float *conditioning, float * skipData, int total_samples);
     void prepare(int buffer_size);
     void reset();
     size_t getNumLayers() { return dilations.size(); }
@@ -36,10 +36,10 @@ private:
     std::string activation;
     int samplesPerBlock = 0;
     std::vector<float> residualData;
-    inline unsigned int idx(int ch, int i, int numSamples);
-    void copyResidual(const float *data, int numSamples);
-    void addResidual(float *data, int numSamples);
-    float* getSkipPointer(float *skipData, int layerIdx, int numSamples);
-    const float* getCondPointer(const float *data, int layerIdx, int numSamples);
+    inline unsigned int idx(int ch, int i, int total_samples);
+    void copyResidual(const float *data, int total_samples);
+    void addResidual(float *data, int total_samples);
+    float* getSkipPointer(float *skipData, int layerIdx, int total_samples);
+    const float* getCondPointer(const float *data, int layerIdx, int total_samples);
     void initLayers();
 };

@@ -36,14 +36,14 @@ void WaveNetAR::reset()
     outputLayer2.reset();
 }
 
-void WaveNetAR::process(float * const outputData, int numSamples)
+void WaveNetAR::process(float * const outputData, int total_samples)
 {
     std::fill(inputBuffer.begin(), inputBuffer.end(), 0.0f);
-    for (int i = 0; i < numSamples; i++)
+    for (int i = 0; i < total_samples; i++)
     {
         // calculate offsets
 
-        std::cerr << "timestep " << i << "/" << numSamples << std::endl; 
+        std::cerr << "timestep " << i << "/" << total_samples << std::endl; 
         // NOTE data must be channels major
 
         // always process just one sample
@@ -52,7 +52,7 @@ void WaveNetAR::process(float * const outputData, int numSamples)
         outputLayer1.process(skipData.data(), convData.data(), 1u);
         outputLayer2.process(convData.data(), outputBuffer.data(), 1u);
 
-        for (int t = 0; t < numSamples; t++)
+        for (int t = 0; t < total_samples; t++)
         {
             std::cerr << outputData[t] << ", ";
         }
@@ -66,19 +66,19 @@ void WaveNetAR::process(float * const outputData, int numSamples)
 }
 
 void WaveNetAR::processConditional(const float *conditioning,
-                                   float *const outputData, int numSamples)
+                                   float *const outputData, int total_samples)
 {
-    if (numSamples > samplesPerBlock)
-        prepare(numSamples);
-    inputLayer.process(inputBuffer.data(), convData.data(), numSamples);
-    convStack.processConditional(convData.data(), conditioning, skipData.data(), numSamples);
-    outputLayer1.process(skipData.data(), convData.data(), numSamples);
-    outputLayer2.process(convData.data(), outputData, numSamples);
+    if (total_samples > samplesPerBlock)
+        prepare(total_samples);
+    inputLayer.process(inputBuffer.data(), convData.data(), total_samples);
+    convStack.processConditional(convData.data(), conditioning, skipData.data(), total_samples);
+    outputLayer1.process(skipData.data(), convData.data(), total_samples);
+    outputLayer2.process(convData.data(), outputData, total_samples);
 }
 
-inline int WaveNetAR::idx(int ch, int i, int numSamples)
+inline int WaveNetAR::idx(int ch, int i, int total_samples)
 {
-    return ch * numSamples + i;
+    return ch * total_samples + i;
 }
 
 void WaveNetAR::setStackConvolutionWeight(const torch::Tensor &W, int layerIdx)

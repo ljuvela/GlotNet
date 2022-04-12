@@ -45,30 +45,30 @@ void WaveNet::reset()
     outputLayer2.reset();
 }
 
-void WaveNet::process(const float *inputData, float *outputData, int numSamples)
+void WaveNet::process(const float *inputData, float *outputData, int total_samples)
 {
-    if (numSamples > samplesPerBlock)
-        prepare(numSamples);
-    inputLayer.process(inputData, convData.data(), numSamples);
-    convStack.process(convData.data(), skipData.data(), numSamples);
-    outputLayer1.process(skipData.data(), convData.data(), numSamples);
-    outputLayer2.process(convData.data(), outputData, numSamples);
+    if (total_samples > samplesPerBlock)
+        prepare(total_samples);
+    inputLayer.process(inputData, convData.data(), total_samples);
+    convStack.process(convData.data(), skipData.data(), total_samples);
+    outputLayer1.process(skipData.data(), convData.data(), total_samples);
+    outputLayer2.process(convData.data(), outputData, total_samples);
 }
 
 void WaveNet::processConditional(const float *inputData, const float *conditioning,
-                                 float *outputData, int numSamples)
+                                 float *outputData, int total_samples)
 {
-    if (numSamples > samplesPerBlock)
-        prepare(numSamples);
-    inputLayer.process(inputData, convData.data(), numSamples);
-    convStack.processConditional(convData.data(), conditioning, skipData.data(), numSamples);
-    outputLayer1.process(skipData.data(), convData.data(), numSamples);
-    outputLayer2.process(convData.data(), outputData, numSamples);
+    if (total_samples > samplesPerBlock)
+        prepare(total_samples);
+    inputLayer.process(inputData, convData.data(), total_samples);
+    convStack.processConditional(convData.data(), conditioning, skipData.data(), total_samples);
+    outputLayer1.process(skipData.data(), convData.data(), total_samples);
+    outputLayer2.process(convData.data(), outputData, total_samples);
 }
 
-inline int WaveNet::idx(int ch, int i, int numSamples)
+inline int WaveNet::idx(int ch, int i, int total_samples)
 {
-    return ch * numSamples + i;
+    return ch * total_samples + i;
 }
 
 void WaveNet::setStackConvolutionWeight(const torch::Tensor &W, int layerIdx)
