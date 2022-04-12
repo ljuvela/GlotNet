@@ -4,33 +4,41 @@ import glotnet.cpp_extensions as ext
 class ConvolutionFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, weight, bias, dilation):
+    def forward(ctx, input, weight, bias, dilation, cond_input=None, time_major=True):
+        """ Dilated covolution bindings forward pass
 
+        Args:
+            input: tensor of shape (batch, channels, time) (default) or (batch, time, channels)
+            weight: Conv1d weight tensor, shape = (ch_out,)
+            bias: Conv1d bias tensor, shape = (ch_out, ch_in, kernel_size)
+            dilation: int type dilation factor
+            cond_input: (default = None)
+            time_major: 
+                if True: input.shape == (batch, channels, time), (PyTorch default)
+                else: input.shape == (batch, time, channels),
+
+        """
+        ctx.time_major = time_major
+        if ctx.time_major:
+            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            if cond_input is not None:
+                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+                cond_input = cond_input.contiguous()
         input = input.contiguous()
         ctx.save_for_backward(input, weight, bias)
         
         training = False
-        output, = ext.convolution_forward(input, weight, bias, training, dilation)
+        if cond_input is None:
+            output, = ext.convolution_forward(input, weight, bias, training, dilation)
+        else:
+            output, = ext.convolution_cond_forward(input, cond_input, weight, bias, training, dilation)
+
+        if ctx.time_major:
+            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
         return output 
 
     def backward(self, d_output):
         raise NotImplementedError
-
-class ConvolutionCondFunction(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input, cond_input, weight, bias, dilation):
-
-        input = input.contiguous()
-        ctx.save_for_backward(input, weight, bias)
-        
-        training = False
-        output, = ext.convolution_cond_forward(input, cond_input, weight, bias, training, dilation)
-        return output 
-
-    def backward(self, d_output):
-        raise NotImplementedError
-
 
 class Convolution(torch.nn.Conv1d):
 
@@ -62,10 +70,6 @@ class Convolution(torch.nn.Conv1d):
                 output = output + cond_input
             return output
         else:
-            if cond_input is None:
-                output = ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0])
-            else:
-                output = ConvolutionCondFunction.apply(input, cond_input, self.weight, self.bias, self.dilation[0])
-            return output
+            return ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0], cond_input)
 
 

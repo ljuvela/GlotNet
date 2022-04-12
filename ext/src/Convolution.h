@@ -41,7 +41,7 @@ private:
   void processSingleSample(const float * data_in, float * data_out, int i, int total_samples);
   void processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int total_samples);
   int mod(int a, int b);
-  inline int64_t idx_time_major(int64_t ch, int64_t i, int64_t total_samples);
-  inline int64_t idx_channel_major(int64_t ch, int64_t i, int64_t numChannels);
+  inline int64_t idx_time_major(int64_t c, int64_t t, int64_t total_samples);
+  inline int64_t idx_channel_major(int64_t c, int64_t t, int64_t numChannels);
 
 };

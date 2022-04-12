@@ -16,8 +16,9 @@ std::vector<at::Tensor> forward(
     int dilation=1)
 {
     int64_t batch_size = input.size(0);
-    int64_t input_channels = input.size(1);
-    int64_t timesteps = input.size(2);
+    int64_t timesteps = input.size(1);
+    int64_t input_channels = input.size(2);
+
     int64_t filter_width = weight.size(2);
     int64_t output_channels = weight.size(0);
     int64_t bias_size = bias.size(0);
@@ -25,7 +26,7 @@ std::vector<at::Tensor> forward(
     assert (input_channels == weight.size(1));
     assert (bias_size == output_channels);
 
-    auto output = torch::zeros({batch_size, output_channels, timesteps});
+    auto output = torch::zeros({batch_size, timesteps, output_channels});
 
     float * data_in = input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
@@ -55,8 +56,9 @@ std::vector<at::Tensor> forward_cond(
     int dilation=1)
 {
     int64_t batch_size = input.size(0);
-    int64_t input_channels = input.size(1);
-    int64_t timesteps = input.size(2);
+    int64_t timesteps = input.size(1);
+    int64_t input_channels = input.size(2);
+
     int64_t filter_width = weight.size(2);
     int64_t output_channels = weight.size(0);
     int64_t bias_size = bias.size(0);
@@ -64,7 +66,7 @@ std::vector<at::Tensor> forward_cond(
     assert (input_channels == weight.size(1));
     assert (bias_size == output_channels);
 
-    auto output = torch::zeros({batch_size, output_channels, timesteps});
+    auto output = torch::zeros({batch_size, timesteps, output_channels});
 
     float * data_in = input.data_ptr<float>();
     float * data_cond = cond_input.data_ptr<float>();
@@ -113,6 +115,6 @@ void init_convolution(py::module &m)
 {
     m.def("convolution_forward", &(glotnet::convolution::forward), "Convolution forward");
     m.def("convolution_cond_forward", &(glotnet::convolution::forward_cond), "Convolution conditional forward");
-    m.def("convolution_backward", &(glotnet::convolution::backward), "Convolution backward");
+    //m.def("convolution_backward", &(glotnet::convolution::backward), "Convolution backward");
     //m.def("convolution_cond_backward", &(glotnet::convolution::backward_cond), "Convolution conditional backward");
 }

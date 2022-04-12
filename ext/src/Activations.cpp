@@ -1,4 +1,3 @@
-
 #include "Activations.h"
 
 namespace {
