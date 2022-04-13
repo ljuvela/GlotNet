@@ -1,19 +1,6 @@
-/*
-  ==============================================================================
-
-    Activations.h
-    Created: 11 Jan 2019 11:15:47am
-    Author:  Damskägg Eero-Pekka
-
-  ==============================================================================
-*/
-
 #pragma once
-#include <assert.h>
 #include <cmath>
 #include <string>
-#include <stdexcept>
-
 namespace Activations {
     float tanh(float x);
     float sigmoid(float x);
