@@ -30,20 +30,8 @@ namespace {
     
     typedef float (* gatedActivationFunction)(float x1, float x2);
     template<gatedActivationFunction activation>
-    void applyGatedActivation(float *data, size_t rows, size_t cols)
-    { // TODO rename to time, channels
-        // const size_t rowsHalf = rows / 2;
-        // for (size_t row = 0; row < rowsHalf; ++row)
-        // {
-        //     const size_t startIdx1 = idx(row, 0, cols);
-        //     const size_t startIdx2 = idx(row + rowsHalf, 0, cols);
-        //     for (size_t col = 0; col < cols; ++col)
-        //         data[startIdx1+col] = activation(data[startIdx1 + col], data[startIdx2 + col]);
-        // }
-
-        // std::cout << "Gated activation: rows " << rows << ", cols " << cols << std::endl;
-        const size_t channels = cols;
-        const size_t timesteps = rows; 
+    void applyGatedActivation(float *data, size_t timesteps, size_t channels)
+    {
         const size_t channels_half = channels / 2;
         for (size_t t = 0; t < timesteps; t++)
         {
@@ -51,7 +39,6 @@ namespace {
             {
                 const float f_in = data[t * channels + c];
                 const float g_in = data[t * channels + channels_half + c];
-                // std::cout << "f_in " << f_in << ", g_in " << g_in << std::endl;
                 data[t * channels + c] = activation(f_in, g_in);
             }
         } 

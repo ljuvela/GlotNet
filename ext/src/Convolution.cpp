@@ -1,5 +1,8 @@
 #include "Convolution.h"
 
+namespace glotnet
+{
+
 Convolution::Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation) :
     bias(outputChannels),
     outVec(outputChannels),
@@ -56,20 +59,18 @@ void Convolution::process(const float *data_in, float *data_out, int64_t total_s
 void Convolution::processSingleSample(const float *data_in, float *data_out, int t, int total_samples)
 {
     auto fifo = memory.begin();
-    for (int ch = 0; ch < inputChannels; ++ch)
-        (*(fifo + pos))[ch] = data_in[idx_channel_major(ch, t, inputChannels)];
+    for (size_t ch = 0; ch < inputChannels; ++ch)
+        fifo[pos][ch] = data_in[ch + t * inputChannels];
     outVec.setZero();
-    std::vector<Eigen::MatrixXf>::iterator it;
     int j = 0;
-    for (auto it = kernel.begin(); it != kernel.end(); it++)
+    for (auto & k : kernel)
     {
-        int readPos = mod((pos - j * dilation), getFilterOrder());
-        outVec = outVec + *(fifo + readPos) * (*it);
-        j += 1;
+        const int readPos = mod((pos - dilation * j++), getFilterOrder());
+        outVec = outVec + fifo[readPos] * k;
     }
     outVec = outVec + bias;
-    for (int ch = 0; ch < outputChannels; ++ch)
-        data_out[idx_channel_major(ch, t, outputChannels)] = outVec[ch];
+    for (size_t ch = 0; ch < outputChannels; ++ch)
+        data_out[ch + t * outputChannels] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
 }
 
@@ -85,18 +86,16 @@ void Convolution::processSingleSampleConditional(const float * data_in, const fl
 {
     auto fifo = memory.begin();
     for (int ch = 0; ch < inputChannels; ++ch)
-        (*(fifo + pos))[ch] = data_in[idx_channel_major(ch, i, inputChannels)];
+        fifo[pos][ch] = data_in[idx_channel_major(ch, i, inputChannels)];
 
     for (int ch = 0; ch < outputChannels; ++ch)
         outVec(ch) = conditioning[idx_channel_major(ch, i, outputChannels)];
 
-    std::vector<Eigen::MatrixXf>::iterator it;
     int j = 0;
-    for (auto it = kernel.begin(); it != kernel.end(); it++)
+    for (auto & k : kernel)
     {
-        int readPos = mod((pos - j * dilation), getFilterOrder());
-        outVec = outVec + *(fifo + readPos) * (*it);
-        j += 1;
+        const int readPos = mod((pos - dilation * j++), getFilterOrder());
+        outVec = outVec + fifo[readPos] * k;
     }
     outVec = outVec + bias;
     for (int ch = 0; ch < outputChannels; ++ch)
@@ -133,10 +132,12 @@ void Convolution::setKernel(const torch::Tensor &W)
                 kernel[filterWidth - 1 - k](row, col) = W_a[col][row][k];
 }
 
- void Convolution::setBias(const torch::Tensor &b)
- {
+void Convolution::setBias(const torch::Tensor &b)
+{
     auto b_a = b.accessor<float, 1>(); // (out_channels,)
     assert(b.size(0) == outputChannels);
     for (size_t i = 0; i < outputChannels; ++i)
-        bias(i) = b_a[i];
- }
+    bias(i) = b_a[i];
+}
+
+} // glotnet

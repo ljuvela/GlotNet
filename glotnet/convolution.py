@@ -9,8 +9,8 @@ class ConvolutionFunction(torch.autograd.Function):
 
         Args:
             input: tensor of shape (batch, channels, time) (default) or (batch, time, channels)
-            weight: Conv1d weight tensor, shape = (ch_out,)
-            bias: Conv1d bias tensor, shape = (ch_out, ch_in, kernel_size)
+            weight: Conv1d weight tensor, shape = (ch_out, ch_in, kernel_size)
+            bias: Conv1d bias tensor, shape = (ch_out,)
             dilation: int type dilation factor
             cond_input: (default = None)
             time_major: 
