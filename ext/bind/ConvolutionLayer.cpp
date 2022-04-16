@@ -22,14 +22,18 @@ std::vector<at::Tensor> forward(
     )
 {
     int64_t batch_size = input.size(0);
-    int64_t timesteps = input.size(2);
+    int64_t timesteps = input.size(1);
 
     int64_t filter_width = weight_conv.size(2);
     int64_t input_channels = weight_conv.size(1);
 
     int64_t output_channels = weight_out.size(1);
 
-    auto layer = ConvolutionLayer(input_channels, output_channels, filter_width, dilation, use_output_transform, activationName);
+    // input channels
+    assert(input.size(2) == weight_conv.size(1));
+
+    auto layer = ConvolutionLayer(input_channels, output_channels, filter_width,
+                                  dilation, use_output_transform, activationName);
     layer.setConvolutionWeight(weight_conv);
     layer.setConvolutionBias(bias_conv);
     if (use_output_transform)
@@ -38,8 +42,8 @@ std::vector<at::Tensor> forward(
         layer.setOutputBias(bias_out);
     }
 
-    auto output = torch::zeros({batch_size, output_channels, timesteps});
-    auto skip = torch::zeros({batch_size, output_channels, timesteps});
+    auto output = torch::zeros({batch_size, timesteps, output_channels});
+    auto skip = torch::zeros({batch_size, timesteps, output_channels});
     float * data_in = input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
     float * data_skip = skip.data_ptr<float>();
@@ -68,14 +72,17 @@ std::vector<at::Tensor> cond_forward(
     )
 {
     int64_t batch_size = input.size(0);
-    int64_t timesteps = input.size(2);
+    int64_t timesteps = input.size(1);
 
     int64_t filter_width = weight_conv.size(2);
     int64_t input_channels = weight_conv.size(1);
-
     int64_t output_channels = weight_out.size(1);
 
-    auto layer = ConvolutionLayer(input_channels, output_channels, filter_width, dilation, use_output_transform, activationName);
+    // input channels
+    assert(input.size(2) == weight_conv.size(1));
+
+    auto layer = ConvolutionLayer(input_channels, output_channels, filter_width,
+                                  dilation, use_output_transform, activationName);
     layer.setConvolutionWeight(weight_conv);
     layer.setConvolutionBias(bias_conv);
     if (use_output_transform)
@@ -84,8 +91,8 @@ std::vector<at::Tensor> cond_forward(
         layer.setOutputBias(bias_out);
     }
 
-    auto output = torch::zeros({batch_size, output_channels, timesteps});
-    auto skip = torch::zeros({batch_size, output_channels, timesteps});
+    auto output = torch::zeros({batch_size, timesteps, output_channels});
+    auto skip = torch::zeros({batch_size, timesteps, output_channels});
     float * data_in = input.data_ptr<float>();
     float * data_cond = cond_input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
@@ -117,7 +124,6 @@ std::vector<torch::Tensor> backward(
     auto d_input = 0.0 * input;
     auto d_weight = 0.0 * weight;
     auto d_bias = 0.0 * bias;
-
 
     return {d_input, d_weight, d_bias};
 }

@@ -1,11 +1,43 @@
 import torch
+from typing import Tuple
 import glotnet.cpp_extensions as ext
 from glotnet.convolution import Convolution
 
 class ConvolutionLayerFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, weight_conv, bias_conv, weight_out, bias_out, dilation, activation, use_output_transform):
+    def forward(ctx, input: torch.Tensor, weight_conv: torch.Tensor, bias_conv: torch.Tensor,
+                weight_out: torch.Tensor, bias_out: torch.Tensor,
+                dilation: int, activation: str, use_output_transform: bool,
+                cond_input: torch.Tensor = None, time_major: bool = True
+                ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Convolution Layer forward
+
+        Args:
+            input: tensor of shape (batch, channels, time) (default) or (batch, time, channels)
+            weight_conv: Conv1d weight tensor
+                shape = (2 * ch_out, ch_in, kernel_size)
+            bias_conv: 
+                shape = (ch_out,)
+            dilation: dilation factor (int)
+            cond_input: (default = None)
+            time_major: 
+                if True: input.shape == (batch, channels, time), (PyTorch default)
+                else: input.shape == (batch, time, channels),
+
+        Returns:
+            output: layer output, shape = (batch, ch_out, timesteps)
+            skip: skip output, shape = (batch, ch_out, timesteps)
+
+            if use_output_transform == False 
+                'output' and 'skip' are the same variable
+        """
+        ctx.time_major = time_major
+        if ctx.time_major:
+            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            if cond_input is not None:
+                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+                cond_input = cond_input.contiguous()
 
         input = input.contiguous()
         ctx.save_for_backward(input, weight_conv, bias_conv,
@@ -13,9 +45,18 @@ class ConvolutionLayerFunction(torch.autograd.Function):
                               torch.tensor(dilation))
         
         training = False
-        output, skip = ext.convolution_layer_forward(
-            input, weight_conv, bias_conv, weight_out, bias_out,
-            training, dilation, use_output_transform, activation)
+        if cond_input is None:
+            output, skip = ext.convolution_layer_forward(
+                input, weight_conv, bias_conv, weight_out, bias_out,
+                training, dilation, use_output_transform, activation)
+        else:
+            output, skip = ext.convolution_layer_cond_forward(
+                input, cond_input, weight_conv, bias_conv, weight_out, bias_out,
+                training, dilation, use_output_transform, activation)
+        
+        if ctx.time_major:
+            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
+            skip = skip.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
         return output, skip
 
     @staticmethod
@@ -116,14 +157,10 @@ class ConvolutionLayer(torch.nn.Module):
             c = None
 
         if sequential:
-            if c is None:
-                output, skip = ConvolutionLayerFunction.apply(
+            output, skip = ConvolutionLayerFunction.apply(
                 input, self.conv.weight, self.conv.bias,
-                self.out.weight, self.out.bias, self.dilation, self.activation, self.use_output_transform)
-            else:
-                output, skip = ConvolutionLayerCondFunction.apply(
-                input, c, self.conv.weight, self.conv.bias,
-                self.out.weight, self.out.bias, self.dilation, self.activation, self.use_output_transform)
+                self.out.weight, self.out.bias, self.dilation, self.activation,
+                 self.use_output_transform, c)
             return output, skip
         else:
             x = self.conv(input, cond_input=c)
@@ -138,6 +175,4 @@ class ConvolutionLayer(torch.nn.Module):
             else:
                 output = x
             return output, skip
-
-
 
