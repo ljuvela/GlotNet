@@ -3,14 +3,14 @@
 namespace glotnet
 {
 
-Convolution::Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation) :
-    bias(outputChannels),
-    outVec(outputChannels),
+Convolution::Convolution(size_t input_channels, size_t output_channels, int filter_width, int dilation) :
+    bias(output_channels),
+    outVec(output_channels),
     pos(0),
     dilation(dilation),
-    inputChannels(inputChannels),
-    outputChannels(outputChannels),
-    filterWidth(filterWidth)
+    input_channels(input_channels),
+    output_channels(output_channels),
+    filter_width(filter_width)
 {
     resetFifo();
     resetKernel();
@@ -19,14 +19,14 @@ Convolution::Convolution(size_t inputChannels, size_t outputChannels, int filter
 void Convolution::resetKernel()
 {
     kernel.clear();
-    kernel.reserve(filterWidth);
-    for (int i = 0; i < filterWidth; ++i)
+    kernel.reserve(filter_width);
+    for (int i = 0; i < filter_width; ++i)
     {
-        Eigen::MatrixXf x(inputChannels, outputChannels);
+        Eigen::MatrixXf x(input_channels, output_channels);
         x.setZero();
         kernel.push_back(x);
     }
-    bias = Eigen::RowVectorXf(outputChannels);
+    bias = Eigen::RowVectorXf(output_channels);
     bias.setZero();
 }
 
@@ -36,7 +36,7 @@ void Convolution::resetFifo()
     memory.reserve(getFilterOrder());
     for (int i = 0; i < getFilterOrder(); ++i)
     {
-        Eigen::RowVectorXf x(inputChannels);
+        Eigen::RowVectorXf x(input_channels);
         x.setZero();
         memory.push_back(x);
     }
@@ -45,7 +45,7 @@ void Convolution::resetFifo()
 
 inline int Convolution::getFilterOrder() const
 {
-    return (filterWidth - 1) * dilation + 1;
+    return (filter_width - 1) * dilation + 1;
 }
 
 void Convolution::process(const float *data_in, float *data_out, int64_t total_samples)
@@ -59,8 +59,8 @@ void Convolution::process(const float *data_in, float *data_out, int64_t total_s
 void Convolution::processSingleSample(const float *data_in, float *data_out, int t, int total_samples)
 {
     auto fifo = memory.begin();
-    for (size_t ch = 0; ch < inputChannels; ++ch)
-        fifo[pos][ch] = data_in[ch + t * inputChannels];
+    for (size_t ch = 0; ch < input_channels; ++ch)
+        fifo[pos][ch] = data_in[ch + t * input_channels];
     outVec.setZero();
     int j = 0;
     for (auto & k : kernel)
@@ -69,8 +69,8 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
         outVec = outVec + fifo[readPos] * k;
     }
     outVec = outVec + bias;
-    for (size_t ch = 0; ch < outputChannels; ++ch)
-        data_out[ch + t * outputChannels] = outVec[ch];
+    for (size_t ch = 0; ch < output_channels; ++ch)
+        data_out[ch + t * output_channels] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
 }
 
@@ -85,11 +85,11 @@ void Convolution::processConditional(const float *data_in, const float *conditio
 void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int total_samples)
 {
     auto fifo = memory.begin();
-    for (int ch = 0; ch < inputChannels; ++ch)
-        fifo[pos][ch] = data_in[idx_channel_major(ch, i, inputChannels)];
+    for (int ch = 0; ch < input_channels; ++ch)
+        fifo[pos][ch] = data_in[idx_channel_major(ch, i, input_channels)];
 
-    for (int ch = 0; ch < outputChannels; ++ch)
-        outVec(ch) = conditioning[idx_channel_major(ch, i, outputChannels)];
+    for (int ch = 0; ch < output_channels; ++ch)
+        outVec(ch) = conditioning[idx_channel_major(ch, i, output_channels)];
 
     int j = 0;
     for (auto & k : kernel)
@@ -98,8 +98,8 @@ void Convolution::processSingleSampleConditional(const float * data_in, const fl
         outVec = outVec + fifo[readPos] * k;
     }
     outVec = outVec + bias;
-    for (int ch = 0; ch < outputChannels; ++ch)
-        data_out[idx_channel_major(ch, i, outputChannels)] = outVec[ch];
+    for (int ch = 0; ch < output_channels; ++ch)
+        data_out[idx_channel_major(ch, i, output_channels)] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());
 }
 
@@ -122,21 +122,21 @@ inline int64_t Convolution::idx_channel_major(int64_t c, int64_t t, int64_t numC
 void Convolution::setKernel(const torch::Tensor &W)
 {
     auto W_a = W.accessor<float, 3>(); // (out_channels, in_channels, kernel_size)
-    assert(inputChannels == W.size(1));
-    assert(outputChannels == W.size(0));
-    assert(filterWidth == W.size(2));
+    assert(input_channels == W.size(1));
+    assert(output_channels == W.size(0));
+    assert(filter_width == W.size(2));
 
-    for (size_t k = 0; k < filterWidth; ++k)
-        for (size_t row = 0; row < inputChannels; ++row)
-            for (size_t col = 0; col < outputChannels; ++col)
-                kernel[filterWidth - 1 - k](row, col) = W_a[col][row][k];
+    for (size_t k = 0; k < filter_width; ++k)
+        for (size_t row = 0; row < input_channels; ++row)
+            for (size_t col = 0; col < output_channels; ++col)
+                kernel[filter_width - 1 - k](row, col) = W_a[col][row][k];
 }
 
 void Convolution::setBias(const torch::Tensor &b)
 {
     auto b_a = b.accessor<float, 1>(); // (out_channels,)
-    assert(b.size(0) == outputChannels);
-    for (size_t i = 0; i < outputChannels; ++i)
+    assert(b.size(0) == output_channels);
+    for (size_t i = 0; i < output_channels; ++i)
     bias(i) = b_a[i];
 }
 

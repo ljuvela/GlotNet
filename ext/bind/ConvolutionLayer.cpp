@@ -10,15 +10,15 @@ namespace convolution_layer
 {
 
 std::vector<at::Tensor> forward(
-    torch::Tensor input,
-    torch::Tensor weight_conv,
-    torch::Tensor bias_conv,
-    torch::Tensor weight_out,
-    torch::Tensor bias_out,
+    torch::Tensor &input,
+    torch::Tensor &weight_conv,
+    torch::Tensor &bias_conv,
+    torch::Tensor &weight_out,
+    torch::Tensor &bias_out,
     bool training=true,
     int dilation=1,
     bool use_output_transform=true,
-    std::string activationName="gated"
+    std::string activation_name="gated"
     )
 {
     int64_t batch_size = input.size(0);
@@ -32,8 +32,9 @@ std::vector<at::Tensor> forward(
     // input channels
     assert(input.size(2) == weight_conv.size(1));
 
-    auto layer = ConvolutionLayer(input_channels, output_channels, filter_width,
-                                  dilation, use_output_transform, activationName);
+    const int skip_channels = 0;
+    auto layer = ConvolutionLayer(input_channels, output_channels, skip_channels,
+                                  filter_width, dilation, use_output_transform, activation_name);
     layer.setConvolutionWeight(weight_conv);
     layer.setConvolutionBias(bias_conv);
     if (use_output_transform)
@@ -43,7 +44,58 @@ std::vector<at::Tensor> forward(
     }
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
-    auto skip = torch::zeros({batch_size, timesteps, output_channels});
+    float * data_in = input.data_ptr<float>();
+    float * data_out = output.data_ptr<float>();
+    for (long long b = 0; b < batch_size; b++)
+    {
+        layer.reset();
+        layer.process(&(data_in[b * input_channels * timesteps]),
+                      &(data_out[b * output_channels * timesteps]),
+                      timesteps);
+    }
+    return {output};
+}
+
+std::vector<at::Tensor> skip_forward(
+    torch::Tensor &input,
+    torch::Tensor &weight_conv,
+    torch::Tensor &bias_conv,
+    torch::Tensor &weight_out,
+    torch::Tensor &bias_out,
+    torch::Tensor &weight_skip,
+    torch::Tensor &bias_skip,
+    bool training=true,
+    int dilation=1,
+    bool use_output_transform=true,
+    std::string activation_name="gated"
+    )
+{
+    int64_t batch_size = input.size(0);
+    int64_t timesteps = input.size(1);
+
+    int64_t filter_width = weight_conv.size(2);
+    int64_t input_channels = weight_conv.size(1);
+
+    int64_t output_channels = weight_out.size(0);
+    int64_t skip_channels = weight_skip.size(0);
+
+    // input channels
+    assert(input.size(2) == weight_conv.size(1));
+
+    auto layer = ConvolutionLayer(input_channels, output_channels, skip_channels,
+                                  filter_width, dilation, use_output_transform, activation_name);
+    layer.setConvolutionWeight(weight_conv);
+    layer.setConvolutionBias(bias_conv);
+    if (use_output_transform)
+    {
+        layer.setOutputWeight(weight_out);
+        layer.setOutputBias(bias_out);
+    }
+    layer.setSkipWeight(weight_skip);
+    layer.setSkipBias(bias_skip);
+
+    auto output = torch::zeros({batch_size, timesteps, output_channels});
+    auto skip = torch::zeros({batch_size, timesteps, skip_channels});
     float * data_in = input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
     float * data_skip = skip.data_ptr<float>();
@@ -52,23 +104,25 @@ std::vector<at::Tensor> forward(
         layer.reset();
         layer.process(&(data_in[b * input_channels * timesteps]),
                       &(data_out[b * output_channels * timesteps]),
-                      &(data_skip[b * output_channels * timesteps]),
+                      &(data_skip[b * skip_channels * timesteps]),
                       timesteps); // time first (rightmost)
     }
     return {output, skip};
 }
 
-std::vector<at::Tensor> cond_forward(
-    torch::Tensor input,
-    torch::Tensor cond_input,
-    torch::Tensor weight_conv,
-    torch::Tensor bias_conv,
-    torch::Tensor weight_out,
-    torch::Tensor bias_out,
+std::vector<at::Tensor> skip_cond_forward(
+    torch::Tensor &input,
+    torch::Tensor &cond_input,
+    torch::Tensor &weight_conv,
+    torch::Tensor &bias_conv,
+    torch::Tensor &weight_out,
+    torch::Tensor &bias_out,
+    torch::Tensor &weight_skip,
+    torch::Tensor &bias_skip,
     bool training=true,
     int dilation=1,
     bool use_output_transform=true,
-    std::string activationName="gated"
+    std::string activation_name="gated"
     )
 {
     int64_t batch_size = input.size(0);
@@ -76,13 +130,14 @@ std::vector<at::Tensor> cond_forward(
 
     int64_t filter_width = weight_conv.size(2);
     int64_t input_channels = weight_conv.size(1);
-    int64_t output_channels = weight_out.size(1);
+    int64_t output_channels = weight_out.size(0);
+    int64_t skip_channels = weight_skip.size(0);
 
     // input channels
     assert(input.size(2) == weight_conv.size(1));
 
-    auto layer = ConvolutionLayer(input_channels, output_channels, filter_width,
-                                  dilation, use_output_transform, activationName);
+    auto layer = ConvolutionLayer(input_channels, output_channels, skip_channels, filter_width,
+                                  dilation, use_output_transform, activation_name);
     layer.setConvolutionWeight(weight_conv);
     layer.setConvolutionBias(bias_conv);
     if (use_output_transform)
@@ -90,9 +145,11 @@ std::vector<at::Tensor> cond_forward(
         layer.setOutputWeight(weight_out);
         layer.setOutputBias(bias_out);
     }
+    layer.setSkipWeight(weight_skip);
+    layer.setSkipBias(bias_skip);
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
-    auto skip = torch::zeros({batch_size, timesteps, output_channels});
+    auto skip = torch::zeros({batch_size, timesteps, skip_channels});
     float * data_in = input.data_ptr<float>();
     float * data_cond = cond_input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
@@ -103,7 +160,7 @@ std::vector<at::Tensor> cond_forward(
         layer.processConditional(&(data_in[b * input_channels * timesteps]),
                                  &(data_cond[b * input_channels * timesteps]),
                                  &(data_out[b * output_channels * timesteps]),
-                                 &(data_skip[b * output_channels * timesteps]),
+                                 &(data_skip[b * skip_channels * timesteps]),
                                  timesteps); // time first (rightmost)
     }
     return {output, skip};
@@ -134,6 +191,6 @@ std::vector<torch::Tensor> backward(
 void init_convolution_layer(py::module &m)
 {
     m.def("convolution_layer_forward", &(glotnet::convolution_layer::forward), "ConvolutionLayer forward");
-    m.def("convolution_layer_cond_forward", &(glotnet::convolution_layer::cond_forward), "ConvolutionLayer conditional forward");
-    m.def("convolution_layer_backward", &(glotnet::convolution_layer::backward), "ConvolutionLayer backward");
+    m.def("convolution_layer_skip_forward", &(glotnet::convolution_layer::skip_forward), "ConvolutionLayer skip forward");
+    m.def("convolution_layer_skip_cond_forward", &(glotnet::convolution_layer::skip_cond_forward), "ConvolutionLayer conditional forward");
 }

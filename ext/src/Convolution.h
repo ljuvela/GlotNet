@@ -1,13 +1,3 @@
-/*
-  ==============================================================================
-
-    Convolution.h
-    Created: 3 Jan 2019 10:58:34am
-    Author:  Damskägg Eero-Pekka
-
-  ==============================================================================
-*/
-
 #pragma once
 
 #include <Eigen/Core>
@@ -16,16 +6,15 @@
 
 namespace glotnet
 {
-
 class Convolution
 {
 public:
-    Convolution(size_t inputChannels, size_t outputChannels, int filterWidth, int dilation = 1);
+    Convolution(size_t input_channels, size_t output_channels, int filter_width, int dilation = 1);
     inline int getFilterOrder() const;
     void process(const float *data_in, float *data_out, int64_t total_samples);
     void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples);
-    size_t getNumInputChannels() { return inputChannels; }
-    size_t getNumOutputChannels() { return outputChannels; }
+    size_t getNumInputChannels() { return input_channels; }
+    size_t getNumOutputChannels() { return output_channels; }
     void setKernel(const torch::Tensor &W);
     void setBias(const torch::Tensor &b);
     void resetFifo();
@@ -41,9 +30,9 @@ private:
     Eigen::RowVectorXf outVec;
     int pos;
     const int dilation;
-    const size_t inputChannels;
-    const size_t outputChannels;
-    const int filterWidth;
+    const size_t input_channels;
+    const size_t output_channels;
+    const int filter_width;
     void processSingleSample(const float *data_in, float *data_out, int i, int total_samples);
     void processSingleSampleConditional(const float *data_in, const float *conditioning, float *data_out, int i, int total_samples);
     int mod(int a, int b);
