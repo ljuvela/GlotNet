@@ -13,7 +13,7 @@ std::vector<at::Tensor> forward(
     torch::Tensor weight,
     torch::Tensor bias,
     bool training=true,
-    int dilation=1)
+    size_t dilation=1)
 {
     int64_t batch_size = input.size(0);
     int64_t timesteps = input.size(1);
@@ -53,7 +53,7 @@ std::vector<at::Tensor> forward_cond(
     torch::Tensor weight,
     torch::Tensor bias,
     bool training=true,
-    int dilation=1)
+    size_t dilation=1)
 {
     int64_t batch_size = input.size(0);
     int64_t timesteps = input.size(1);

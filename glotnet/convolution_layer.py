@@ -9,6 +9,7 @@ class ConvolutionLayerFunction(torch.autograd.Function):
     def forward(ctx, input: torch.Tensor, weight_conv: torch.Tensor, bias_conv: torch.Tensor,
                 weight_out: torch.Tensor, bias_out: torch.Tensor,
                 weight_skip: torch.Tensor, bias_skip: torch.Tensor,
+                weight_cond: torch.Tensor, bias_cond: torch.Tensor,
                 dilation: int, activation: str, use_output_transform: bool,
                 cond_input: torch.Tensor = None, time_major: bool = True
                 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -41,8 +42,8 @@ class ConvolutionLayerFunction(torch.autograd.Function):
                 cond_input = cond_input.contiguous()
 
         input = input.contiguous()
-        ctx.save_for_backward(input, weight_conv, bias_conv,
-                              weight_out, bias_out)
+        # ctx.save_for_backward(input, weight_conv, bias_conv,
+        #                       weight_out, bias_out)
         ctx.dilation = dilation
 
         use_skips = weight_skip is not None
@@ -60,7 +61,8 @@ class ConvolutionLayerFunction(torch.autograd.Function):
         else:
             if use_skips:
                 output, skip = ext.convolution_layer_skip_cond_forward(
-                    input, cond_input, weight_conv, bias_conv, weight_out, bias_out, weight_skip, bias_skip,
+                    input, cond_input, weight_conv, bias_conv, weight_out, bias_out,
+                    weight_skip, bias_skip, weight_cond, bias_cond,
                     training, dilation, use_output_transform, activation)
             else:
                 pass
@@ -127,7 +129,7 @@ class ConvolutionLayer(torch.nn.Module):
                 training=training)
         if self.use_conditioning:
             self.cond_1x1 = torch.nn.Conv1d(cond_channels, self.channel_mul * residual_channels,
-                kernel_size=1, bias=False, device=device, dtype=dtype)
+                kernel_size=1, bias=True, device=device, dtype=dtype)
 
     def _parse_activation(self, activation):
         activations = {
@@ -139,6 +141,29 @@ class ConvolutionLayer(torch.nn.Module):
         if channel_mul is None:
             raise NotImplementedError
         return activation_fun, channel_mul
+
+    def _forward_native(self, input, cond_input):
+        c = self.cond_1x1(cond_input) if self.use_conditioning else None
+        x = self.conv(input, cond_input=c)
+        if self.channel_mul == 2:
+            R = self.residual_channels
+            x = self.activation_fun[0](x[:, :R, :]) * self.activation_fun[1](x[:, R:, :])
+        else:
+            x = self.activation_fun(x)
+        
+        if self.skip_channels is not None:
+            skip = self.skip(x)
+        
+        if self.use_output_transform:
+            output = self.out(x)
+        else:
+            output = x
+
+        if self.skip_channels is None:
+            return output 
+        else:
+            return output, skip
+
 
     def forward(self, input, cond_input=None, sequential=False):
         """ 
@@ -157,46 +182,18 @@ class ConvolutionLayer(torch.nn.Module):
         if cond_input is not None and not self.use_conditioning:
             raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
 
-        if self.use_conditioning:
-            c = self.cond_1x1(cond_input)
-        else:
-            c = None
-
         if sequential:
-            if self.skip_channels is not None:
-                output, skip = ConvolutionLayerFunction.apply(
+            skip_weight = None if self.skip_channels is None else self.skip.weight
+            skip_bias = None if self.skip_channels is None else self.skip.bias
+            cond_weight = self.cond_1x1.weight if self.use_conditioning else None
+            cond_bias = self.cond_1x1.bias if self.use_conditioning else None
+            return ConvolutionLayerFunction.apply(
                     input, self.conv.weight, self.conv.bias,
                     self.out.weight, self.out.bias,
-                    self.skip.weight, self.skip.bias,
+                    skip_weight, skip_bias,
+                    cond_weight, cond_bias,
                     self.dilation, self.activation,
-                    self.use_output_transform, c)
-                return output, skip
-            else:
-                output = ConvolutionLayerFunction.apply(
-                    input, self.conv.weight, self.conv.bias,
-                    self.out.weight, self.out.bias,
-                    None, None,
-                    self.dilation, self.activation,
-                    self.use_output_transform, c)
-                return output
+                    self.use_output_transform, cond_input)
         else:
-            x = self.conv(input, cond_input=c)
-            if self.channel_mul == 2:
-                R = self.residual_channels
-                x = self.activation_fun[0](x[:, :R, :]) * self.activation_fun[1](x[:, R:, :])
-            else:
-                x = self.activation_fun(x)
-            
-            if self.skip_channels is not None:
-                skip = self.skip(x)
-            
-            if self.use_output_transform:
-                output = self.out(x)
-            else:
-                output = x
-
-            if self.skip_channels is None:
-                return output 
-            else:
-                return output, skip
+            return self._forward_native(input=input, cond_input=cond_input)
 

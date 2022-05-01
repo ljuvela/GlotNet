@@ -61,14 +61,13 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
     auto fifo = memory.begin();
     for (size_t ch = 0; ch < input_channels; ++ch)
         fifo[pos][ch] = data_in[ch + t * input_channels];
-    outVec.setZero();
+    outVec = bias;
     int j = 0;
     for (auto & k : kernel)
     {
         const int readPos = mod((pos - dilation * j++), getFilterOrder());
         outVec = outVec + fifo[readPos] * k;
     }
-    outVec = outVec + bias;
     for (size_t ch = 0; ch < output_channels; ++ch)
         data_out[ch + t * output_channels] = outVec[ch];
     pos = mod(pos + 1, getFilterOrder());

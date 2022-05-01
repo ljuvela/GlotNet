@@ -4,18 +4,19 @@ ConvolutionLayer::ConvolutionLayer(
     size_t input_channels,
     size_t output_channels,
     size_t skip_channels,
-    int filter_width,
-    int dilation,
+    size_t cond_channels,
+    size_t filter_width,
+    size_t dilation,
     bool use_output_transform,
-    std::string activation_name) : conv(input_channels,
-                                       Activations::isGated(activation_name) ? output_channels * 2 : output_channels,
-                                       filter_width,
-                                       dilation),
-                                  out1x1(output_channels, output_channels, 1, 1),
-                                  skip1x1(output_channels, skip_channels, 1, 1),
-                                  use_output_transform(use_output_transform),
-                                  use_gating(Activations::isGated(activation_name)),
-                                  activation(Activations::getActivationFuncArray(activation_name))
+    std::string activation_name)
+    : conv_out_channels(Activations::isGated(activation_name) ? output_channels * 2 : output_channels),
+      conv(input_channels, conv_out_channels, filter_width, dilation),
+      out1x1(output_channels, output_channels, 1, 1),
+      skip1x1(output_channels, skip_channels, 1, 1),
+      cond1x1(cond_channels, conv_out_channels, 1, 1),
+      use_output_transform(use_output_transform),
+      use_gating(Activations::isGated(activation_name)),
+      activation(Activations::getActivationFuncArray(activation_name))
 {
 }
 
@@ -23,7 +24,7 @@ void ConvolutionLayer::process(const float *data_in, float *data_out, int64_t ti
 {
     const size_t conv_out_ch = conv.getNumOutputChannels();
     const size_t out_ch = use_gating ? conv_out_ch / 2 : conv_out_ch;
-    this->prepare(conv_out_ch, timesteps);
+    this->prepare(timesteps);
     conv.process(data_in, memory.data(), timesteps);
     activation(memory.data(), timesteps, conv_out_ch);
     if (use_output_transform)
@@ -38,7 +39,7 @@ void ConvolutionLayer::process(
 {
     const size_t conv_out_ch = conv.getNumOutputChannels();
     const size_t out_ch = use_gating ? conv_out_ch / 2 : conv_out_ch;
-    this->prepare(conv_out_ch, timesteps); // TODO: take prepare call out of process loop
+    this->prepare(timesteps); // TODO: take prepare call out of process loop
     conv.process(data_in, memory.data(), timesteps);
     activation(memory.data(), timesteps, conv_out_ch);
     copyData(memory.data(), conv_out_ch, data_out, out_ch, timesteps);
@@ -54,8 +55,9 @@ void ConvolutionLayer::processConditional(
 {
     const size_t conv_out_ch = conv.getNumOutputChannels();
     const size_t out_ch = use_gating ? conv_out_ch / 2 : conv_out_ch;
-    this->prepare(conv_out_ch, timesteps); // TODO: take prepare call out of process loop
-    conv.processConditional(data_in, conditioning, memory.data(), timesteps);
+    this->prepare(timesteps); // TODO: take prepare call out of process loop
+    cond1x1.process(conditioning, memory_cond.data(), timesteps);
+    conv.processConditional(data_in, memory_cond.data(), memory.data(), timesteps);
     activation(memory.data(), timesteps, conv_out_ch);
     copyData(memory.data(), conv_out_ch, data_out, out_ch, timesteps);
     skip1x1.process(data_out, skip_data, timesteps);
@@ -100,13 +102,25 @@ void ConvolutionLayer::setSkipBias(const torch::Tensor &b)
     skip1x1.setBias(b);
 }
 
+void ConvolutionLayer::setCondWeight(const torch::Tensor &W)
+{
+    cond1x1.setKernel(W);
+}
+
+void ConvolutionLayer::setCondBias(const torch::Tensor &b)
+{
+    cond1x1.setBias(b);
+}
+
 void ConvolutionLayer::reset()
 {
     conv.resetFifo();
     out1x1.resetFifo();
 }
 
-void ConvolutionLayer::prepare(size_t num_channels, size_t buffer_size)
+void ConvolutionLayer::prepare(size_t timesteps)
 {
-    memory.resize(buffer_size * num_channels);
+    const size_t conv_out_ch = conv.getNumOutputChannels();
+    memory.resize(timesteps * conv_out_ch);
+    memory_cond.resize(timesteps * conv_out_ch);
 }
