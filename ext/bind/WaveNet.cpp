@@ -10,32 +10,37 @@ namespace wavenet
 {
 
 std::vector<at::Tensor> forward(
-    torch::Tensor input,
-    std::vector<torch::Tensor> stack_weights_conv,
-    std::vector<torch::Tensor> stack_biases_conv,
-    std::vector<torch::Tensor> stack_weights_out,
-    std::vector<torch::Tensor> stack_biases_out,
-    torch::Tensor input_weight,
-    torch::Tensor input_bias,
-    std::vector<torch::Tensor> output_weights,
-    std::vector<torch::Tensor> output_biases,
-    std::vector<int> dilations,
+    torch::Tensor &input,
+    std::vector<torch::Tensor> &stack_weights_conv,
+    std::vector<torch::Tensor> &stack_biases_conv,
+    std::vector<torch::Tensor> &stack_weights_out,
+    std::vector<torch::Tensor> &stack_biases_out,
+    std::vector<torch::Tensor> &stack_weights_skip,
+    std::vector<torch::Tensor> &stack_biases_skip,
+    torch::Tensor &input_weight,
+    torch::Tensor &input_bias,
+    std::vector<torch::Tensor> &output_weights,
+    std::vector<torch::Tensor> &output_biases,
+    std::vector<int> &dilations,
     bool training=false,
     bool use_residual=true,
     std::string activation="gated"
     )
 {
-    int64_t batch_size = input.size(0);
-    int64_t channels = input.size(1);
-    int64_t timesteps = input.size(2);
+    const int64_t batch_size = input.size(0);
+    const int64_t channels = input.size(1);
+    const int64_t timesteps = input.size(2);
 
-    int64_t filter_width = stack_weights_conv[0].size(2);
-    int64_t residual_channels = stack_weights_conv[0].size(1);
-    int64_t input_channels = input_weight.size(1);
-    int64_t output_channels = output_weights.back().size(0); 
+    const int64_t filter_width = stack_weights_conv[0].size(2);
+    const int64_t residual_channels = stack_weights_conv[0].size(1);
+    const int64_t skip_channels = stack_weights_skip[0].size(1);
+    const int64_t input_channels = input_weight.size(1);
+    const int64_t output_channels = output_weights.back().size(0); 
     
+    const size_t cond_channels = 0;
+
     // Instantiate model
-    auto wavenet = WaveNet(input_channels, output_channels, residual_channels,
+    auto wavenet = WaveNet(input_channels, output_channels, residual_channels, skip_channels, cond_channels,
                            filter_width, activation, dilations);
 
     // Set buffer size to match timesteps
@@ -72,33 +77,39 @@ std::vector<at::Tensor> forward(
 }
 
 std::vector<at::Tensor> cond_forward(
-    torch::Tensor input,
-    torch::Tensor cond_input,
-    std::vector<torch::Tensor> stack_weights_conv,
-    std::vector<torch::Tensor> stack_biases_conv,
-    std::vector<torch::Tensor> stack_weights_out,
-    std::vector<torch::Tensor> stack_biases_out,
-    torch::Tensor input_weight,
-    torch::Tensor input_bias,
-    std::vector<torch::Tensor> output_weights,
-    std::vector<torch::Tensor> output_biases,
-    std::vector<int> dilations,
+    const torch::Tensor &input,
+    const torch::Tensor &cond_input,
+    const std::vector<torch::Tensor> &stack_weights_conv,
+    const std::vector<torch::Tensor> &stack_biases_conv,
+    const std::vector<torch::Tensor> &stack_weights_out,
+    const std::vector<torch::Tensor> &stack_biases_out,
+    const std::vector<torch::Tensor> &stack_weights_skip,
+    const std::vector<torch::Tensor> &stack_biases_skip,
+    const torch::Tensor &input_weight,
+    const torch::Tensor &input_bias,
+    const std::vector<torch::Tensor> &output_weights,
+    const std::vector<torch::Tensor> &output_biases,
+    const std::vector<int> &dilations,
     bool training=false,
     bool use_residual=true,
-    std::string activation="gated"
+    const std::string activation="gated"
     )
 {
-    int64_t batch_size = input.size(0);
-    int64_t channels = input.size(1);
-    int64_t timesteps = input.size(2);
+    const int64_t batch_size = input.size(0);
+    const int64_t channels = input.size(1);
+    const int64_t timesteps = input.size(2);
 
-    int64_t filter_width = stack_weights_conv[0].size(2);
-    int64_t residual_channels = stack_weights_conv[0].size(1);
-    int64_t input_channels = input_weight.size(1);
-    int64_t output_channels = output_weights.back().size(0); 
+    const int64_t filter_width = stack_weights_conv[0].size(2);
+    const int64_t residual_channels = stack_weights_conv[0].size(1);
+    const int64_t skip_channels = stack_weights_skip[0].size(1);
+    const int64_t input_channels = input_weight.size(1);
+    const int64_t output_channels = output_weights.back().size(0); 
+
+    const int64_t cond_channels = cond_input.size(1);
     
     // instantiate model
-    auto wavenet = WaveNet(input_channels, output_channels, residual_channels,
+    auto wavenet = WaveNet(input_channels, output_channels,
+                           residual_channels, skip_channels, cond_channels,
                            filter_width, activation, dilations);
 
     // Set buffer size to match timesteps
@@ -114,6 +125,7 @@ std::vector<at::Tensor> cond_forward(
         wavenet.setStackConvolutionBias(stack_biases_conv[i], i);
         wavenet.setStackOutputWeight(stack_weights_out[i], i);
         wavenet.setStackOutputBias(stack_biases_out[i], i);
+        // TODO set cond weight
     }
     for (size_t i = 0; i < output_weights.size(); i++)
     {
@@ -129,7 +141,7 @@ std::vector<at::Tensor> cond_forward(
     {
         wavenet.reset();
         wavenet.processConditional(&(data_in[b * input_channels * timesteps]),
-                                   &(data_cond[b * channels * num_layers * timesteps]),
+                                   &(data_cond[b * cond_channels * timesteps]),
                                    &(data_out[b * output_channels * timesteps]),
                                    timesteps); // time first (rightmost)
     }

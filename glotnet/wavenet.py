@@ -78,7 +78,7 @@ class WaveNet(torch.nn.Module):
                  activation="gated",
                  use_residual=True,
                  use_1x1_block=True,
-                 cond_channels=0,
+                 cond_channels=None,
                  ):
         super().__init__()
 

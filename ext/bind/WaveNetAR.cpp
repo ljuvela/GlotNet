@@ -15,6 +15,8 @@ std::vector<at::Tensor> forward(
     std::vector<torch::Tensor> stack_biases_conv,
     std::vector<torch::Tensor> stack_weights_out,
     std::vector<torch::Tensor> stack_biases_out,
+    std::vector<torch::Tensor> stack_weights_skip,
+    std::vector<torch::Tensor> stack_biases_skip,
     torch::Tensor input_weight,
     torch::Tensor input_bias,
     std::vector<torch::Tensor> output_weights,
@@ -29,12 +31,15 @@ std::vector<at::Tensor> forward(
 
     int64_t filter_width = stack_weights_conv[0].size(2);
     int64_t residual_channels = stack_weights_conv[0].size(1);
+    int64_t skip_channels = stack_weights_skip[0].size(1);
     int64_t input_channels = input_weight.size(1);
     int64_t output_channels = output_weights.back().size(0); 
+    int64_t cond_channels = 0;
     
     // instantiate model
-    auto wavenet = WaveNetAR(input_channels, output_channels, residual_channels,
-                           filter_width, activation, dilations);
+    auto wavenet = WaveNetAR(input_channels, output_channels,
+                             residual_channels, skip_channels, cond_channels,
+                             filter_width, activation, dilations);
 
     // Set buffer size to match timesteps
     wavenet.prepare(timesteps);
@@ -68,33 +73,37 @@ std::vector<at::Tensor> forward(
 }
 
 std::vector<at::Tensor> cond_forward(
-    torch::Tensor cond_input,
-    std::vector<torch::Tensor> stack_weights_conv,
-    std::vector<torch::Tensor> stack_biases_conv,
-    std::vector<torch::Tensor> stack_weights_out,
-    std::vector<torch::Tensor> stack_biases_out,
-    torch::Tensor input_weight,
-    torch::Tensor input_bias,
-    std::vector<torch::Tensor> output_weights,
-    std::vector<torch::Tensor> output_biases,
-    std::vector<int> dilations,
+    torch::Tensor &cond_input,
+    std::vector<torch::Tensor> &stack_weights_conv,
+    std::vector<torch::Tensor> &stack_biases_conv,
+    std::vector<torch::Tensor> &stack_weights_out,
+    std::vector<torch::Tensor> &stack_biases_out,
+    std::vector<torch::Tensor> &stack_weights_skip,
+    std::vector<torch::Tensor> &stack_biases_skip,
+    torch::Tensor &input_weight,
+    torch::Tensor &input_bias,
+    std::vector<torch::Tensor> &output_weights,
+    std::vector<torch::Tensor> &output_biases,
+    std::vector<int> &dilations,
     bool training=false,
     bool use_residual=true,
     std::string activation="gated"
     )
 {
     int64_t batch_size = cond_input.size(0);
-    int64_t channels = cond_input.size(1);
+    int64_t cond_channels = cond_input.size(1);
     int64_t timesteps = cond_input.size(2);
 
     int64_t filter_width = stack_weights_conv[0].size(2);
     int64_t residual_channels = stack_weights_conv[0].size(1);
+    int64_t skip_channels = stack_weights_skip[0].size(1);
     int64_t input_channels = input_weight.size(1);
-    int64_t output_channels = output_weights.back().size(0); 
-    
+    int64_t output_channels = output_weights.back().size(0);
+
     // instantiate model
-    auto wavenet = WaveNetAR(input_channels, output_channels, residual_channels,
-                           filter_width, activation, dilations);
+    auto wavenet = WaveNetAR(input_channels, output_channels,
+                             residual_channels, skip_channels, cond_channels,
+                             filter_width, activation, dilations);
 
     // Set buffer size to match timesteps
     wavenet.prepare(timesteps);
@@ -122,7 +131,7 @@ std::vector<at::Tensor> cond_forward(
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.processConditional(&(data_cond[b * channels * num_layers * timesteps]),
+        wavenet.processConditional(&(data_cond[b * cond_channels * timesteps]),
                                    &(data_out[b * output_channels * timesteps]),
                                    timesteps); // time first (rightmost)
     }
