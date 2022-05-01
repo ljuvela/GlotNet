@@ -1,102 +1,102 @@
-/*
-  ==============================================================================
-
-    ConvolutionStack.cpp
-    Created: 8 Jan 2019 5:21:49pm
-    Author:  Damskägg Eero-Pekka
-
-  ==============================================================================
-*/
-
 #include "ConvolutionStack.h"
 
-ConvolutionStack::ConvolutionStack(int numChannels, int filterWidth, std::vector<int> dilations, std::string activation, bool residual) :
-    dilations(dilations),
-    residual(residual),
-    numChannels(numChannels),
-    filterWidth(filterWidth),
-    activation(activation)
+ConvolutionStack::ConvolutionStack(
+    size_t num_channels, size_t num_skip_channels, size_t num_cond_channels,
+    size_t filter_width, std::vector<int> dilations, std::string activation, bool residual)
+    : dilations(dilations),
+      num_layers(dilations.size()),
+      residual(residual),
+      num_channels(num_channels),
+      num_skip_channels(num_skip_channels),
+      num_cond_channels(num_cond_channels),
+      filter_width(filter_width),
+      activation(activation)
 {
     initLayers();
 }
 
 void ConvolutionStack::prepare(int buffer_size)
 {
-    samplesPerBlock = buffer_size;
-    residualData.resize(samplesPerBlock * numChannels);
+    samples_per_block = buffer_size;
+    residual_data.resize(samples_per_block * num_channels);
 }
 
 void ConvolutionStack::reset()
 {
     for (auto l : layers)
         l.reset();
-    std::fill(residualData.begin(), residualData.end(), 0.0f);
+    std::fill(residual_data.begin(), residual_data.end(), 0.0f);
 }
 
-void ConvolutionStack::copyResidual(const float *data, int total_samples)
+void ConvolutionStack::copyResidual(const float *data, int timesteps)
 {
-    for (size_t i = 0; i < total_samples * numChannels; ++i)
-        residualData[i] = data[i];
+    for (size_t i = 0; i < timesteps * num_channels; ++i)
+        residual_data[i] = data[i];
 }
 
-void ConvolutionStack::addResidual(float *data, int total_samples)
+void ConvolutionStack::addResidual(float *data, int timesteps)
 {
-    for (size_t i = 0; i < total_samples * numChannels; ++i)
-        data[i] = data[i] + residualData[i];
+    for (size_t i = 0; i < timesteps * num_channels; ++i)
+        data[i] += residual_data[i];
 }
 
-void ConvolutionStack::process(float *data, float* skipData, int total_samples)
+void ConvolutionStack::process(float *data, float* skip_data, int timesteps)
 {
-    if (total_samples > samplesPerBlock)
-        prepare(total_samples);
-    for (int i = 0; i < dilations.size(); ++i)
+    const size_t num_layers = dilations.size();
+    if (timesteps > samples_per_block)
+        prepare(timesteps);
+    for (int layer_idx = 0; layer_idx < num_layers; ++layer_idx)
     {
         if (residual)
-            copyResidual(data, total_samples);
-        // Get pointer to correct position at skipData
-        float *skipPtr = getSkipPointer(skipData, i, total_samples);
-        layers[i].process(data, data, skipPtr, total_samples);
+            copyResidual(data, timesteps);
+        // Get pointer to correct position at skip_data
+        // float *skipPtr = getSkipPointer(skip_data, i, timesteps);
+        // float *skip_ptr = &skip_data[layer_idx * timesteps * num_channels];
+        float *skip_ptr = &skip_data[layer_idx * timesteps * num_skip_channels];
+        layers[layer_idx].process(data, data, skip_ptr, timesteps);
         if (residual)
-            addResidual(data, total_samples);
+            addResidual(data, timesteps);
     }
 }
 
-void ConvolutionStack::processConditional(float *data, const float *conditioning, float* skipData, int total_samples)
+// TODO merge functions, pass null conditioning by default
+void ConvolutionStack::processConditional(float *data, const float *conditioning, float* skip_data, int timesteps)
 {
-    if (total_samples > samplesPerBlock)
-        prepare(total_samples);
-    for (int i = 0; i < dilations.size(); ++i)
+    const size_t num_layers = dilations.size();
+    if (timesteps > samples_per_block)
+        prepare(timesteps);
+    for (int layer_idx = 0; layer_idx < num_layers; layer_idx++)
     {
         if (residual)
-            copyResidual(data, total_samples);
-        // Get pointer to correct position at skipData
-        float *skipPtr = getSkipPointer(skipData, i, total_samples);
-        const float *condPtr = getCondPointer(conditioning, i, total_samples);
-        layers[i].processConditional(data, condPtr,
-                                     data, skipPtr, total_samples);
+            copyResidual(data, timesteps);
+        // Get pointer to correct position at skip_data
+        float *skip_ptr = &skip_data[layer_idx * timesteps * num_skip_channels];
+        layers[layer_idx].processConditional(data, conditioning,
+                                             data, skip_ptr, timesteps);
         if (residual)
-            addResidual(data, total_samples);
+            addResidual(data, timesteps);
     }
 }
 
-float* ConvolutionStack::getSkipPointer(float *data, int layerIdx, int total_samples)
+float* ConvolutionStack::getSkipPointer(float *data, int layerIdx, int timesteps)
 {
-    const int startCh = numChannels * layerIdx;
-    const int startIdx = idx(startCh, 0, total_samples);
+    const int startCh = num_channels * layerIdx;
+    const int startIdx = idx(startCh, 0, timesteps);
     return &data[startIdx];
 }
 
 const float* ConvolutionStack::getCondPointer(const float *data, int layerIdx, int total_samples)
 {
     // conditioning has twice the number of residual channels (one for each gate)
-    const int startCh = 2 * numChannels * layerIdx;
+    const int startCh = 2 * num_channels * layerIdx;
     const int startIdx = idx(startCh, 0, total_samples);
     return &data[startIdx];
 }
 
 inline unsigned int ConvolutionStack::idx(int ch, int i, int total_samples)
 {
-    return ch * total_samples + i;
+    // return ch * total_samples + i;
+    return ch + total_samples * i;
 }
 
 void ConvolutionStack::setConvolutionWeight(const torch::Tensor &W, size_t layerIdx)
@@ -119,6 +119,26 @@ void ConvolutionStack::setOutputBias(const torch::Tensor &b, size_t layerIdx)
     layers[layerIdx].setOutputBias(b);
 }
 
+void ConvolutionStack::setSkipWeight(const torch::Tensor &W, size_t layerIdx)
+{
+    layers[layerIdx].setSkipWeight(W);
+}
+
+void ConvolutionStack::setSkipBias(const torch::Tensor &b, size_t layerIdx)
+{
+    layers[layerIdx].setSkipBias(b);
+}
+
+void ConvolutionStack::setCondWeight(const torch::Tensor &W, size_t layerIdx)
+{
+    layers[layerIdx].setCondWeight(W);
+}
+
+void ConvolutionStack::setCondBias(const torch::Tensor &b, size_t layerIdx)
+{
+    layers[layerIdx].setCondBias(b);
+}
+
 void ConvolutionStack::initLayers()
 {
     layers.clear();
@@ -128,12 +148,13 @@ void ConvolutionStack::initLayers()
         bool use_output_transform = true;
         if (i == dilations.size() - 1)
             use_output_transform = false;
-        layers.push_back(ConvolutionLayer(numChannels,
-                                          numChannels,
-                                          filterWidth,
+        layers.push_back(ConvolutionLayer(num_channels,
+                                          num_channels,
+                                          num_skip_channels,
+                                          num_cond_channels,
+                                          filter_width,
                                           dilations[i],
                                           use_output_transform,
                                           activation));
     }
-
 }

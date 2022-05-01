@@ -1,49 +1,54 @@
 import torch
+from typing import List
 import glotnet.cpp_extensions as ext
 from glotnet.convolution_layer import ConvolutionLayer
 
 class ConvolutionStackFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, weights_conv, biases_conv, weights_out, biases_out, dilations, activation, use_residual):
+    def forward(ctx, input: torch.Tensor,
+                weights_conv: List[torch.Tensor], biases_conv: List[torch.Tensor],
+                weights_out: List[torch.Tensor], biases_out: List[torch.Tensor],
+                weights_skip: List[torch.Tensor], biases_skip: List[torch.Tensor],
+                weights_cond: List[torch.Tensor], biases_cond: List[torch.Tensor],
+                dilations: List[int], activation: str, use_residual: bool,
+                cond_input: torch.Tensor = None, time_major: bool = True):
 
         num_layers = len(dilations)
 
+        ctx.time_major = time_major
+        if ctx.time_major:
+            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            if cond_input is not None:
+                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+
         input = input.contiguous()
-        ctx.save_for_backward(input, weights_conv, biases_conv,
-                              weights_out, biases_out,
-                              torch.tensor(dilations))
-        
+        if cond_input is not None:
+            cond_input = cond_input.contiguous()
+
+        ctx.save_for_backward(input, *weights_conv, *biases_conv,
+                              *weights_out, *biases_out)
+        ctx.dilations = dilations
+
         training = False
-        output, skips = ext.convolution_stack_forward(
-            input, weights_conv, biases_conv, weights_out, biases_out,
-            dilations, training, use_residual, activation)
+        if cond_input is None:
+            output, skips = ext.convolution_stack_forward(
+                input, weights_conv, biases_conv, weights_out, biases_out,
+                weights_skip, biases_skip,
+                dilations, training, use_residual, activation)
+        else:
+            output, skips = ext.convolution_stack_cond_forward(
+                input, cond_input, weights_conv, biases_conv, weights_out, biases_out,
+                weights_skip, biases_skip, weights_cond, biases_cond,
+                dilations, training, use_residual, activation)
 
-        skips = skips.chunk(num_layers, dim=1)
-        return output, skips
+        if ctx.time_major:
+            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
+            skips = skips.split(1, dim=1) # (B, L, T, C) -> L * (B, 1, T, C)
+            skips = [s.squeeze(1).permute(0, 2, 1) for s in skips] # L * (B, 1, T, C) -> L * (B, C, T)
+        else:
+            raise NotImplementedError
 
-    def backward(self, d_output, d_skip):
-        raise NotImplementedError("Backward function not implemented for sequential processing")
-
-class ConvolutionStackCondFunction(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input, cond_input, weights_conv, biases_conv, weights_out, biases_out, dilations, activation, use_residual):
-
-        num_layers = len(dilations)
-
-        cond_input = cond_input.contiguous()
-        input = input.contiguous()
-        # ctx.save_for_backward(input, cond_input, weights_conv, biases_conv,
-        #                       weights_out, biases_out,
-        #                       torch.tensor(dilations))
-        
-        training = False
-        output, skips = ext.convolution_stack_cond_forward(
-            input, cond_input, weights_conv, biases_conv, weights_out, biases_out,
-            dilations, training, use_residual, activation)
-
-        skips = skips.chunk(num_layers, dim=1)
         return output, skips
 
     def backward(self, d_output, d_skip):
@@ -56,23 +61,24 @@ class ConvolutionStack(torch.nn.Module):
     Uses a gated activation and residual connections by default
     """
 
-    def __init__(self, channels, kernel_size, dilations=[1], bias=True, device=None, dtype=None,
+    def __init__(self, channels, skip_channels, kernel_size, dilations=[1], bias=True, device=None, dtype=None,
                  causal=True,
                  activation="gated",
                  use_residual=True,
                  use_1x1_block_out=True,
-                 cond_channels=0,
+                 cond_channels=None,
                  ):
         super().__init__()
 
         self.channels = channels
+        self.skip_channels = skip_channels
         self.activation = activation
         self.dilations = dilations
         self.use_residual = use_residual
         self.use_1x1_block_out = use_1x1_block_out
+        self.use_conditioning = cond_channels is not None
         self.cond_channels = cond_channels
         self.num_layers = len(dilations)
-        self.use_conditioning = cond_channels > 0
 
         self.layers = torch.nn.ModuleList()
         for i, d in enumerate(dilations):
@@ -88,7 +94,8 @@ class ConvolutionStack(torch.nn.Module):
                     causal=causal,
                     activation=activation,
                     use_output_transform=use_output_transform,
-                    cond_channels=self.cond_channels
+                    cond_channels=self.cond_channels,
+                    skip_channels=self.skip_channels,
                 )
             )
 
@@ -108,27 +115,37 @@ class ConvolutionStack(torch.nn.Module):
     def biases_out(self):
         return [layer.out.bias for layer in self.layers]
 
-    def project_conditioning(self, cond_input):
-        """ Project conditioning
+    @property
+    def weights_skip(self):
+        return [layer.skip.weight for layer in self.layers]
 
-        Args:
-            cond_input: torch.tensor 
-                of size (batch, cond_channels, timesteps)
+    @property
+    def biases_skip(self):
+        return [layer.skip.bias for layer in self.layers]
 
-        Returns:
-            conditioning: torch tensor 
-                of size (batch, 2 * num_layers * channels, timesteps)
-        
-        Note:
-            This function assumes that the full conditioning sequence is known beforehand.
-            While efficient and GPU friendly, this operation mode is not suitable for streaming mode conditioning.
-        
-        """
-        c_list = []
+    @property
+    def weights_cond(self):
+        if self.use_conditioning:
+            return [layer.cond_1x1.weight for layer in self.layers]
+        else:
+            return None
+
+    @property
+    def biases_cond(self):
+        if self.use_conditioning:
+            return [layer.cond_1x1.bias for layer in self.layers]
+        else:
+            return None
+
+    def _forward_native(self, input, cond_input):
+        x = input
+        skips = []
         for layer in self.layers:
-            c = layer.cond_1x1(cond_input)
-            c_list.append(c)
-        return torch.cat(c_list, dim=1)
+            h = x
+            x, s = layer(x, cond_input, sequential=False)
+            x = x + h  # residual connection
+            skips.append(s)
+        return x, skips
 
     def forward(self, input, cond_input=None, sequential=False):
         """ 
@@ -150,27 +167,14 @@ class ConvolutionStack(torch.nn.Module):
             raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
 
         if sequential:
-            if cond_input is None:
-                # no conditioning
-                output, skips = ConvolutionStackFunction.apply(
-                    input,
-                    self.weights_conv, self.biases_conv,
-                    self.weights_out, self.biases_out,
-                    self.dilations, self.activation, self.use_residual)
-            else:
-                conditioning = self.project_conditioning(cond_input)
-                output, skips = ConvolutionStackCondFunction.apply(
-                    input, conditioning,
-                    self.weights_conv, self.biases_conv,
-                    self.weights_out, self.biases_out,
-                    self.dilations, self.activation, self.use_residual)
-            return output, skips
+            return ConvolutionStackFunction.apply(
+                input,
+                self.weights_conv, self.biases_conv,
+                self.weights_out, self.biases_out,
+                self.weights_skip, self.biases_skip,
+                self.weights_cond, self.biases_cond,
+                self.dilations, self.activation, self.use_residual,
+                cond_input)
         else:
-            x = input
-            skips = []
-            for layer in self.layers:
-                h = x
-                x, s = layer(x, cond_input, sequential=False)
-                x = x + h  # residual connection
-                skips.append(s)
-            return x, skips
+            return self._forward_native(input=input, cond_input=cond_input)
+
