@@ -3,7 +3,6 @@
 #include <string>
 #include "Activations.h"
 #include "ConvolutionStack.h"
-
 class WaveNetAR
 {
 public:

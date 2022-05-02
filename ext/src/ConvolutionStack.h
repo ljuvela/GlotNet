@@ -1,12 +1,3 @@
-/*
-  ==============================================================================
-
-    ConvolutionStack.h
-    Author:  Damskägg Eero-Pekka
-
-  ==============================================================================
-*/
-
 #pragma once
 #include <torch/extension.h>
 
@@ -44,10 +35,7 @@ private:
     const std::string activation;
     int samples_per_block = 0;
     std::vector<float> residual_data;
-    inline unsigned int idx(int ch, int i, int total_samples);
-    void copyResidual(const float *data, int total_samples);
+    void saveResidual(const float *data, int total_samples);
     void addResidual(float *data, int total_samples);
-    float* getSkipPointer(float *skip_data, int layerIdx, int total_samples);
-    const float* getCondPointer(const float *data, int layerIdx, int total_samples);
     void initLayers();
 };

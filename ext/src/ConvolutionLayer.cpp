@@ -116,6 +116,8 @@ void ConvolutionLayer::reset()
 {
     conv.resetFifo();
     out1x1.resetFifo();
+    skip1x1.resetFifo();
+    cond1x1.resetFifo();
 }
 
 void ConvolutionLayer::prepare(size_t timesteps)

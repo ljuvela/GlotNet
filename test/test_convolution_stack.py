@@ -142,10 +142,14 @@ def test_stack_multibatch():
     stack = ConvolutionStack(channels=channels, skip_channels=skip_channels,
                              kernel_size=kernel_size, dilations=dilations,
                              activation="gated", use_residual=True)
-    y1, s1 = stack(x, sequential=True)
-    y2, s2 = stack(x, sequential=False)
-    assert torch.allclose(s1[0], s2[0], atol=1e-6, rtol=1e-5), "Assert skip output match"
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert main outputs match"
+    y1, skips1 = stack(x, sequential=True)
+    y2, skips2 = stack(x, sequential=False)
+    for i, (s1, s2) in enumerate(zip(skips1, skips2)):
+        assert torch.allclose(s1, s2, atol=1e-6, rtol=1e-5), \
+        f"Skip outputs (layer {i}) must match \n ext: {s1} \n ref: {s2}"
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Main outputs must match \n ext: {y1} \n ref: {y2}"
+
     print("   ok!")
 
 

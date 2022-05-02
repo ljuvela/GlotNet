@@ -23,12 +23,12 @@ void ConvolutionStack::prepare(int buffer_size)
 
 void ConvolutionStack::reset()
 {
-    for (auto l : layers)
+    for (auto & l : layers)
         l.reset();
     std::fill(residual_data.begin(), residual_data.end(), 0.0f);
 }
 
-void ConvolutionStack::copyResidual(const float *data, int timesteps)
+void ConvolutionStack::saveResidual(const float *data, int timesteps)
 {
     for (size_t i = 0; i < timesteps * num_channels; ++i)
         residual_data[i] = data[i];
@@ -48,10 +48,7 @@ void ConvolutionStack::process(float *data, float* skip_data, int timesteps)
     for (int layer_idx = 0; layer_idx < num_layers; ++layer_idx)
     {
         if (residual)
-            copyResidual(data, timesteps);
-        // Get pointer to correct position at skip_data
-        // float *skipPtr = getSkipPointer(skip_data, i, timesteps);
-        // float *skip_ptr = &skip_data[layer_idx * timesteps * num_channels];
+            saveResidual(data, timesteps);
         float *skip_ptr = &skip_data[layer_idx * timesteps * num_skip_channels];
         layers[layer_idx].process(data, data, skip_ptr, timesteps);
         if (residual)
@@ -68,35 +65,13 @@ void ConvolutionStack::processConditional(float *data, const float *conditioning
     for (int layer_idx = 0; layer_idx < num_layers; layer_idx++)
     {
         if (residual)
-            copyResidual(data, timesteps);
-        // Get pointer to correct position at skip_data
+            saveResidual(data, timesteps);
         float *skip_ptr = &skip_data[layer_idx * timesteps * num_skip_channels];
         layers[layer_idx].processConditional(data, conditioning,
                                              data, skip_ptr, timesteps);
         if (residual)
             addResidual(data, timesteps);
     }
-}
-
-float* ConvolutionStack::getSkipPointer(float *data, int layerIdx, int timesteps)
-{
-    const int startCh = num_channels * layerIdx;
-    const int startIdx = idx(startCh, 0, timesteps);
-    return &data[startIdx];
-}
-
-const float* ConvolutionStack::getCondPointer(const float *data, int layerIdx, int total_samples)
-{
-    // conditioning has twice the number of residual channels (one for each gate)
-    const int startCh = 2 * num_channels * layerIdx;
-    const int startIdx = idx(startCh, 0, total_samples);
-    return &data[startIdx];
-}
-
-inline unsigned int ConvolutionStack::idx(int ch, int i, int total_samples)
-{
-    // return ch * total_samples + i;
-    return ch + total_samples * i;
 }
 
 void ConvolutionStack::setConvolutionWeight(const torch::Tensor &W, size_t layerIdx)
@@ -148,13 +123,10 @@ void ConvolutionStack::initLayers()
         bool use_output_transform = true;
         if (i == dilations.size() - 1)
             use_output_transform = false;
-        layers.push_back(ConvolutionLayer(num_channels,
-                                          num_channels,
-                                          num_skip_channels,
-                                          num_cond_channels,
-                                          filter_width,
-                                          dilations[i],
-                                          use_output_transform,
-                                          activation));
+        layers.push_back(ConvolutionLayer(
+            num_channels, num_channels,
+            num_skip_channels, num_cond_channels,
+            filter_width, dilations[i],
+            use_output_transform, activation));
     }
 }
