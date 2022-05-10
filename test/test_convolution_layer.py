@@ -1,5 +1,4 @@
 import torch
-
 from glotnet.convolution_layer import ConvolutionLayer
 
 def test_layer_linear():

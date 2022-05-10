@@ -25,6 +25,7 @@ public:
     void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples);
     void processConditional(const float *data_in, const float *conditioning, float *data_out, float *skip_data, int64_t total_samples);
     void reset();
+    void prepare(size_t timesteps);
     void setConvolutionWeight(const torch::Tensor &W);
     void setConvolutionBias(const torch::Tensor &b);
     void setOutputWeight(const torch::Tensor &W);
@@ -44,7 +45,6 @@ private:
     const bool use_gating;
     std::vector<float> memory;
     std::vector<float> memory_cond;
-    void prepare(size_t timesteps);
     typedef void (*activationFunction)(float *x, size_t rows, size_t cols); // TODO: make this into a class
     const activationFunction activation;                                          // TODO: make into a class
     inline void copyData(const float *data_src, int64_t channels_src, 

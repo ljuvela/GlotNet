@@ -17,6 +17,10 @@ public:
     void setStackConvolutionBias(const torch::Tensor &b, int layerIdx);
     void setStackOutputWeight(const torch::Tensor &W, int layerIdx);
     void setStackOutputBias(const torch::Tensor &b, int layerIdx);
+    void setStackSkipWeight(const torch::Tensor &W, int layerIdx);
+    void setStackSkipBias(const torch::Tensor &b, int layerIdx);
+    void setStackCondWeight(const torch::Tensor &W, int layerIdx);
+    void setStackCondBias(const torch::Tensor &b, int layerIdx);
     void setInputWeight(const torch::Tensor &W);
     void setInputBias(const torch::Tensor &b);
     void setOutputWeight(const torch::Tensor &W, int layerIdx);
@@ -27,6 +31,7 @@ private:
     ConvolutionLayer input_layer;
     ConvolutionLayer output_layer1;
     ConvolutionLayer output_layer2;
+    const size_t num_layers;
     const int input_channels;
     const int output_channels;
     const int filter_width;
@@ -35,9 +40,11 @@ private:
     const int memory_channels;
     const std::string activation;
     const std::vector<int> dilations;
-    int samples_per_block = 0;
+    int timesteps = 0;
     std::vector<float> conv_data;
     std::vector<float> skip_data;
+    std::vector<float> skip_sum;
     inline int idx(int ch, int i, int total_samples);
-   
+    void reduceSkipSum(const float * skip_data, float * skip_sum);
+
 };

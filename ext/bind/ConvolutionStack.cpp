@@ -1,6 +1,5 @@
 #include <torch/extension.h>
 #include <vector>
-#include <iostream>
 
 #include "../src/ConvolutionStack.h"
 

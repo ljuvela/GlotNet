@@ -1,5 +1,4 @@
 import torch
-
 from glotnet.convolution import Convolution
 
 def test_causal_conv():

@@ -28,19 +28,20 @@ std::vector<at::Tensor> forward(
     )
 {
     const int64_t batch_size = input.size(0);
-    const int64_t channels = input.size(1);
-    const int64_t timesteps = input.size(2);
+    const int64_t timesteps = input.size(1);
+    const int64_t channels = input.size(2);
 
     const int64_t filter_width = stack_weights_conv[0].size(2);
     const int64_t residual_channels = stack_weights_conv[0].size(1);
-    const int64_t skip_channels = stack_weights_skip[0].size(1);
+    const int64_t skip_channels = stack_weights_skip[0].size(0);
     const int64_t input_channels = input_weight.size(1);
     const int64_t output_channels = output_weights.back().size(0); 
     
     const size_t cond_channels = 0;
 
     // Instantiate model
-    auto wavenet = WaveNet(input_channels, output_channels, residual_channels, skip_channels, cond_channels,
+    auto wavenet = WaveNet(input_channels, output_channels,
+                           residual_channels, skip_channels, cond_channels,
                            filter_width, activation, dilations);
 
     // Set buffer size to match timesteps
@@ -56,6 +57,8 @@ std::vector<at::Tensor> forward(
         wavenet.setStackConvolutionBias(stack_biases_conv[i], i);
         wavenet.setStackOutputWeight(stack_weights_out[i], i);
         wavenet.setStackOutputBias(stack_biases_out[i], i);
+        wavenet.setStackSkipWeight(stack_weights_skip[i], i);
+        wavenet.setStackSkipBias(stack_biases_skip[i], i);
     }
     for (size_t i = 0; i < output_weights.size(); i++)
     {
@@ -68,10 +71,10 @@ std::vector<at::Tensor> forward(
     float * data_out = output.data_ptr<float>();
     for (int64_t b = 0; b < batch_size; b++)
     {
-        // wavenet.reset();
+        wavenet.reset();
         wavenet.process(&(data_in[b * input_channels * timesteps]),
                         &(data_out[b * output_channels * timesteps]),
-                        timesteps); // time first (rightmost)
+                        timesteps);
     }
     return {output};
 }
@@ -85,6 +88,8 @@ std::vector<at::Tensor> cond_forward(
     const std::vector<torch::Tensor> &stack_biases_out,
     const std::vector<torch::Tensor> &stack_weights_skip,
     const std::vector<torch::Tensor> &stack_biases_skip,
+    const std::vector<torch::Tensor> &stack_weights_cond,
+    const std::vector<torch::Tensor> &stack_biases_cond,
     const torch::Tensor &input_weight,
     const torch::Tensor &input_bias,
     const std::vector<torch::Tensor> &output_weights,
@@ -96,16 +101,15 @@ std::vector<at::Tensor> cond_forward(
     )
 {
     const int64_t batch_size = input.size(0);
-    const int64_t channels = input.size(1);
-    const int64_t timesteps = input.size(2);
+    const int64_t timesteps = input.size(1);
+    const int64_t channels = input.size(2);
 
     const int64_t filter_width = stack_weights_conv[0].size(2);
     const int64_t residual_channels = stack_weights_conv[0].size(1);
-    const int64_t skip_channels = stack_weights_skip[0].size(1);
+    const int64_t skip_channels = stack_weights_skip[0].size(0);
     const int64_t input_channels = input_weight.size(1);
     const int64_t output_channels = output_weights.back().size(0); 
-
-    const int64_t cond_channels = cond_input.size(1);
+    const int64_t cond_channels = cond_input.size(2);
     
     // instantiate model
     auto wavenet = WaveNet(input_channels, output_channels,
@@ -125,7 +129,10 @@ std::vector<at::Tensor> cond_forward(
         wavenet.setStackConvolutionBias(stack_biases_conv[i], i);
         wavenet.setStackOutputWeight(stack_weights_out[i], i);
         wavenet.setStackOutputBias(stack_biases_out[i], i);
-        // TODO set cond weight
+        wavenet.setStackSkipWeight(stack_weights_skip[i], i);
+        wavenet.setStackSkipBias(stack_biases_skip[i], i);
+        wavenet.setStackCondWeight(stack_weights_cond[i], i);
+        wavenet.setStackCondBias(stack_biases_cond[i], i);
     }
     for (size_t i = 0; i < output_weights.size(); i++)
     {
@@ -140,10 +147,10 @@ std::vector<at::Tensor> cond_forward(
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.processConditional(&(data_in[b * input_channels * timesteps]),
-                                   &(data_cond[b * cond_channels * timesteps]),
-                                   &(data_out[b * output_channels * timesteps]),
-                                   timesteps); // time first (rightmost)
+        wavenet.processConditional(&(data_in[b * timesteps * input_channels]),
+                                   &(data_cond[b * timesteps * cond_channels]),
+                                   &(data_out[b * timesteps * output_channels]),
+                                   timesteps);
     }
     return {output};
 }

@@ -29,6 +29,8 @@ private:
     std::vector<Eigen::MatrixXf, Eigen::aligned_allocator<Eigen::MatrixXf>> kernel;
     Eigen::RowVectorXf bias;
     // TODO: benchmark against std::deque and boost circular buffer
+    // TODO: https://eigen.tuxfamily.org/dox/group__TopicStlContainers.html
+    // No workaround allocators needed post C++17 ?
     std::vector<Eigen::RowVectorXf, Eigen::aligned_allocator<Eigen::RowVectorXf>> memory;
     Eigen::RowVectorXf outVec;
     int pos;

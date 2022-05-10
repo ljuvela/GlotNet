@@ -1,5 +1,4 @@
 import torch
-
 from glotnet.activations import Activation
 
 def test_linear():

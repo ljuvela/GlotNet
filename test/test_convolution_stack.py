@@ -1,6 +1,4 @@
-from unittest import skip
 import torch
-
 from glotnet.convolution_stack import ConvolutionStack
 
 def test_stack_minimal():
