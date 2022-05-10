@@ -3,6 +3,7 @@
 #include <Eigen/Core>
 #include <Eigen/StdVector>
 #include <torch/extension.h>
+#include <vector>
 
 namespace glotnet
 {
@@ -17,6 +18,7 @@ public:
     size_t getNumOutputChannels() { return output_channels; }
     void setKernel(const torch::Tensor &W);
     void setBias(const torch::Tensor &b);
+    void setParameters(const std::vector<const torch::Tensor *> & params);
     void resetFifo();
     void resetKernel();
 
@@ -26,6 +28,7 @@ public:
 private:
     std::vector<Eigen::MatrixXf, Eigen::aligned_allocator<Eigen::MatrixXf>> kernel;
     Eigen::RowVectorXf bias;
+    // TODO: benchmark against std::deque and boost circular buffer
     std::vector<Eigen::RowVectorXf, Eigen::aligned_allocator<Eigen::RowVectorXf>> memory;
     Eigen::RowVectorXf outVec;
     int pos;
@@ -35,7 +38,7 @@ private:
     const int filter_width;
     void processSingleSample(const float *data_in, float *data_out, int i, int total_samples);
     void processSingleSampleConditional(const float *data_in, const float *conditioning, float *data_out, int i, int total_samples);
-    int mod(int a, int b);
+    inline int mod(int a, int b) const;
 
 };
 

@@ -1,5 +1,5 @@
 #include "Convolution.h"
-
+#include <cassert>
 namespace glotnet
 {
 
@@ -63,14 +63,15 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
         fifo[pos][ch] = data_in[ch + t * input_channels];
     outVec = bias;
     int j = 0;
+    const size_t filter_order = getFilterOrder();
     for (auto & k : kernel)
     {
-        const int readPos = mod((pos - dilation * j++), getFilterOrder());
+        const int readPos = mod((pos - dilation * j++), filter_order);
         outVec = outVec + fifo[readPos] * k;
     }
     for (size_t ch = 0; ch < output_channels; ++ch)
         data_out[ch + t * output_channels] = outVec[ch];
-    pos = mod(pos + 1, getFilterOrder());
+    pos = mod(pos + 1, filter_order);
 }
 
 void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples)
@@ -102,10 +103,11 @@ void Convolution::processSingleSampleConditional(const float * data_in, const fl
     pos = mod(pos + 1, getFilterOrder());
 }
 
-int Convolution::mod(int a, int b)
+inline int Convolution::mod(int a, int b) const
 {
-    int r = a % b;
-    return r < 0 ? r + b : r;
+    const int r = a % b;
+    const int rltz = r < 0;
+    return rltz * (r + b) + (1 - rltz) * r;
 }
 
 inline int64_t Convolution::idx_time_major(int64_t c, int64_t t, int64_t total_samples)
@@ -137,6 +139,13 @@ void Convolution::setBias(const torch::Tensor &b)
     assert(b.size(0) == output_channels);
     for (size_t i = 0; i < output_channels; ++i)
     bias(i) = b_a[i];
+}
+
+void Convolution::setParameters(const std::vector<const torch::Tensor *> & params)
+{
+    assert (params.size() == 2);
+    this->setKernel(*params[0]);
+    this->setBias(*params[1]);
 }
 
 } // glotnet

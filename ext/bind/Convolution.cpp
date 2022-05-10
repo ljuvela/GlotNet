@@ -9,9 +9,9 @@ namespace convolution
 {
 
 std::vector<at::Tensor> forward(
-    torch::Tensor input,
-    torch::Tensor weight,
-    torch::Tensor bias,
+    const torch::Tensor & input,
+    const torch::Tensor & weight,
+    const torch::Tensor & bias,
     bool training=true,
     size_t dilation=1)
 {
@@ -31,6 +31,9 @@ std::vector<at::Tensor> forward(
     float * data_in = input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
 
+    auto input_a  = input.accessor<float, 3>();  // size (batch, time, input_channels)
+    auto output_a = output.accessor<float, 3>(); // size (batch, time, output_channels)
+
     auto conv = Convolution(input_channels, output_channels, filter_width, dilation);
     conv.setKernel(weight);
     conv.setBias(bias);
@@ -38,9 +41,9 @@ std::vector<at::Tensor> forward(
     for (int64_t b = 0; b < batch_size; b++)
     {
         conv.resetFifo();
-        conv.process(&(data_in[b * input_channels * timesteps]),
-                     &(data_out[b * output_channels * timesteps]),
-                     timesteps); // time first (rightmost)
+        conv.process(&(input_a[b][0][0]),
+                     &(output_a[b][0][0]),
+                     timesteps);
     }
 
     return {output};
@@ -48,10 +51,10 @@ std::vector<at::Tensor> forward(
 
 
 std::vector<at::Tensor> forward_cond(
-    torch::Tensor input,
-    torch::Tensor cond_input,
-    torch::Tensor weight,
-    torch::Tensor bias,
+    const torch::Tensor & input,
+    const torch::Tensor & cond_input,
+    const torch::Tensor & weight,
+    const torch::Tensor & bias,
     bool training=true,
     size_t dilation=1)
 {
@@ -89,10 +92,10 @@ std::vector<at::Tensor> forward_cond(
 }
 
 std::vector<torch::Tensor> backward(
-    torch::Tensor d_output,
-    torch::Tensor input,
-    torch::Tensor weight,
-    torch::Tensor bias)
+    const torch::Tensor & d_output,
+    const torch::Tensor & input,
+    torch::Tensor & weight,
+    torch::Tensor & bias)
 {
     // Get sizes of input tensor
     long long batch_size = input.size(0);
