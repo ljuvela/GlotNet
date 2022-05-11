@@ -5,7 +5,7 @@ namespace glotnet
 
 Convolution::Convolution(size_t input_channels, size_t output_channels, int filter_width, int dilation) :
     bias(output_channels),
-    outVec(output_channels),
+    out_vec(output_channels),
     pos(0),
     dilation(dilation),
     input_channels(input_channels),
@@ -33,8 +33,8 @@ void Convolution::resetKernel()
 void Convolution::resetFifo()
 {
     memory.clear();
-    memory.reserve(getFilterOrder());
-    for (int i = 0; i < getFilterOrder(); ++i)
+    memory.reserve(getReceptiveField());
+    for (int i = 0; i < getReceptiveField(); ++i)
     {
         Eigen::RowVectorXf x(input_channels);
         x.setZero();
@@ -43,7 +43,7 @@ void Convolution::resetFifo()
     pos = 0;
 }
 
-inline int Convolution::getFilterOrder() const
+inline int Convolution::getReceptiveField() const
 {
     return (filter_width - 1) * dilation + 1;
 }
@@ -58,20 +58,24 @@ void Convolution::process(const float *data_in, float *data_out, int64_t total_s
 
 void Convolution::processSingleSample(const float *data_in, float *data_out, int t, int total_samples)
 {
-    auto fifo = memory.begin();
-    for (size_t ch = 0; ch < input_channels; ++ch)
-        fifo[pos][ch] = data_in[ch + t * input_channels];
-    outVec = bias;
+    // update input buffer
+    memcpy(memory[pos].data(), &data_in[t* input_channels], sizeof(float) * input_channels);
+
+    // dilated convolution
+    out_vec = bias;
     int j = 0;
-    const size_t filter_order = getFilterOrder();
+    const size_t receptive_field = getReceptiveField();
     for (auto & k : kernel)
     {
-        const int readPos = mod((pos - dilation * j++), filter_order);
-        outVec = outVec + fifo[readPos] * k;
+        const int read_pos = mod((pos - dilation * j++), receptive_field);
+        out_vec += memory[read_pos] * k;
     }
-    for (size_t ch = 0; ch < output_channels; ++ch)
-        data_out[ch + t * output_channels] = outVec[ch];
-    pos = mod(pos + 1, filter_order);
+
+    // copy output
+    memcpy(&data_out[t * output_channels], out_vec.data(), sizeof(float) * output_channels);
+
+    // update write pointer
+    pos = mod(pos + 1, receptive_field);
 }
 
 void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples)
@@ -82,25 +86,30 @@ void Convolution::processConditional(const float *data_in, const float *conditio
     }
 }
 
-void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, float * data_out, int i, int total_samples)
+void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, 
+float * data_out, int t, int total_samples)
 {
-    auto fifo = memory.begin();
-    for (int ch = 0; ch < input_channels; ++ch)
-        fifo[pos][ch] = data_in[idx_channel_major(ch, i, input_channels)];
+    // update input buffer
+    memcpy(memory[pos].data(), &data_in[t * input_channels], sizeof(float) * input_channels);
 
-    for (int ch = 0; ch < output_channels; ++ch)
-        outVec(ch) = conditioning[idx_channel_major(ch, i, output_channels)];
+    // initialize output with conditioning
+    memcpy(out_vec.data(), &conditioning[t * output_channels], sizeof(float) * output_channels);
 
+    // dilated convolution
     int j = 0;
+    const int receptive_field = getReceptiveField();
     for (auto & k : kernel)
     {
-        const int readPos = mod((pos - dilation * j++), getFilterOrder());
-        outVec = outVec + fifo[readPos] * k;
+        const int read_pos = mod((pos - dilation * j++), receptive_field);
+        out_vec += memory[read_pos] * k;
     }
-    outVec = outVec + bias;
-    for (int ch = 0; ch < output_channels; ++ch)
-        data_out[idx_channel_major(ch, i, output_channels)] = outVec[ch];
-    pos = mod(pos + 1, getFilterOrder());
+    out_vec += bias;
+
+    // copy output
+    memcpy(&data_out[t * output_channels], out_vec.data(), sizeof(float) * output_channels);
+
+    // update write pointer
+    pos = mod(pos + 1, receptive_field);
 }
 
 inline int Convolution::mod(int a, int b) const
@@ -108,16 +117,6 @@ inline int Convolution::mod(int a, int b) const
     const int r = a % b;
     const int rltz = r < 0;
     return rltz * (r + b) + (1 - rltz) * r;
-}
-
-inline int64_t Convolution::idx_time_major(int64_t c, int64_t t, int64_t total_samples)
-{
-    return c * total_samples + t;
-}
-
-inline int64_t Convolution::idx_channel_major(int64_t c, int64_t t, int64_t numChannels)
-{
-    return c + numChannels * t;
 }
 
 void Convolution::setKernel(const torch::Tensor &W)
