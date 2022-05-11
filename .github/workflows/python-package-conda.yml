@@ -16,7 +16,7 @@ jobs:
         python-version: 3.9
     - name: Add conda to system path
       run: |
-        conda init $SHELL
+        conda init $(basename $SHELL)
         conda activate base
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         echo $CONDA/bin >> $GITHUB_PATH
