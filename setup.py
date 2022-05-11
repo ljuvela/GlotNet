@@ -18,7 +18,7 @@ if prefix is None:
 if prefix is None:
     prefix = '/usr/local' # best generic guess for unix
 
-eigen_headers = os.path.join(os.environ['CONDA_PREFIX'], 'include', 'eigen3')
+eigen_headers = os.path.join(prefix, 'include', 'eigen3')
 include_dirs += [eigen_headers]
 
 # Prune out duplicate source files
