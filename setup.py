@@ -12,6 +12,12 @@ include_dirs = []
 sources += glob('ext/src/*.cpp')
 sources += glob('ext/bind/*.cpp')
 
+prefix = os.environ.get('CONDA_PREFIX', None)
+if prefix is None:
+    prefix = os.environ.get('CONDA', None) # GitHub Actions Conda build
+if prefix is None:
+    prefix = '/usr/local' # best generic guess for unix
+
 eigen_headers = os.path.join(os.environ['CONDA_PREFIX'], 'include', 'eigen3')
 include_dirs += [eigen_headers]
 
