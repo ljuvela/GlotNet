@@ -16,6 +16,8 @@ jobs:
         python-version: 3.9
     - name: Add conda to system path
       run: |
+        conda init $SHELL
+        conda activate base
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
@@ -30,6 +32,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Build extensions
       run: |
+        conda init $SHELL
         conda activate base
         python setup.py install
     - name: Test with pytest
