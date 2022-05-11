@@ -4,83 +4,6 @@ import glotnet.cpp_extensions as ext
 from glotnet.convolution_layer import ConvolutionLayer
 from glotnet.convolution_stack import ConvolutionStack
 
-class WaveNetFunction(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input: torch.Tensor,
-                stack_weights_conv: List[torch.Tensor], stack_biases_conv: List[torch.Tensor],
-                stack_weights_out: List[torch.Tensor], stack_biases_out: List[torch.Tensor],
-                stack_weights_skip: List[torch.Tensor], stack_biases_skip: List[torch.Tensor],
-                stack_weights_cond: List[torch.Tensor], stack_biases_cond: List[torch.Tensor],
-                input_weight: torch.Tensor, input_bias: torch.Tensor,
-                output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
-                dilations: List[int], use_residual: bool, activation: str,
-                cond_input: torch.Tensor = None, time_major: bool = True):
-
-        num_layers = len(dilations)
-
-        ctx.time_major = time_major
-        if ctx.time_major:
-            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-            if cond_input is not None:
-                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-
-        input = input.contiguous()
-        if cond_input is not None:
-            cond_input = cond_input.contiguous()
-
-        training = False
-        if cond_input is None:
-            output, = ext.wavenet_forward(input,
-                stack_weights_conv, stack_biases_conv,
-                stack_weights_out, stack_biases_out,
-                stack_weights_skip, stack_biases_skip,
-                input_weight, input_bias,
-                output_weights, output_biases,
-                dilations, training, use_residual, activation)
-        else:
-            output, = ext.wavenet_cond_forward(input, cond_input,
-                stack_weights_conv, stack_biases_conv,
-                stack_weights_out, stack_biases_out,
-                stack_weights_skip, stack_biases_skip,
-                stack_weights_cond, stack_biases_cond,
-                input_weight, input_bias,
-                output_weights, output_biases,
-                dilations, training, use_residual, activation)
-
-        return output
-
-    def backward(self, d_output, d_skip):
-        raise NotImplementedError
-
-class WaveNetCondFunction(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input, cond_input,
-                stack_weights_conv, stack_biases_conv,
-                stack_weights_out, stack_biases_out,
-                input_weight, input_bias,
-                output_weights, output_biases,
-                dilations, use_residual, activation):
-
-        num_layers = len(dilations)
-
-        input = input.contiguous()
-
-
-        training = False
-        output, = ext.wavenet_cond_forward(input, cond_input,
-            stack_weights_conv, stack_biases_conv,
-            stack_weights_out, stack_biases_out,
-            input_weight, input_bias,
-            output_weights, output_biases,
-            dilations, training, use_residual, activation)
-
-        return output
-
-    def backward(self, d_output, d_skip):
-        raise NotImplementedError
-
 class WaveNet(torch.nn.Module):
     """ Feedforward WaveNet """
 
@@ -180,3 +103,55 @@ class WaveNet(torch.nn.Module):
             return output
         else:
             return self._forward_native(input, cond_input)
+
+class WaveNetFunction(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, input: torch.Tensor,
+                stack_weights_conv: List[torch.Tensor], stack_biases_conv: List[torch.Tensor],
+                stack_weights_out: List[torch.Tensor], stack_biases_out: List[torch.Tensor],
+                stack_weights_skip: List[torch.Tensor], stack_biases_skip: List[torch.Tensor],
+                stack_weights_cond: List[torch.Tensor], stack_biases_cond: List[torch.Tensor],
+                input_weight: torch.Tensor, input_bias: torch.Tensor,
+                output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
+                dilations: List[int], use_residual: bool, activation: str,
+                cond_input: torch.Tensor = None, time_major: bool = True):
+
+        num_layers = len(dilations)
+
+        ctx.time_major = time_major
+        if ctx.time_major:
+            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            if cond_input is not None:
+                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+
+        input = input.contiguous()
+        if cond_input is not None:
+            cond_input = cond_input.contiguous()
+
+        training = False
+        if cond_input is None:
+            output, = ext.wavenet_forward(input,
+                stack_weights_conv, stack_biases_conv,
+                stack_weights_out, stack_biases_out,
+                stack_weights_skip, stack_biases_skip,
+                input_weight, input_bias,
+                output_weights, output_biases,
+                dilations, training, use_residual, activation)
+        else:
+            output, = ext.wavenet_cond_forward(input, cond_input,
+                stack_weights_conv, stack_biases_conv,
+                stack_weights_out, stack_biases_out,
+                stack_weights_skip, stack_biases_skip,
+                stack_weights_cond, stack_biases_cond,
+                input_weight, input_bias,
+                output_weights, output_biases,
+                dilations, training, use_residual, activation)
+
+        if ctx.time_major:
+            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
+
+        return output
+
+    def backward(self, d_output, d_skip):
+        raise NotImplementedError

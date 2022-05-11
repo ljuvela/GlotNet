@@ -66,14 +66,14 @@ std::vector<at::Tensor> forward(
         wavenet.setOutputBias(output_biases[i], i);
     }
 
-    auto output =  torch::zeros({batch_size, output_channels, timesteps});
+    auto output = torch::zeros({batch_size, timesteps, output_channels});
     float * data_in = input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.process(&(data_in[b * input_channels * timesteps]),
-                        &(data_out[b * output_channels * timesteps]),
+        wavenet.process(&(data_in[b * timesteps * input_channels]),
+                        &(data_out[b * timesteps * output_channels]),
                         timesteps);
     }
     return {output};
@@ -140,7 +140,7 @@ std::vector<at::Tensor> cond_forward(
         wavenet.setOutputBias(output_biases[i], i);
     }
 
-    auto output =  torch::zeros({batch_size, output_channels, timesteps});
+    auto output = torch::zeros({batch_size, timesteps, output_channels});
     float * data_in = input.data_ptr<float>();
     float * data_cond = cond_input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
