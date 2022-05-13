@@ -48,22 +48,21 @@ class ConvolutionLayerFunction(torch.autograd.Function):
 
         use_skips = weight_skip is not None
 
-        training = False
         if cond_input is None:
             if use_skips:
                 output, skip = ext.convolution_layer_skip_forward(
                     input, weight_conv, bias_conv, weight_out, bias_out, weight_skip, bias_skip,
-                    training, dilation, use_output_transform, activation)
+                    dilation, use_output_transform, activation)
             else:
                 output, = ext.convolution_layer_forward(
                     input, weight_conv, bias_conv, weight_out, bias_out,
-                    training, dilation, use_output_transform, activation)
+                    dilation, use_output_transform, activation)
         else:
             if use_skips:
                 output, skip = ext.convolution_layer_skip_cond_forward(
                     input, cond_input, weight_conv, bias_conv, weight_out, bias_out,
                     weight_skip, bias_skip, weight_cond, bias_cond,
-                    training, dilation, use_output_transform, activation)
+                    dilation, use_output_transform, activation)
             else:
                 pass
 
@@ -93,7 +92,6 @@ class ConvolutionLayer(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, dilation=1,
                  bias=True, device=None, dtype=None,
                  causal=True,
-                 training=True,
                  activation="gated",
                  use_output_transform=True,
                  cond_channels=None,
@@ -101,7 +99,6 @@ class ConvolutionLayer(torch.nn.Module):
                  ):
         super().__init__()
 
-        self.training = training
         residual_channels = out_channels
         self.activation = activation
         self.activation_fun, self.channel_mul = self._parse_activation(activation)
@@ -115,18 +112,16 @@ class ConvolutionLayer(torch.nn.Module):
             in_channels=in_channels,
             out_channels=self.channel_mul*residual_channels,
             kernel_size=kernel_size, dilation=dilation, bias=bias, device=device, dtype=dtype,
-            causal=causal, training=training)
+            causal=causal)
         self.out = Convolution(
             in_channels=residual_channels,
             out_channels=residual_channels,
-            kernel_size=1, dilation=1, bias=bias, device=device, dtype=dtype,
-            training=training)
+            kernel_size=1, dilation=1, bias=bias, device=device, dtype=dtype)
         if self.skip_channels is not None:
             self.skip = Convolution(
                 in_channels=residual_channels,
                 out_channels=skip_channels,
-                kernel_size=1, dilation=1, bias=bias, device=device, dtype=dtype,
-                training=training)
+                kernel_size=1, dilation=1, bias=bias, device=device, dtype=dtype)
         if self.use_conditioning:
             self.cond_1x1 = torch.nn.Conv1d(cond_channels, self.channel_mul * residual_channels,
                 kernel_size=1, bias=True, device=device, dtype=dtype)

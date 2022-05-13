@@ -22,7 +22,6 @@ std::vector<at::Tensor> forward(
     std::vector<torch::Tensor> output_weights,
     std::vector<torch::Tensor> output_biases,
     std::vector<int> dilations,
-    bool training=false,
     bool use_residual=true,
     std::string activation="gated"
     )
@@ -85,7 +84,6 @@ std::vector<at::Tensor> cond_forward(
     std::vector<torch::Tensor> &output_weights,
     std::vector<torch::Tensor> &output_biases,
     std::vector<int> &dilations,
-    bool training=false,
     bool use_residual=true,
     std::string activation="gated"
     )

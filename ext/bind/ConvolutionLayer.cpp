@@ -15,7 +15,6 @@ std::vector<at::Tensor> forward(
     torch::Tensor &bias_conv,
     torch::Tensor &weight_out,
     torch::Tensor &bias_out,
-    bool training=true,
     int dilation=1,
     bool use_output_transform=true,
     std::string activation_name="gated"
@@ -65,7 +64,6 @@ std::vector<at::Tensor> skip_forward(
     torch::Tensor &bias_out,
     torch::Tensor &weight_skip,
     torch::Tensor &bias_skip,
-    bool training=true,
     int dilation=1,
     bool use_output_transform=true,
     std::string activation_name="gated"
@@ -123,7 +121,6 @@ std::vector<at::Tensor> skip_cond_forward(
     torch::Tensor &bias_skip,
     torch::Tensor &weight_cond,
     torch::Tensor &bias_cond,
-    bool training=true,
     int dilation=1,
     bool use_output_transform=true,
     std::string activation_name="gated"

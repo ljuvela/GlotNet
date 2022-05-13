@@ -25,9 +25,10 @@ def test_forward_siso():
     dilation = 1
     x = torch.randn(batch, in_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, training=True)
-    y2 = conv(x, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, sequential=True)
+    y2 = conv(x, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")  
 
 def test_forward_simo():
@@ -41,9 +42,10 @@ def test_forward_simo():
     dilation = 1
     x = torch.randn(batch, in_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, training=True)
-    y2 = conv(x, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, sequential=True)
+    y2 = conv(x, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")  
 
 def test_forward_miso():
@@ -57,9 +59,10 @@ def test_forward_miso():
     dilation = 1
     x = torch.randn(batch, in_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, training=True)
-    y2 = conv(x, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, sequential=True)
+    y2 = conv(x, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")
 
 def test_forward_mimo():
@@ -73,9 +76,10 @@ def test_forward_mimo():
     dilation = 1
     x = torch.randn(batch, in_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, training=True)
-    y2 = conv(x, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, sequential=True)
+    y2 = conv(x, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")
 
 def test_forward_mimo_dilated():
@@ -89,9 +93,10 @@ def test_forward_mimo_dilated():
     dilation = 4
     x = torch.randn(batch, in_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, training=True)
-    y2 = conv(x, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, sequential=True)
+    y2 = conv(x, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")  
 
 def test_forward_mimo_dilated_multibatch():
@@ -105,9 +110,10 @@ def test_forward_mimo_dilated_multibatch():
     dilation = 4
     x = torch.randn(batch, in_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, training=True)
-    y2 = conv(x, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, sequential=True)
+    y2 = conv(x, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")  
 
 
@@ -123,9 +129,10 @@ def test_forward_cond_siso():
     x = torch.randn(batch, in_channels, timesteps)
     c = torch.randn(batch, out_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, c, training=True)
-    y2 = conv(x, c, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, c, sequential=True)
+    y2 = conv(x, c, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")
 
 
@@ -141,9 +148,10 @@ def test_forward_cond_mimo():
     x = torch.randn(batch, in_channels, timesteps)
     c = torch.randn(batch, out_channels, timesteps)
     conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation)
-    y1 = conv(x, c, training=True)
-    y2 = conv(x, c, training=False)
-    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5)
+    y1 = conv(x, c, sequential=True)
+    y2 = conv(x, c, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")
 
 if __name__ == "__main__":

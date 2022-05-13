@@ -30,17 +30,16 @@ class ConvolutionStackFunction(torch.autograd.Function):
                               *weights_out, *biases_out)
         ctx.dilations = dilations
 
-        training = False
         if cond_input is None:
             output, skips = ext.convolution_stack_forward(
                 input, weights_conv, biases_conv, weights_out, biases_out,
                 weights_skip, biases_skip,
-                dilations, training, use_residual, activation)
+                dilations, use_residual, activation)
         else:
             output, skips = ext.convolution_stack_cond_forward(
                 input, cond_input, weights_conv, biases_conv, weights_out, biases_out,
                 weights_skip, biases_skip, weights_cond, biases_cond,
-                dilations, training, use_residual, activation)
+                dilations, use_residual, activation)
 
         if ctx.time_major:
             output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)

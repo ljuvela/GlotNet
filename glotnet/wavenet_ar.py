@@ -20,13 +20,12 @@ class WaveNetARFunction(torch.autograd.Function):
         # TODO:
         # ctx.save_for_backward(...)
 
-        training = False
         output, = ext.wavenet_ar_forward(timesteps,
             stack_weights_conv, stack_biases_conv,
             stack_weights_out, stack_biases_out,
             input_weight, input_bias,
             output_weights, output_biases,
-            dilations, training, use_residual, activation)
+            dilations, use_residual, activation)
 
         print(f"ext output {output}")
 
@@ -50,13 +49,12 @@ class WaveNetARCondFunction(torch.autograd.Function):
         # TODO:
         # ctx.save_for_backward(...)
         
-        training = False
         output, = ext.wavenet_ar_cond_forward(cond_input,
             stack_weights_conv, stack_biases_conv,
             stack_weights_out, stack_biases_out,
             input_weight, input_bias,
             output_weights, output_biases,
-            dilations, training, use_residual, activation)
+            dilations, use_residual, activation)
 
         return output
 
@@ -74,7 +72,6 @@ class WaveNetAR(torch.nn.Module):
     def __init__(self, input_channels, output_channels, residual_channels, kernel_size, dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256],
                  bias=True, device=None, dtype=None,
                  causal=True,
-                 training=True,
                  activation="gated",
                  use_residual=True,
                  use_1x1_block=True,
@@ -82,7 +79,6 @@ class WaveNetAR(torch.nn.Module):
                  ):
         super().__init__()
 
-        self.training = training
         self.input_channels = input_channels
         self.output_channels = output_channels
         self.residual_channels = residual_channels

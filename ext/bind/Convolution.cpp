@@ -12,7 +12,6 @@ std::vector<at::Tensor> forward(
     const torch::Tensor & input,
     const torch::Tensor & weight,
     const torch::Tensor & bias,
-    bool training=true,
     size_t dilation=1)
 {
     int64_t batch_size = input.size(0);
@@ -55,7 +54,6 @@ std::vector<at::Tensor> forward_cond(
     const torch::Tensor & cond_input,
     const torch::Tensor & weight,
     const torch::Tensor & bias,
-    bool training=true,
     size_t dilation=1)
 {
     int64_t batch_size = input.size(0);
@@ -91,25 +89,6 @@ std::vector<at::Tensor> forward_cond(
     return {output};
 }
 
-std::vector<torch::Tensor> backward(
-    const torch::Tensor & d_output,
-    const torch::Tensor & input,
-    torch::Tensor & weight,
-    torch::Tensor & bias)
-{
-    // Get sizes of input tensor
-    long long batch_size = input.size(0);
-    long long channels = input.size(1);
-    long long timesteps = input.size(2);
-
-    // Placeholder identity backward pass
-    auto d_input = 0.0 * input;
-    auto d_weight = 0.0 * weight;
-    auto d_bias = 0.0 * bias;
-
-
-    return {d_input, d_weight, d_bias};
-}
 
 } // convolution
 } // glotnet
@@ -118,6 +97,4 @@ void init_convolution(py::module &m)
 {
     m.def("convolution_forward", &(glotnet::convolution::forward), "Convolution forward");
     m.def("convolution_cond_forward", &(glotnet::convolution::forward_cond), "Convolution conditional forward");
-    //m.def("convolution_backward", &(glotnet::convolution::backward), "Convolution backward");
-    //m.def("convolution_cond_backward", &(glotnet::convolution::backward_cond), "Convolution conditional backward");
 }

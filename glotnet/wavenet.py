@@ -10,7 +10,6 @@ class WaveNet(torch.nn.Module):
     def __init__(self, input_channels, output_channels, residual_channels, skip_channels, kernel_size, dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256],
                  bias=True, device=None, dtype=None,
                  causal=True,
-                 training=True,
                  activation="gated",
                  use_residual=True,
                  use_1x1_block=True,
@@ -18,7 +17,6 @@ class WaveNet(torch.nn.Module):
                  ):
         super().__init__()
 
-        self.training = training
         self.input_channels = input_channels
         self.output_channels = output_channels
         self.residual_channels = residual_channels
@@ -129,7 +127,6 @@ class WaveNetFunction(torch.autograd.Function):
         if cond_input is not None:
             cond_input = cond_input.contiguous()
 
-        training = False
         if cond_input is None:
             output, = ext.wavenet_forward(input,
                 stack_weights_conv, stack_biases_conv,
@@ -137,7 +134,7 @@ class WaveNetFunction(torch.autograd.Function):
                 stack_weights_skip, stack_biases_skip,
                 input_weight, input_bias,
                 output_weights, output_biases,
-                dilations, training, use_residual, activation)
+                dilations, use_residual, activation)
         else:
             output, = ext.wavenet_cond_forward(input, cond_input,
                 stack_weights_conv, stack_biases_conv,
@@ -146,7 +143,7 @@ class WaveNetFunction(torch.autograd.Function):
                 stack_weights_cond, stack_biases_cond,
                 input_weight, input_bias,
                 output_weights, output_biases,
-                dilations, training, use_residual, activation)
+                dilations, use_residual, activation)
 
         if ctx.time_major:
             output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
