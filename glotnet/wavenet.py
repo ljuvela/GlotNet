@@ -7,7 +7,9 @@ from glotnet.convolution_stack import ConvolutionStack
 class WaveNet(torch.nn.Module):
     """ Feedforward WaveNet """
 
-    def __init__(self, input_channels, output_channels, residual_channels, skip_channels, kernel_size, dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256],
+    def __init__(self, input_channels, output_channels,
+                 residual_channels, skip_channels,
+                 kernel_size, dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256],
                  bias=True, device=None, dtype=None,
                  causal=True,
                  activation="gated",
@@ -88,16 +90,16 @@ class WaveNet(torch.nn.Module):
 
         if sequential:
             output = WaveNetFunction.apply(
-                    input,
-                    self.stack.weights_conv, self.stack.biases_conv,
-                    self.stack.weights_out, self.stack.biases_out,
-                    self.stack.weights_skip, self.stack.biases_skip,
-                    self.stack.weights_cond, self.stack.biases_cond,
-                    self.input.conv.weight, self.input.conv.bias,
-                    self.output_weights, self.output_biases,
-                    self.dilations, self.use_residual, self.activation,
-                    cond_input
-                )
+                input,
+                self.stack.weights_conv, self.stack.biases_conv,
+                self.stack.weights_out, self.stack.biases_out,
+                self.stack.weights_skip, self.stack.biases_skip,
+                self.stack.weights_cond, self.stack.biases_cond,
+                self.input.conv.weight, self.input.conv.bias,
+                self.output_weights, self.output_biases,
+                self.dilations, self.use_residual, self.activation,
+                cond_input
+            )
             return output
         else:
             return self._forward_native(input, cond_input)

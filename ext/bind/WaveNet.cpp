@@ -35,8 +35,7 @@ std::vector<at::Tensor> forward(
     const int64_t skip_channels = stack_weights_skip[0].size(0);
     const int64_t input_channels = input_weight.size(1);
     const int64_t output_channels = output_weights.back().size(0); 
-    
-    const size_t cond_channels = 0;
+    const int64_t cond_channels = 0;
 
     // Instantiate model
     auto wavenet = WaveNet(input_channels, output_channels,
@@ -153,25 +152,6 @@ std::vector<at::Tensor> cond_forward(
     return {output};
 }
 
-std::vector<torch::Tensor> backward(
-    torch::Tensor d_output,
-    torch::Tensor input,
-    torch::Tensor weight,
-    torch::Tensor bias)
-{
-    // Get sizes of input tensor
-    long long batch_size = input.size(0);
-    long long channels = input.size(1);
-    long long timesteps = input.size(2);
-
-    // Placeholder identity backward pass
-    auto d_input = 0.0 * input;
-    auto d_weight = 0.0 * weight;
-    auto d_bias = 0.0 * bias;
-
-    return {d_input, d_weight, d_bias};
-}
-
 } // wavenet
 } // glotnet
 
@@ -179,5 +159,4 @@ void init_wavenet(py::module &m)
 {
     m.def("wavenet_forward", &(glotnet::wavenet::forward), "WaveNet forward");
     m.def("wavenet_cond_forward", &(glotnet::wavenet::cond_forward), "WaveNet conditional forward");
-    m.def("wavenet_backward", &(glotnet::wavenet::backward), "WaveNet backward");
 }

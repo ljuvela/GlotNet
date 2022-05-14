@@ -7,7 +7,8 @@
 class WaveNet
 {
 public:
-    WaveNet(size_t input_channels, size_t output_channels, size_t convolution_channels, size_t skip_channels, size_t cond_channels,
+    WaveNet(size_t input_channels, size_t output_channels,
+            size_t convolution_channels, size_t skip_channels, size_t cond_channels,
             size_t filter_width, std::string activation, std::vector<int> dilations);
     void prepare(int block_size);
     void process(const float *inputData, float *outputData, int total_samples);
@@ -25,6 +26,9 @@ public:
     void setInputBias(const torch::Tensor &b);
     void setOutputWeight(const torch::Tensor &W, int layerIdx);
     void setOutputBias(const torch::Tensor &b, int layerIdx);
+
+    inline int getOutputChannels() const {return output_channels;};
+    inline int getInputChannels() const {return input_channels;};
 
 private:
     ConvolutionStack conv_stack;

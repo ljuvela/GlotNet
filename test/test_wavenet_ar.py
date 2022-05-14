@@ -1,27 +1,29 @@
 from typing import Sequence
+from unittest import skip
 import torch
 
 from glotnet.wavenet_ar import WaveNetAR
 
 
-# def test_wavenet_minimal():
-#     print("Test wavenet with minimal configuration")
-#     torch.manual_seed(42)
-#     timesteps = 5
-#     input_channels = 1
-#     output_channels = 1
-#     residual_channels = 4
+def test_wavenet_ar_minimal():
+    print("Test wavenet with minimal configuration")
+    torch.manual_seed(42)
+    timesteps = 2
+    channels = 1
+    residual_channels = 4
+    skip_channels = 4
 
-#     kernel_size = 3
-#     dilations = [1]
+    kernel_size = 3
+    dilations = [1]
 
-#     wavenet = WaveNetAR(input_channels, output_channels,
-#                         residual_channels, kernel_size,
-#                         dilations=dilations)
-#     y1 = wavenet(timesteps=timesteps, use_cpu=False)
-#     y2 = wavenet(timesteps=timesteps, use_cpu=True)
-#     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), "Assert outputs match"
-#     print("   ok!")
+    wavenet = WaveNetAR(input_channels=channels, output_channels=channels,
+                        residual_channels=residual_channels, skip_channels=skip_channels,
+                        kernel_size=kernel_size, dilations=dilations)
+    y1 = wavenet(timesteps=timesteps, use_cpu=False)
+    y2 = wavenet(timesteps=timesteps, use_cpu=True)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ref: {y1} \n ext: {y2}"
+    print("   ok!")
 
 
 # def test_wavenet_cond_minimal():
@@ -50,8 +52,7 @@ from glotnet.wavenet_ar import WaveNetAR
 
 
 if __name__ == "__main__":
-    pass
-    # test_wavenet_minimal()
+    test_wavenet_ar_minimal()
     # test_wavenet_cond_minimal()
 #     test_stack_multichan()
 #     test_stack_multilayer()
