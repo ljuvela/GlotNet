@@ -29,6 +29,7 @@ public:
 
     inline int getOutputChannels() const {return output_channels;};
     inline int getInputChannels() const {return input_channels;};
+    inline int getCondChannels() const {return cond_channels;};
 
 private:
     ConvolutionStack conv_stack;
@@ -38,6 +39,7 @@ private:
     const size_t num_layers;
     const int input_channels;
     const int output_channels;
+    const int cond_channels;
     const int filter_width;
     const int skip_channels;
     const int convolution_channels;

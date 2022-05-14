@@ -31,13 +31,10 @@ void WaveNetAR::processConditional(const float *conditioning,
 {
     std::fill(input_buffer.begin(), input_buffer.end(), 0.0f);
     const int output_channels = WaveNet::getOutputChannels();
+    const int cond_channels = WaveNet::getCondChannels();
     for (int i = 0; i < total_samples; i++)
     {
-
-        std::cerr << "timestep " << i << "/" << total_samples << std::endl; 
-
-        WaveNet::processConditional(input_buffer.data(), conditioning, output_buffer.data(), 1u);
-
+        WaveNet::processConditional(input_buffer.data(), &conditioning[i * cond_channels], output_buffer.data(), 1u);
         for (size_t j = 0; j < output_channels; j++)
         {    
             // copy output to input

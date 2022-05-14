@@ -61,15 +61,6 @@ class WaveNet(torch.nn.Module):
     def output_biases(self):
         return [self.output1.conv.bias, self.output2.conv.bias]
 
-    def _forward_native(self, input, cond_input):
-        x = input
-        x = self.input(x)
-        _, skips = self.stack(x, cond_input)
-        x = torch.stack(skips, dim=0).sum(dim=0)
-        x = self.output1(x)
-        x = self.output2(x)
-        return x
-
     def forward(self, input, cond_input=None, sequential=False):
         """ 
         Args:
@@ -103,6 +94,15 @@ class WaveNet(torch.nn.Module):
             return output
         else:
             return self._forward_native(input, cond_input)
+
+    def _forward_native(self, input, cond_input):
+        x = input
+        x = self.input(x)
+        _, skips = self.stack(x, cond_input)
+        x = torch.stack(skips, dim=0).sum(dim=0)
+        x = self.output1(x)
+        x = self.output2(x)
+        return x
 
 class WaveNetFunction(torch.autograd.Function):
 

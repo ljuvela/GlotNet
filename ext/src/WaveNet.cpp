@@ -5,6 +5,7 @@ WaveNet::WaveNet(size_t input_channels, size_t output_channels,
                  size_t filter_width, std::string activation, std::vector<int> dilations)
     : input_channels(input_channels),
       output_channels(output_channels),
+      cond_channels(cond_channels),
       filter_width(filter_width),
       num_layers(dilations.size()),
       skip_channels(skip_channels),
@@ -42,8 +43,6 @@ void WaveNet::reset()
 
 void WaveNet::process(const float *inputData, float *outputData, int total_samples)
 {
-    if (total_samples > timesteps)
-        prepare(total_samples);
     input_layer.process(inputData, conv_data.data(), timesteps);
     conv_stack.process(conv_data.data(), skip_data.data(), timesteps);
     reduceSkipSum(skip_data.data(), skip_sum.data());
@@ -54,8 +53,6 @@ void WaveNet::process(const float *inputData, float *outputData, int total_sampl
 void WaveNet::processConditional(const float *inputData, const float *conditioning,
                                  float *outputData, int total_samples)
 {
-    if (total_samples > timesteps)
-        prepare(total_samples);
     input_layer.process(inputData, conv_data.data(), total_samples);
     conv_stack.processConditional(conv_data.data(), conditioning, skip_data.data(), total_samples);
     reduceSkipSum(skip_data.data(), skip_sum.data());

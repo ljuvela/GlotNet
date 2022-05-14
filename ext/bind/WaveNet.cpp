@@ -105,9 +105,9 @@ std::vector<at::Tensor> cond_forward(
     const int64_t residual_channels = stack_weights_conv[0].size(1);
     const int64_t skip_channels = stack_weights_skip[0].size(0);
     const int64_t input_channels = input_weight.size(1);
-    const int64_t output_channels = output_weights.back().size(0); 
+    const int64_t output_channels = output_weights.back().size(0);
     const int64_t cond_channels = cond_input.size(2);
-    
+
     // instantiate model
     auto wavenet = WaveNet(input_channels, output_channels,
                            residual_channels, skip_channels, cond_channels,
