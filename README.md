@@ -1,21 +1,42 @@
 # GlotNet
 
-### Dependencies
+## Dependencies
+
+### Conda environment
 
 Create environment based on `environment.yml`
 ```bash
-conda env create -f environment.yml
-conda activate GlotNet
+conda env create -n glotnet -f environment.yml
+conda activate glotnet
 ```
 
-Updating the environment
+### Pip package manager
 
+Pip can not handle C++ dependencies, but in this case the only external dependency is the lightweight header-only Eigen library
 ```bash
-conda activate GlotNet
-conda env update --file environment.yml --prune
+git submodule update --recursive --init
+pip install -r requirements.txt
 ```
 
 ### Build
+
+Build
+```bash
+python setup.py install
+```
+
+Run tests
+
+```bash
+pytest test
+```
+
+### Development
+
+```bash
+python setup.py develop
+```
+
 
 ### Acknowledgements
 

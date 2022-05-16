@@ -18,7 +18,21 @@ if prefix is None:
 if prefix is None:
     prefix = '/usr/local' # best generic guess for unix
 
-eigen_headers = os.path.join(prefix, 'include', 'eigen3')
+
+def locate_eigen_headers():
+    eigen_headers = os.path.join(prefix, 'include', 'eigen3')
+    if os.path.isdir(eigen_headers):
+        return eigen_headers
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    eigen_headers = os.path.join(dir_path, 'third_party', 'eigen')
+    if os.path.isdir(eigen_headers):
+        return eigen_headers
+    # raise error if not found
+    raise ImportError("Eigen headers not found, try either \n"+\
+        "1) If using conda, install by 'conda install -c conda-forge eigen'"+\
+        "2) If using pip, clone the Eigen submodule by running 'git submodule update --recursive --init'")
+    
+eigen_headers = locate_eigen_headers()
 include_dirs += [eigen_headers]
 
 # Prune out duplicate source files
