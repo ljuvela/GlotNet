@@ -121,9 +121,9 @@ class WaveNetFunction(torch.autograd.Function):
 
         ctx.time_major = time_major
         if ctx.time_major:
-            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            input = input.permute(0, 2, 1)  # (B, C, T) -> (B, T, C)
             if cond_input is not None:
-                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+                cond_input = cond_input.permute(0, 2, 1)  # (B, C, T) -> (B, T, C)
 
         input = input.contiguous()
         if cond_input is not None:

@@ -3,6 +3,7 @@ from typing import Tuple
 import glotnet.cpp_extensions as ext
 from glotnet.convolution import Convolution
 
+
 class ConvolutionLayerFunction(torch.autograd.Function):
 
     @staticmethod
@@ -19,11 +20,11 @@ class ConvolutionLayerFunction(torch.autograd.Function):
             input: tensor of shape (batch, channels, time) (default) or (batch, time, channels)
             weight_conv: Conv1d weight tensor
                 shape = (2 * ch_out, ch_in, kernel_size)
-            bias_conv: 
+            bias_conv:
                 shape = (ch_out,)
             dilation: dilation factor (int)
             cond_input: (default = None)
-            time_major: 
+            time_major:
                 if True: input.shape == (batch, channels, time), (PyTorch default)
                 else: input.shape == (batch, time, channels),
 
@@ -31,19 +32,17 @@ class ConvolutionLayerFunction(torch.autograd.Function):
             output: layer output, shape = (batch, ch_out, timesteps)
             skip: skip output, shape = (batch, ch_out, timesteps)
 
-            if use_output_transform == False 
+            if use_output_transform == False
                 'output' and 'skip' are the same variable
         """
         ctx.time_major = time_major
         if ctx.time_major:
-            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            input = input.permute(0, 2, 1)  # (B, C, T) -> (B, T, C)
             if cond_input is not None:
-                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+                cond_input = cond_input.permute(0, 2, 1)  # (B, C, T) -> (B, T, C)
                 cond_input = cond_input.contiguous()
 
         input = input.contiguous()
-        # ctx.save_for_backward(input, weight_conv, bias_conv,
-        #                       weight_out, bias_out)
         ctx.dilation = dilation
 
         use_skips = weight_skip is not None
@@ -67,9 +66,9 @@ class ConvolutionLayerFunction(torch.autograd.Function):
                 pass
 
         if ctx.time_major:
-            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
+            output = output.permute(0, 2, 1)  # (B, T, C) -> (B, C, T)
             if use_skips:
-                skip = skip.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
+                skip = skip.permute(0, 2, 1)  # (B, T, C) -> (B, C, T)
 
         if use_skips:
             return output, skip
@@ -86,7 +85,7 @@ class ConvolutionLayer(torch.nn.Module):
     Wavenet Convolution Layer (also known as Residual Block)
 
     Uses a gated activation and a 1x1 output transformation by default
-    
+
     """
 
     def __init__(self, in_channels, out_channels, kernel_size, dilation=1,
@@ -110,9 +109,9 @@ class ConvolutionLayer(torch.nn.Module):
         self.dilation = dilation
         self.conv = Convolution(
             in_channels=in_channels,
-            out_channels=self.channel_mul*residual_channels,
-            kernel_size=kernel_size, dilation=dilation, bias=bias, device=device, dtype=dtype,
-            causal=causal)
+            out_channels=self.channel_mul * residual_channels,
+            kernel_size=kernel_size, dilation=dilation, bias=bias,
+            device=device, dtype=dtype, causal=causal)
         self.out = Convolution(
             in_channels=residual_channels,
             out_channels=residual_channels,
@@ -123,14 +122,15 @@ class ConvolutionLayer(torch.nn.Module):
                 out_channels=skip_channels,
                 kernel_size=1, dilation=1, bias=bias, device=device, dtype=dtype)
         if self.use_conditioning:
-            self.cond_1x1 = torch.nn.Conv1d(cond_channels, self.channel_mul * residual_channels,
+            self.cond_1x1 = torch.nn.Conv1d(
+                cond_channels, self.channel_mul * residual_channels,
                 kernel_size=1, bias=True, device=device, dtype=dtype)
 
     def _parse_activation(self, activation):
         activations = {
-            "gated" : ((torch.tanh, torch.sigmoid), 2),
-            "tanh" : (torch.tanh, 1),
-            "linear" : (torch.nn.Identity(), 1)
+            "gated": ((torch.tanh, torch.sigmoid), 2),
+            "tanh": (torch.tanh, 1),
+            "linear": (torch.nn.Identity(), 1)
         }
         activation_fun, channel_mul = activations.get(activation, (None, None))
         if channel_mul is None:
@@ -145,37 +145,37 @@ class ConvolutionLayer(torch.nn.Module):
             x = self.activation_fun[0](x[:, :R, :]) * self.activation_fun[1](x[:, R:, :])
         else:
             x = self.activation_fun(x)
-        
+
         if self.skip_channels is not None:
             skip = self.skip(x)
-        
+
         if self.use_output_transform:
             output = self.out(x)
         else:
             output = x
 
         if self.skip_channels is None:
-            return output 
+            return output
         else:
             return output, skip
 
-
     def forward(self, input, cond_input=None, sequential=False):
-        """ 
+        """
         Args:
             input, torch.Tensor of shape (batch_size, in_channels, timesteps)
-            sequential (optional), 
+            sequential (optional),
                 if True, use CUDA compatible parallel implementation
-                if False, use custom C++ sequential implementation 
+                if False, use custom C++ sequential implementation
 
         Returns:
             output, torch.Tensor of shape (batch_size, out_channels, timesteps)
             skip, torch.Tensor of shape (batch_size, out_channels, timesteps)
-        
+
         """
 
         if cond_input is not None and not self.use_conditioning:
-            raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
+            raise RuntimeError("Module has not been initialized to use conditioning, \
+                but conditioning input was provided at forward pass")
 
         if sequential:
             skip_weight = None if self.skip_channels is None else self.skip.weight
@@ -183,12 +183,11 @@ class ConvolutionLayer(torch.nn.Module):
             cond_weight = self.cond_1x1.weight if self.use_conditioning else None
             cond_bias = self.cond_1x1.bias if self.use_conditioning else None
             return ConvolutionLayerFunction.apply(
-                    input, self.conv.weight, self.conv.bias,
-                    self.out.weight, self.out.bias,
-                    skip_weight, skip_bias,
-                    cond_weight, cond_bias,
-                    self.dilation, self.activation,
-                    self.use_output_transform, cond_input)
+                input, self.conv.weight, self.conv.bias,
+                self.out.weight, self.out.bias,
+                skip_weight, skip_bias,
+                cond_weight, cond_bias,
+                self.dilation, self.activation,
+                self.use_output_transform, cond_input)
         else:
             return self._forward_native(input=input, cond_input=cond_input)
-

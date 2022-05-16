@@ -37,6 +37,14 @@ pytest test
 python setup.py develop
 ```
 
+Flake8 linter tests must pass. Install by
+```bash
+conda install flake8
+```
+
+```bash
+flake8
+```
 
 ### Acknowledgements
 
