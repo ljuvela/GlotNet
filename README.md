@@ -1,5 +1,10 @@
 # GlotNet
 
+## Build status
+
+![pip_package](https://github.com/ljuvela/GlotNet/actions/workflows/python-package.yml/badge.svg)
+![conda_package](https://github.com/ljuvela/GlotNet/actions/workflows/python-package-conda.yml/badge.svg)
+
 ## Dependencies
 
 ### Conda environment
@@ -41,7 +46,12 @@ Flake8 linter tests must pass. Install by
 ```bash
 conda install flake8
 ```
+or if using pip
+```bash
+pip install flake8
+```
 
+Run linter by 
 ```bash
 flake8
 ```
