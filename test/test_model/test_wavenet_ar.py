@@ -2,7 +2,7 @@ from typing import Sequence
 from unittest import skip
 import torch
 
-from glotnet.wavenet_ar import WaveNetAR
+from glotnet.model.wavenet_ar import WaveNetAR
 
 
 def test_wavenet_ar_minimal():

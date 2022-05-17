@@ -1,7 +1,7 @@
 import torch
 from typing import List
 import glotnet.cpp_extensions as ext
-from glotnet.convolution_layer import ConvolutionLayer
+from .convolution_layer import ConvolutionLayer
 
 class ConvolutionStackFunction(torch.autograd.Function):
 

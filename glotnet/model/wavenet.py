@@ -1,8 +1,8 @@
 import torch
 from typing import List
 import glotnet.cpp_extensions as ext
-from glotnet.convolution_layer import ConvolutionLayer
-from glotnet.convolution_stack import ConvolutionStack
+from .convolution_layer import ConvolutionLayer
+from .convolution_stack import ConvolutionStack
 
 class WaveNet(torch.nn.Module):
     """ Feedforward WaveNet """

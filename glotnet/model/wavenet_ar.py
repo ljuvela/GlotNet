@@ -1,9 +1,9 @@
 import torch
 from typing import List
 import glotnet.cpp_extensions as ext
-from glotnet.convolution_layer import ConvolutionLayer
-from glotnet.convolution_stack import ConvolutionStack
-from glotnet.wavenet import WaveNet
+from .convolution_layer import ConvolutionLayer
+from .convolution_stack import ConvolutionStack
+from .wavenet import WaveNet
 
 class WaveNetAR(WaveNet):
     """ Autoregressive WaveNet """

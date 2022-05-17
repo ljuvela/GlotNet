@@ -1,7 +1,7 @@
 import torch
 
-from glotnet.wavenet import WaveNet
-from glotnet.wavenet_ar import WaveNetAR
+from glotnet.model.wavenet import WaveNet
+from glotnet.model.wavenet_ar import WaveNetAR
 
 if __name__ == "__main__":
     print("Test parameter migration between AR and non-AR wavenets")

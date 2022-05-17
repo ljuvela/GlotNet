@@ -1,5 +1,5 @@
 import torch
-from glotnet.convolution_stack import ConvolutionStack
+from glotnet.model.convolution_stack import ConvolutionStack
 
 def test_stack_minimal():
     print("Test stack with minimal configuration")
