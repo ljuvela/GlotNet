@@ -20,7 +20,6 @@ class GaussianDensity(torch.nn.Module):
         """
         # TODO: calculate entropy floor hinge regularizer
 
-
         #
 
         # NLL
@@ -34,6 +33,11 @@ class GaussianDensity(torch.nn.Module):
     def forward(self, x, params):
         return self.nll(x, params)
 
-    def sample(self, params):
-        pass
+    def sample(self, params, temperature=1.0):
+        
+        m = params[:, 0:1, :]
+        log_s = params[:, 1:2, :]
+        s = torch.exp(log_s)
+
+        return m + s * torch.rand_like(m) * temperature 
 
