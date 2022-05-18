@@ -11,9 +11,10 @@ def test_gaussian():
 
     batch = 2
     num_samples = 10
-    x = torch.randn(batch, num_samples, 1)
-    mu = torch.randn(batch, num_samples, 1)
-    log_sigma = torch.clamp(torch.randn(batch, num_samples, 1), min=-7.0)
+    channels = 1
+    x = torch.randn(batch, channels, num_samples)
+    mu = torch.randn(batch, channels, num_samples)
+    log_sigma = torch.clamp(torch.randn(batch, channels, num_samples), min=-7.0)
     sigma = torch.exp(log_sigma)
     
     dist_ref = NormalRef(loc=mu, scale=sigma)
@@ -22,7 +23,7 @@ def test_gaussian():
     # negative log likelihood from reference
     nll_ref = -1.0 * dist_ref.log_prob(x)
     # negative log likelihood from custom implementation
-    params = torch.cat([mu, log_sigma], dim=-1)
+    params = torch.cat([mu, log_sigma], dim=1)
     nll = dist.nll(x, params)
 
     assert torch.allclose(nll_ref, nll), \

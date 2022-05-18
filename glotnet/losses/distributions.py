@@ -18,14 +18,14 @@ class GaussianDensity(torch.nn.Module):
         """
         
         """
-        # calculate entropy floor hinge regularizer
+        # TODO: calculate entropy floor hinge regularizer
 
 
         #
 
         # NLL
-        m = params[..., 0:1]
-        log_s = params[..., 1:2]
+        m = params[:, 0:1, :]
+        log_s = params[:, 1:2, :]
         s = torch.exp(log_s)
 
         nll = 0.5 * (m - x).div(s).pow(2) + log_s + self.const

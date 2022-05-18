@@ -1,11 +1,11 @@
 import os
 from sys import platform
-from setuptools import setup
+from setuptools import setup, find_packages
 from torch.utils.cpp_extension import CppExtension, BuildExtension
 from glob import glob
 
 sources = ['ext/bindings.cpp']
-extra_compiler_args = ['-std=c++17', '-O0', '-w']
+extra_compiler_args = ['-std=c++17', '-O3', '-w']
 extra_compiler_args += ['-march=native'] # clang vectorization (according to Eigen docs)
 include_dirs = []
 
@@ -47,8 +47,10 @@ elif platform == "win32":
 
 os.environ['CXX'] = compiler
 
+packages = find_packages('.', exclude='third_party')
+
 setup(name='glotnet',
-      packages=['glotnet'],
+      packages=packages,
       ext_modules=[
           CppExtension(name='glotnet.cpp_extensions',
                        sources=sources,
