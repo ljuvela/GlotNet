@@ -27,9 +27,6 @@ std::vector<at::Tensor> forward(
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
 
-    float * data_in = input.data_ptr<float>();
-    float * data_out = output.data_ptr<float>();
-
     auto input_a  = input.accessor<float, 3>();  // size (batch, time, input_channels)
     auto output_a = output.accessor<float, 3>(); // size (batch, time, output_channels)
 
@@ -69,6 +66,7 @@ std::vector<at::Tensor> forward_cond(
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
 
+    // TODO: use accessors instead of raw data pointers
     float * data_in = input.data_ptr<float>();
     float * data_cond = cond_input.data_ptr<float>();
     float * data_out = output.data_ptr<float>();
