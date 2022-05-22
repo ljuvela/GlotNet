@@ -7,15 +7,17 @@ from .convolution_stack import ConvolutionStack
 class WaveNet(torch.nn.Module):
     """ Feedforward WaveNet """
 
-    def __init__(self, input_channels, output_channels,
-                 residual_channels, skip_channels,
-                 kernel_size, dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256],
-                 bias=True, device=None, dtype=None,
-                 causal=True,
-                 activation="gated",
-                 use_residual=True,
-                 use_1x1_block=True,
-                 cond_channels=None,
+    def __init__(self,
+                 input_channels: int,
+                 output_channels: int,
+                 residual_channels: int,
+                 skip_channels: int,
+                 kernel_size: int,
+                 dilations: List[int] = [1, 2, 4, 8, 16, 32, 64, 128, 256],
+                 causal: bool = True,
+                 activation: str = "gated",
+                 use_residual: bool = True,
+                 cond_channels: int = None,
                  ):
         super().__init__()
 
@@ -30,6 +32,7 @@ class WaveNet(torch.nn.Module):
         self.kernel_size = kernel_size
         self.use_residual = use_residual
         self.num_layers = len(dilations)
+        self.causal = causal
 
         # Layers
         self.input = ConvolutionLayer(

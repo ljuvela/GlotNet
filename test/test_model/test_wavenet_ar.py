@@ -3,7 +3,7 @@ from unittest import skip
 import torch
 
 from glotnet.model.wavenet_ar import WaveNetAR
-
+from glotnet.losses.distributions import GaussianDensity
 
 def test_wavenet_ar_minimal():
     print("Test wavenet with minimal configuration")
@@ -16,9 +16,12 @@ def test_wavenet_ar_minimal():
     kernel_size = 3
     dilations = [1]
 
-    wavenet = WaveNetAR(input_channels=channels, output_channels=channels,
+    dist = GaussianDensity(temperature=0.0)
+
+    wavenet = WaveNetAR(input_channels=channels, output_channels=2*channels,
                         residual_channels=residual_channels, skip_channels=skip_channels,
-                        kernel_size=kernel_size, dilations=dilations)
+                        kernel_size=kernel_size, dilations=dilations,
+                        distribution=dist)
     y1 = wavenet(timesteps=timesteps, use_cpu=False)
     y2 = wavenet(timesteps=timesteps, use_cpu=True)
 

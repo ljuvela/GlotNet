@@ -1,4 +1,15 @@
 #include "WaveNetAR.h"
+#include "Distributions.h"
+
+WaveNetAR::WaveNetAR(size_t input_channels, size_t output_channels,
+                     size_t convolution_channels, size_t skip_channels, size_t cond_channels,
+                     size_t filter_width, std::string activation, std::vector<int> dilations)
+    : WaveNet(input_channels, output_channels,
+              convolution_channels, skip_channels, cond_channels,
+              filter_width, activation, dilations),
+      dist(std::unique_ptr<Distribution>(new GaussianDensity()))
+{
+}
 
 void WaveNetAR::prepare()
 {
@@ -16,13 +27,23 @@ void WaveNetAR::process(float * const output_data, int total_samples)
     for (int i = 0; i < total_samples; i++)
     {
         WaveNet::process(input_buffer.data(), output_buffer.data(), 1u);
-        for (size_t j = 0; j < output_channels; j++)
-        {
-            // copy output to input
-            input_buffer[j] = output_buffer[j];
-            // copy to output buffer
-            output_data[i * output_channels + j] = output_buffer[j];
-        }
+
+        float x = -1;
+        dist->sample(output_buffer.data(), &x, 1u);
+        input_buffer[0] = x;
+        output_data[i] = x;
+
+
+        // for (size_t j = 0; j < output_channels; j++)
+        // {
+        //     float x;
+        //     dist.sample(output_buffer, &x, 1u);
+
+        //     // copy output to input
+        //     input_buffer[j] = output_buffer[j];
+        //     // copy to output buffer
+        //     output_data[i * output_channels + j] = output_buffer[j];
+        // }
     }
 }
 
@@ -45,3 +66,13 @@ void WaveNetAR::processConditional(const float *conditioning,
     }
 }
 
+
+void  WaveNetAR::setDistribution(std::string dist_name)
+{
+    dist = std::unique_ptr<Distribution>(new GaussianDensity());
+}
+
+void WaveNetAR::setSamplingTemperature(float temperature)
+{
+    dist->setTemperature(temperature);
+}

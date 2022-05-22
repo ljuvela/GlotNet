@@ -1,4 +1,3 @@
-
 #include <cmath>
 #include <random>
 #include "Distributions.h"

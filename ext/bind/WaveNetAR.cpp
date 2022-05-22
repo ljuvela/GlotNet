@@ -9,6 +9,8 @@ namespace glotnet
 namespace wavenet_ar
 {
 
+using glotnet::WaveNetAR;
+
 std::vector<at::Tensor> forward(
     int64_t timesteps,
     std::vector<torch::Tensor> &stack_weights_conv,
@@ -23,7 +25,8 @@ std::vector<at::Tensor> forward(
     std::vector<torch::Tensor> &output_biases,
     std::vector<int> &dilations,
     bool use_residual=true,
-    std::string activation="gated"
+    std::string activation="gated",
+    float temperature=1.0
     )
 {
     const int64_t batch_size = 1;
@@ -40,6 +43,9 @@ std::vector<at::Tensor> forward(
                              residual_channels, skip_channels, cond_channels,
                              filter_width, activation, dilations);
     wavenet.prepare();
+    wavenet.setDistribution("gaussian");
+    wavenet.setSamplingTemperature(temperature);
+
     // Set parameters
     wavenet.setInputWeight(input_weight);
     wavenet.setInputBias(input_bias);
@@ -59,12 +65,12 @@ std::vector<at::Tensor> forward(
         wavenet.setOutputBias(output_biases[i], i);
     }
 
-    auto output = torch::zeros({batch_size, timesteps, output_channels});
+    auto output = torch::zeros({batch_size, timesteps, input_channels});
     float * data_out = output.data_ptr<float>();
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.process(&(data_out[b * output_channels * timesteps]),
+        wavenet.process(&(data_out[b * input_channels * timesteps]),
                         timesteps);
     }
     return {output};

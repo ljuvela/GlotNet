@@ -2,18 +2,69 @@ import torch
 from typing import List
 import glotnet.cpp_extensions as ext
 from .wavenet import WaveNet
-
+from glotnet.losses.distributions import Distribution, GaussianDensity, Identity
 class WaveNetAR(WaveNet):
     """ Autoregressive WaveNet """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+            self,
+            input_channels: int,
+            output_channels: int,
+            residual_channels: int,
+            skip_channels: int,
+            kernel_size: int,
+            dilations: List[int] = [1, 2, 4, 8, 16, 32, 64, 128, 256],
+            causal: bool = True,
+            activation: str = "gated",
+            use_residual: bool = True,
+            cond_channels: int = None,
+            distribution: Distribution = None):
+        """
+           Args:
+                input_channels: input channels
+                output_channels: output channels
+                residual_channels: residual channels in main dilation stack
+                skip_channels: skip channels going out of dilation stack
+                kernel_size: dilated convolution kernel size
+                dilations: dilation factor for each each layer, len determines number of layers
+                causal: 
+                activation: activation type for dilated conv, options ["gated", "tanh"]
+                use_residual:
+                cond_channels: number of conditioning channels
+                distribution: 
+                 
+        """
+        super().__init__(
+            input_channels, output_channels,
+            residual_channels, skip_channels,
+            kernel_size, dilations,
+            causal, activation,
+            use_residual, cond_channels)
+            
+        self._validate_distribution(distribution)
+
+    def _validate_distribution(self, distribution):
+
+        if distribution is None:
+            distribution = Identity()
+        if type(distribution) is GaussianDensity:
+            assert self.output_channels == 2 * self.input_channels
+        self.distribution = distribution
+
+    def set_temperature(self, temperature):
+        self.distribution.set_temperature(temperature)
+
+    @property
+    def temperature(self):
+        return self.distribution.temperature
+
 
     def forward(self, cond_input=None, timesteps=None, use_cpu=True):
         """ 
         Args:
             cond_input (optional),
                 torch.Tensor of shape (batch_size, cond_channels, timesteps)
+            timesteps: number of timesteps to generate (if not using conditioning)
             use_cpu (optional), 
                 if False, use slow CUDA compatible implementation
                 if True, use custom C++ sequential implementation 
@@ -33,6 +84,7 @@ class WaveNetAR(WaveNet):
             raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
 
         if use_cpu:
+            time_major = True
             output = WaveNetARFunction.apply(
                 timesteps,
                 self.stack.weights_conv, self.stack.biases_conv,
@@ -42,7 +94,7 @@ class WaveNetAR(WaveNet):
                 self.input.conv.weight, self.input.conv.bias,
                 self.output_weights, self.output_biases,
                 self.dilations, self.use_residual, self.activation,
-                cond_input
+                cond_input, time_major, self.temperature
             )
             return output
         else:
@@ -67,7 +119,9 @@ class WaveNetAR(WaveNet):
                 x = self.output1(x)
                 x = self.output2(x)
 
-                x_t = x[:, :, t]
+                # print (x)
+                x = self.distribution.sample(x)
+                x_t = x[:, :, t] # TODO: should this not be -1 instead of t?
 
                 # Update context circular buffer
                 context = torch.roll(context, -1, dims=-1)
@@ -85,7 +139,8 @@ class WaveNetARFunction(torch.autograd.Function):
                 input_weight: torch.Tensor, input_bias: torch.Tensor,
                 output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
                 dilations: List[int], use_residual: bool, activation: str,
-                cond_input: torch.Tensor = None, time_major: bool = True):
+                cond_input: torch.Tensor = None, time_major: bool = True,
+                temperature: float = 1.0):
 
         num_layers = len(dilations)
 
@@ -101,7 +156,7 @@ class WaveNetARFunction(torch.autograd.Function):
                 stack_weights_skip, stack_biases_skip,
                 input_weight, input_bias,
                 output_weights, output_biases,
-                dilations, use_residual, activation)
+                dilations, use_residual, activation, temperature)
         else:
             output, = ext.wavenet_ar_cond_forward(cond_input,
                 stack_weights_conv, stack_biases_conv,
