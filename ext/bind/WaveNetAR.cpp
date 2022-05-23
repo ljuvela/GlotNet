@@ -65,13 +65,13 @@ std::vector<at::Tensor> forward(
         wavenet.setOutputBias(output_biases[i], i);
     }
 
-    auto output = torch::zeros({batch_size, timesteps, input_channels});
-    float * data_out = output.data_ptr<float>();
+    const auto audio_channels = input_channels;
+    auto output = torch::zeros({batch_size, timesteps, audio_channels});
+    auto output_a = output.accessor<float, 3>();
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.process(&(data_out[b * input_channels * timesteps]),
-                        timesteps);
+        wavenet.process(&output_a[b][0][0], timesteps);
     }
     return {output};
 }
@@ -92,7 +92,8 @@ std::vector<at::Tensor> cond_forward(
     const std::vector<torch::Tensor> &output_biases,
     const std::vector<int> &dilations,
     bool use_residual=true,
-    const std::string activation="gated"
+    const std::string activation="gated",
+    float temperature=1.0
     )
 {
     const int64_t batch_size = cond_input.size(0);
@@ -112,6 +113,8 @@ std::vector<at::Tensor> cond_forward(
 
     // Set buffer size to match timesteps
     wavenet.prepare();
+    wavenet.setDistribution("gaussian");
+    wavenet.setSamplingTemperature(temperature);
 
     // Set parameters
     wavenet.setInputWeight(input_weight);
@@ -134,14 +137,15 @@ std::vector<at::Tensor> cond_forward(
         wavenet.setOutputBias(output_biases[i], i);
     }
 
-    auto output =  torch::zeros({batch_size, timesteps, output_channels});
-    float * data_cond = cond_input.data_ptr<float>();
-    float * data_out = output.data_ptr<float>();
+    const auto audio_channels = input_channels;
+    auto output =  torch::zeros({batch_size, timesteps, audio_channels});
+    const auto cond_input_a = cond_input.accessor<float, 3>();
+    auto output_a = output.accessor<float, 3>();
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.processConditional(&(data_cond[b * timesteps * cond_channels]),
-                                   &(data_out[b * timesteps * output_channels]),
+        wavenet.processConditional(&cond_input_a[b][0][0],
+                                   &output_a[b][0][0],
                                    timesteps);
     }
     return {output};

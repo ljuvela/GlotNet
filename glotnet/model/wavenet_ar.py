@@ -18,7 +18,7 @@ class WaveNetAR(WaveNet):
             activation: str = "gated",
             use_residual: bool = True,
             cond_channels: int = None,
-            distribution: Distribution = None):
+            distribution: Distribution = GaussianDensity()):
         """
            Args:
                 input_channels: input channels
@@ -165,8 +165,7 @@ class WaveNetARFunction(torch.autograd.Function):
                 stack_weights_cond, stack_biases_cond,
                 input_weight, input_bias,
                 output_weights, output_biases,
-                dilations, use_residual, activation)
-
+                dilations, use_residual, activation, temperature)
 
         if ctx.time_major:
             output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)

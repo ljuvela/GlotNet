@@ -32,18 +32,6 @@ void WaveNetAR::process(float * const output_data, int total_samples)
         dist->sample(output_buffer.data(), &x, 1u);
         input_buffer[0] = x;
         output_data[i] = x;
-
-
-        // for (size_t j = 0; j < output_channels; j++)
-        // {
-        //     float x;
-        //     dist.sample(output_buffer, &x, 1u);
-
-        //     // copy output to input
-        //     input_buffer[j] = output_buffer[j];
-        //     // copy to output buffer
-        //     output_data[i * output_channels + j] = output_buffer[j];
-        // }
     }
 }
 
@@ -56,13 +44,11 @@ void WaveNetAR::processConditional(const float *conditioning,
     for (int i = 0; i < total_samples; i++)
     {
         WaveNet::processConditional(input_buffer.data(), &conditioning[i * cond_channels], output_buffer.data(), 1u);
-        for (size_t j = 0; j < output_channels; j++)
-        {    
-            // copy output to input
-            input_buffer[j] = output_buffer[j];
-            // copy to output buffer
-            output_data[i * output_channels + j] = output_buffer[j];
-        }
+
+        float x = -1;
+        dist->sample(output_buffer.data(), &x, 1u);
+        input_buffer[0] = x;
+        output_data[i] = x;
     }
 }
 
