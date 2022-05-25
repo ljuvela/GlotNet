@@ -63,6 +63,11 @@ class WaveNet(torch.nn.Module):
     @property
     def output_biases(self):
         return [self.output1.conv.bias, self.output2.conv.bias]
+    
+    @property
+    def receptive_field(self):
+        return self.input.receptive_field + self.stack.receptive_field \
+            + self.output1.receptive_field + self.output2.receptive_field
 
     def forward(self, input, cond_input=None, sequential=False):
         """ 

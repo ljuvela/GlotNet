@@ -12,7 +12,33 @@ def test_causal_conv():
     y = conv(x)
     # causality check
     assert torch.allclose(y[..., :impulse_loc], conv.bias)
-    print("   ok!")   
+    print("   ok!")
+
+def empirical_receptive_field(model, timesteps):
+    x = torch.zeros(1, 1, 2*timesteps, requires_grad=True)
+    y = model(x)
+    y[..., timesteps//2].backward()
+    nonzero = (x.grad.abs() > 1e-9) * 1
+    first = torch.argmax(nonzero)
+    last = nonzero.size(-1) - torch.argmax(nonzero.flip(dims=(-1,)))
+    return last-first
+
+def test_receptive_field():
+    print("Testing receptive field")
+    torch.manual_seed(42)
+
+    conv = Convolution(in_channels=1, out_channels=1, kernel_size=50, dilation=1)
+    r = empirical_receptive_field(conv, timesteps=100)
+    assert r == conv.receptive_field, \
+        "Analytical and empiric receptive field lengths must match"
+
+    conv = Convolution(in_channels=1, out_channels=1, kernel_size=3, dilation=4)
+    r = empirical_receptive_field(conv, timesteps=100)
+    assert r == conv.receptive_field, \
+        f"Analytical and empiric receptive field lengths must match \n emp: {r} \n ana: {conv.receptive_field}"
+
+    print("OK")
+
 
 def test_forward_siso():
     print("Testing forward pass with Single-In-Single-Out, batch size 1")
@@ -156,7 +182,8 @@ def test_forward_cond_mimo():
 
 if __name__ == "__main__":
 
-    test_causal_conv()  
+    test_causal_conv()
+    test_receptive_field()
     test_forward_siso()
     test_forward_simo()
     test_forward_miso()

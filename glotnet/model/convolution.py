@@ -8,17 +8,9 @@ class Convolution(torch.nn.Conv1d):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)
         self.causal = causal
 
-    def _forward_native(self, input: torch.Tensor, cond_input: torch.Tensor) -> torch.Tensor:
-        padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
-        if padding > 0:
-            input = torch.nn.functional.pad(input, (padding, 0))
-        output = torch.nn.functional.conv1d(
-            input, self.weight, bias=self.bias,
-            stride=self.stride, padding=0,
-            dilation=self.dilation, groups=self.groups)
-        if cond_input is not None:
-            output = output + cond_input
-        return output
+    @property
+    def receptive_field(self):
+        return (self.kernel_size[0] - 1) * self.dilation[0] + 1
 
     def forward(self, input: torch.Tensor, cond_input: torch.Tensor = None, sequential: bool = False) -> torch.Tensor:
 
@@ -30,6 +22,18 @@ class Convolution(torch.nn.Conv1d):
             return ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0], cond_input)
         else:
             return self._forward_native(input=input, cond_input=cond_input)
+
+    def _forward_native(self, input: torch.Tensor, cond_input: torch.Tensor) -> torch.Tensor:
+        padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
+        if padding > 0:
+            input = torch.nn.functional.pad(input, (padding, 0))
+        output = torch.nn.functional.conv1d(
+            input, self.weight, bias=self.bias,
+            stride=self.stride, padding=0,
+            dilation=self.dilation, groups=self.groups)
+        if cond_input is not None:
+            output = output + cond_input
+        return output
 
 class ConvolutionFunction(torch.autograd.Function):
 
