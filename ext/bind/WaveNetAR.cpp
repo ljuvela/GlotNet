@@ -12,24 +12,25 @@ namespace wavenet_ar
 using glotnet::WaveNetAR;
 
 std::vector<at::Tensor> forward(
-    int64_t timesteps,
-    std::vector<torch::Tensor> &stack_weights_conv,
-    std::vector<torch::Tensor> &stack_biases_conv,
-    std::vector<torch::Tensor> &stack_weights_out,
-    std::vector<torch::Tensor> &stack_biases_out,
-    std::vector<torch::Tensor> &stack_weights_skip,
-    std::vector<torch::Tensor> &stack_biases_skip,
-    torch::Tensor &input_weight,
-    torch::Tensor &input_bias,
-    std::vector<torch::Tensor> &output_weights,
-    std::vector<torch::Tensor> &output_biases,
-    std::vector<int> &dilations,
+    const torch::Tensor &input,
+    const std::vector<torch::Tensor> &stack_weights_conv,
+    const std::vector<torch::Tensor> &stack_biases_conv,
+    const std::vector<torch::Tensor> &stack_weights_out,
+    const std::vector<torch::Tensor> &stack_biases_out,
+    const std::vector<torch::Tensor> &stack_weights_skip,
+    const std::vector<torch::Tensor> &stack_biases_skip,
+    const torch::Tensor &input_weight,
+    const torch::Tensor &input_bias,
+    const std::vector<torch::Tensor> &output_weights,
+    const std::vector<torch::Tensor> &output_biases,
+    const std::vector<int> &dilations,
     bool use_residual=true,
-    std::string activation="gated",
+    const std::string activation="gated",
     float temperature=1.0
     )
 {
-    const int64_t batch_size = 1;
+    const int64_t batch_size = input.size(0);
+    const int64_t timesteps = input.size(1);
 
     const int64_t filter_width = stack_weights_conv[0].size(2);
     const int64_t residual_channels = stack_weights_conv[0].size(1);
@@ -67,17 +68,25 @@ std::vector<at::Tensor> forward(
 
     const auto audio_channels = input_channels;
     auto output = torch::zeros({batch_size, timesteps, audio_channels});
+
+    // Accessors
+    const auto input_a = input.accessor<float, 3>();
     auto output_a = output.accessor<float, 3>();
+
+    // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.process(&output_a[b][0][0], timesteps);
+        wavenet.process(
+            &input_a[b][0][0],
+            &output_a[b][0][0],
+            timesteps);
     }
     return {output};
 }
 
 std::vector<at::Tensor> cond_forward(
-    const torch::Tensor &cond_input,
+    const torch::Tensor &input, const torch::Tensor &cond_input,
     const std::vector<torch::Tensor> &stack_weights_conv,
     const std::vector<torch::Tensor> &stack_biases_conv,
     const std::vector<torch::Tensor> &stack_weights_out,
@@ -139,14 +148,21 @@ std::vector<at::Tensor> cond_forward(
 
     const auto audio_channels = input_channels;
     auto output =  torch::zeros({batch_size, timesteps, audio_channels});
+
+    // Accessors
+    const auto input_a = input.accessor<float, 3>();
     const auto cond_input_a = cond_input.accessor<float, 3>();
     auto output_a = output.accessor<float, 3>();
+
+    // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
         wavenet.reset();
-        wavenet.processConditional(&cond_input_a[b][0][0],
-                                   &output_a[b][0][0],
-                                   timesteps);
+        wavenet.processConditional(
+            &input_a[b][0][0],
+            &cond_input_a[b][0][0],
+            &output_a[b][0][0],
+            timesteps);
     }
     return {output};
 }

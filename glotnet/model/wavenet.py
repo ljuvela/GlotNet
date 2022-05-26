@@ -106,7 +106,7 @@ class WaveNet(torch.nn.Module):
     def _forward_native(self, input, cond_input):
         x = input
         x = self.input(x)
-        _, skips = self.stack(x, cond_input)
+        _, skips = self.stack(x, cond_input) # TODO self.stack must be called something different, torch.stack is different
         x = torch.stack(skips, dim=0).sum(dim=0)
         x = self.output1(x)
         x = self.output2(x)

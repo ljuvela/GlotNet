@@ -58,15 +58,15 @@ class WaveNetAR(WaveNet):
     def temperature(self):
         return self.distribution.temperature
 
-
-    def forward(self, cond_input=None, timesteps=None, use_cpu=True):
+    def forward(self, input, cond_input: torch.Tensor=None, timesteps=None, use_extension=True):
         """ 
         Args:
-            cond_input (optional),
-                torch.Tensor of shape (batch_size, cond_channels, timesteps)
-            timesteps: number of timesteps to generate (if not using conditioning)
-            use_cpu (optional), 
-                if False, use slow CUDA compatible implementation
+            input: shape (batch_size, channels, timesteps)
+                excitation signal, set to zeros for full autoregressive operation
+            cond_input (optional)"
+                 shape (batch_size, cond_channels, timesteps)
+            use_extension (optional), 
+                if False, use slow native (CUDA compatible) implementation
                 if True, use custom C++ sequential implementation 
 
         Returns:
@@ -74,19 +74,20 @@ class WaveNetAR(WaveNet):
      
         """
 
-        if cond_input is None and timesteps is None:
-            raise RuntimeError("Either 'cond_input' or 'timesteps' must be specified")
-
-        if cond_input is not None and timesteps is not None:
-            raise RuntimeError("'cond_input' and 'timesteps' cannot both be specified")
+        if cond_input is not None:
+            assert cond_input.size(-1) == input.size(-1)
 
         if cond_input is not None and not self.use_conditioning:
             raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
 
-        if use_cpu:
+        if cond_input is None and self.use_conditioning:
+            raise RuntimeError("Module has been initialized to use conditioning, but conditioning input was not provided at forward pass")
+
+
+        if use_extension:
             time_major = True
             output = WaveNetARFunction.apply(
-                timesteps,
+                input,
                 self.stack.weights_conv, self.stack.biases_conv,
                 self.stack.weights_out, self.stack.biases_out,
                 self.stack.weights_skip, self.stack.biases_skip,
@@ -98,40 +99,42 @@ class WaveNetAR(WaveNet):
             )
             return output
         else:
-            return self._forward_native(cond_input, timesteps)
+            return self._forward_native(input, cond_input)
 
-    def _forward_native(self, cond_input=None, timesteps=None):
+    def _forward_native(self, input: torch.Tensor, cond_input: torch.Tensor=None):
         # This implementation is just for checking correctness, 
         # never use this for processing
-        if timesteps is None:
-            timesteps = cond_input.size(-1)
-        if cond_input is None:
-            batch_size = 1
-        else:
-            batch_size = cond_input.size(0)
-        with torch.no_grad():
-            context = torch.zeros(batch_size, self.input_channels, timesteps)
-            # Loop over time
-            for t in range(timesteps):
-                x = self.input(context)
-                _, skips = self.stack(x, cond_input)
-                x = torch.stack(skips, dim=0).sum(dim=0)
-                x = self.output1(x)
-                x = self.output2(x)
 
-                # print (x)
-                x = self.distribution.sample(x)
-                x_t = x[:, :, t] # TODO: should this not be -1 instead of t?
+        timesteps = input.size(-1)
+        batch_size = input.size(0)
 
-                # Update context circular buffer
-                context = torch.roll(context, -1, dims=-1)
-                context[:, :, -1] = x_t
-        return context
+        context = torch.zeros(batch_size, self.input_channels, self.receptive_field)
+        output = torch.zeros(batch_size, self.input_channels, timesteps)
+
+        if cond_input is not None:
+            cond_input = torch.cat([torch.zeros(batch_size, self.cond_channels, self.receptive_field), cond_input], dim=-1)
+
+        # Loop over time
+        for t in range(timesteps):
+            if cond_input is None:
+                cond_context = None
+            else:
+                cond_context = cond_input[:, :, t:t + self.receptive_field]
+            x = super()._forward_native(input=context, cond_input=cond_context)
+            x = self.distribution.sample(x)
+
+            e_t = input[:, :, t]
+            x_t = x[:, :, -1] + e_t
+            output[:, :, t] = x_t
+            context = torch.roll(context, -1, dims=-1)
+            context[:, :, -1] = x_t
+
+        return output
 
 class WaveNetARFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, timesteps: int,
+    def forward(ctx, input: torch.Tensor,
                 stack_weights_conv: List[torch.Tensor], stack_biases_conv: List[torch.Tensor],
                 stack_weights_out: List[torch.Tensor], stack_biases_out: List[torch.Tensor],
                 stack_weights_skip: List[torch.Tensor], stack_biases_skip: List[torch.Tensor],
@@ -145,12 +148,16 @@ class WaveNetARFunction(torch.autograd.Function):
         num_layers = len(dilations)
 
         ctx.time_major = time_major
-        if ctx.time_major and cond_input is not None:
-            cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-            cond_input = cond_input.contiguous()
+        if ctx.time_major:
+            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            input = input.contiguous()
+            if cond_input is not None:
+                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+                cond_input = cond_input.contiguous()
 
         if cond_input is None:
-            output, = ext.wavenet_ar_forward(timesteps,
+            output, = ext.wavenet_ar_forward(
+                input,
                 stack_weights_conv, stack_biases_conv,
                 stack_weights_out, stack_biases_out,
                 stack_weights_skip, stack_biases_skip,
@@ -158,7 +165,8 @@ class WaveNetARFunction(torch.autograd.Function):
                 output_weights, output_biases,
                 dilations, use_residual, activation, temperature)
         else:
-            output, = ext.wavenet_ar_cond_forward(cond_input,
+            output, = ext.wavenet_ar_cond_forward(
+                input, cond_input,
                 stack_weights_conv, stack_biases_conv,
                 stack_weights_out, stack_biases_out,
                 stack_weights_skip, stack_biases_skip,
