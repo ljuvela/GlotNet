@@ -38,7 +38,17 @@ private:
     void processSingleSample(const float *data_in, float *data_out, int i, int total_samples);
     void processSingleSampleConditional(const float *data_in, const float *conditioning, float *data_out, int i, int total_samples);
     inline int mod(int a, int b) const;
+};
 
+class ConvolutionAR : public Convolution
+{
+public:
+    ConvolutionAR(size_t input_channels, size_t output_channels, int filter_width, int dilation = 1);
+    void process(const float *data_in, float *data_out, int64_t total_samples);
+
+private:
+    std::vector<float> x_curr;
+    std::vector<float> x_prev;
 };
 
 } // glotnet

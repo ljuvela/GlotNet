@@ -147,4 +147,36 @@ void Convolution::setParameters(const std::vector<const torch::Tensor *> & param
     this->setBias(*params[1]);
 }
 
+ConvolutionAR::ConvolutionAR(size_t input_channels, size_t output_channels, int filter_width, int dilation)
+: Convolution(input_channels, output_channels, filter_width, dilation)
+{
+    this->resetFifo();
+    x_curr.resize(1u * Convolution::getNumInputChannels()); 
+    x_prev.resize(1u * Convolution::getNumInputChannels()); 
+}
+
+
+void ConvolutionAR::process(const float *data_in, float *data_out, int64_t total_samples)
+{
+
+    const size_t channels = Convolution::getNumInputChannels();
+    
+    // Timestep 0
+    for (size_t c = 0; c < channels; c++)
+    {
+        data_out[0u + c] = data_in[0u + c];
+        x_prev[c] = data_out[0u + c];
+    }
+    // Timesteps 1:total_samples
+    for (int64_t t = 1; t < total_samples; t++)
+    {
+        Convolution::process(x_prev.data(), x_curr.data(), 1u);
+        for (size_t c = 0; c < channels; c++)
+        {
+            data_out[t * channels + c] = x_curr[c] + data_in[t * channels + c];
+            x_prev[c] = data_out[t  * channels + c];
+        }
+    }
+}
+
 } // glotnet

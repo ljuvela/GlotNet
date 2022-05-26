@@ -1,5 +1,6 @@
 import torch
 from glotnet.model.convolution import Convolution
+from glotnet.model.autoregressive.convolution import ConvolutionAR
 
 def test_causal_conv():
     print("Testing causal conv")
@@ -37,7 +38,7 @@ def test_receptive_field():
     assert r == conv.receptive_field, \
         f"Analytical and empiric receptive field lengths must match \n emp: {r} \n ana: {conv.receptive_field}"
 
-    print("OK")
+    print("  ok!")
 
 
 def test_forward_siso():
@@ -180,6 +181,59 @@ def test_forward_cond_mimo():
         f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")
 
+def test_conv_ar():
+
+    print("Testing autoregressive conv for exponential decay")
+
+    channels = 1
+    timesteps = 10
+    batch = 1
+
+    x = torch.zeros(batch, channels, timesteps)
+    x[..., 0] = 1.0
+
+    layer = ConvolutionAR(channels, channels, 2, bias=False)
+
+    # exponential decay
+    coeff = 0.9
+    kernel = torch.tensor([coeff])
+    layer.weight.data = kernel.reshape(1, 1, -1)
+
+    y = layer.forward(x)
+
+    y_ref = coeff ** torch.arange(timesteps)
+
+    assert torch.allclose(y, y_ref, atol=1e-6, rtol=1e-5)
+    print("  ok!")
+
+
+
+def test_conv_ar_extension():
+
+    print("Testing autoregressive conv extension")
+
+    channels = 1
+    timesteps = 10
+    batch = 1
+
+    x = torch.zeros(batch, channels, timesteps)
+    x[..., 0] = 1.0
+
+    layer = ConvolutionAR(channels, channels, 2)
+
+    # exponential decay
+    coeff = 0.9
+    kernel = torch.tensor([coeff])
+    layer.weight.data = kernel.reshape(1, 1, -1)
+    layer.bias.data.zero_()
+
+    y_ref = layer.forward(x, use_extension=False)
+    y = layer.forward(x, use_extension=True)
+
+    assert torch.allclose(y, y_ref, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match, \n ref: {y_ref} \n ext: {y}"
+    print("  ok!")
+
 if __name__ == "__main__":
 
     test_causal_conv()
@@ -192,6 +246,9 @@ if __name__ == "__main__":
     test_forward_mimo_dilated_multibatch()
     test_forward_cond_siso()
     test_forward_cond_mimo()
+    test_conv_ar()
+    test_conv_ar_extension()
+
 
 
 
