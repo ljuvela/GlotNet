@@ -1,5 +1,5 @@
 import torch
-from glotnet.model.activations import Activation
+from glotnet.model.feedforward.activations import Activation
 
 def test_linear():
     print("Test linear activation")

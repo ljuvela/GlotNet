@@ -1,8 +1,10 @@
 import torch
 from typing import List
-import glotnet.cpp_extensions as ext
-from .wavenet import WaveNet
+from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity, Identity
+import glotnet.cpp_extensions as ext
+
+
 class WaveNetAR(WaveNet):
     """ Autoregressive WaveNet """
 

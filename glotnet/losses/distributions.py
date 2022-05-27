@@ -1,5 +1,4 @@
 import torch
-from glotnet.model.convolution import Convolution
 import glotnet.cpp_extensions as ext
 
 class Distribution(torch.nn.Module):

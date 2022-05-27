@@ -1,5 +1,5 @@
 import torch
-from glotnet.model.wavenet import WaveNet
+from glotnet.model.feedforward.wavenet import WaveNet
 
 def test_wavenet_minimal():
     print("Test wavenet with minimal configuration")

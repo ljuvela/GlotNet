@@ -1,6 +1,5 @@
 import torch
 import glotnet.cpp_extensions as ext
-from .convolution import Convolution
 
 def _gated_activation(x: torch.Tensor) -> torch.Tensor:
 

@@ -1,5 +1,5 @@
 import torch
-from glotnet.model.convolution import Convolution
+from glotnet.model.feedforward.convolution import Convolution
 import glotnet.cpp_extensions as ext
 
 class ConvolutionAR(Convolution):

@@ -1,6 +1,6 @@
 import torch
-from glotnet.model.wavenet import WaveNet
-from glotnet.model.wavenet_ar import WaveNetAR
+from glotnet.model.feedforward.wavenet import WaveNet
+from glotnet.model.autoregressive.wavenet import WaveNetAR
 from glotnet.losses.distributions import GaussianDensity
 
 # def train():

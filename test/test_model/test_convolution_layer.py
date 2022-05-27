@@ -1,5 +1,5 @@
 import torch
-from glotnet.model.convolution_layer import ConvolutionLayer
+from glotnet.model.feedforward.convolution_layer import ConvolutionLayer
 
 def test_layer_linear():
     torch.manual_seed(42)

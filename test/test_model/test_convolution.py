@@ -1,5 +1,5 @@
 import torch
-from glotnet.model.convolution import Convolution
+from glotnet.model.feedforward.convolution import Convolution
 from glotnet.model.autoregressive.convolution import ConvolutionAR
 
 def test_causal_conv():
