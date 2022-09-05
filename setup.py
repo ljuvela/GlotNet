@@ -5,7 +5,7 @@ from torch.utils.cpp_extension import CppExtension, BuildExtension
 from glob import glob
 
 sources = ['ext/bindings.cpp']
-extra_compiler_args = ['-std=c++17', '-O0', '-w']
+extra_compiler_args = ['-std=c++17', '-O3', '-w']
 extra_compiler_args += ['-march=native'] # clang vectorization (according to Eigen docs)
 include_dirs = []
 
