@@ -2,19 +2,39 @@ import torch
 import glotnet.cpp_extensions as ext
 
 class Distribution(torch.nn.Module):
-    """ Base class for distributions """
-    def __init__(self):
+    """ Base class for distributions
+        
+        Args:
+            params_dim
+    """
+
+    def __init__(self, params_dim: int, out_dim: int):
+        """
+        Args:
+            params_dim: number of parameters per sample
+            out_dim: number of output channels per sample
+        """
         super().__init__()
+        self.params_dim = params_dim
+        self.out_dim = out_dim
+
+    def nll(self, x: torch.Tensor, params: torch.Tensor) -> torch.Tensor:
+        """ Negative log-likelihood """
+        raise NotImplementedError
+
+    def sample(self, params, use_extension=False) -> torch.Tensor:
+        raise NotImplementedError
 
 class GaussianDensity(Distribution):
 
-    def __init__(self, num_bits=None, temperature=1.0):
+    def __init__(self, num_bits=None, temperature=1.0, out_dim=1):
         """
         Args:
             input_channels: number of input channels
             num_bits: number of bits used to calculate entropy floor
         """
-        super().__init__()
+        params_dim = 2 * out_dim
+        super().__init__(params_dim=params_dim, out_dim=out_dim)
         self.num_bits = num_bits
         self.temperature = temperature
         self.register_buffer('const', torch.tensor(2 * torch.pi).sqrt().log())

@@ -54,13 +54,13 @@ class ConvolutionLayer(torch.nn.Module):
     def receptive_field(self):
         return self.conv.receptive_field + self.out.receptive_field
 
+    activations = {
+        "gated": ((torch.tanh, torch.sigmoid), 2),
+        "tanh": (torch.tanh, 1),
+        "linear": (torch.nn.Identity(), 1)
+    }
     def _parse_activation(self, activation):
-        activations = {
-            "gated": ((torch.tanh, torch.sigmoid), 2),
-            "tanh": (torch.tanh, 1),
-            "linear": (torch.nn.Identity(), 1)
-        }
-        activation_fun, channel_mul = activations.get(activation, (None, None))
+        activation_fun, channel_mul = ConvolutionLayer.activations.get(activation, (None, None))
         if channel_mul is None:
             raise NotImplementedError
         return activation_fun, channel_mul
