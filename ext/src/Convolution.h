@@ -19,7 +19,7 @@ public:
     void setKernel(const torch::Tensor &W);
     void setBias(const torch::Tensor &b);
     void setParameters(const std::vector<const torch::Tensor *> & params);
-    void resetFifo();
+    void resetBuffer();
     void resetKernel();
 
 private:

@@ -9,9 +9,9 @@ namespace convolution
 {
 
 std::vector<at::Tensor> forward(
-    const torch::Tensor & input,
-    const torch::Tensor & weight,
-    const torch::Tensor & bias,
+    const torch::Tensor &input,
+    const torch::Tensor &weight,
+    const torch::Tensor &bias,
     size_t dilation=1)
 {
     int64_t batch_size = input.size(0);
@@ -36,7 +36,7 @@ std::vector<at::Tensor> forward(
 
     for (int64_t b = 0; b < batch_size; b++)
     {
-        conv.resetFifo();
+        conv.resetBuffer();
         conv.process(&(input_a[b][0][0]),
                      &(output_a[b][0][0]),
                      timesteps);
@@ -77,7 +77,7 @@ std::vector<at::Tensor> forward_cond(
 
     for (int64_t b = 0; b < batch_size; b++)
     {
-        conv.resetFifo();
+        conv.resetBuffer();
         conv.processConditional(&(data_in[b * input_channels * timesteps]),
                      &(data_cond[b * output_channels * timesteps]),
                      &(data_out[b * output_channels * timesteps]),
@@ -115,7 +115,7 @@ std::vector<at::Tensor> forward_autoregressive(
 
     for (int64_t b = 0; b < batch_size; b++)
     {
-        conv.resetFifo();
+        conv.resetBuffer();
         conv.process(&(input_a[b][0][0]),
                      &(output_a[b][0][0]),
                      timesteps);
@@ -133,5 +133,8 @@ void init_convolution(py::module &m)
     m.def("convolution_forward", &(glotnet::convolution::forward), "Convolution forward");
     m.def("convolution_cond_forward", &(glotnet::convolution::forward_cond), "Convolution conditional forward");
     m.def("convolution_forward_ar", &(glotnet::convolution::forward_autoregressive), "Convolution autoregressive forward");
-
+    py::class_<glotnet::Convolution>(m, "Convolution")
+        .def(py::init<size_t, size_t, int, int>())
+        .def("set_kernel", &glotnet::Convolution::setKernel)
+        .def("set_bias", &glotnet::Convolution::setBias);
 }

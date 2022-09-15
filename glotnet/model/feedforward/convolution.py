@@ -7,6 +7,7 @@ class Convolution(torch.nn.Conv1d):
                  causal=True):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)
         self.causal = causal
+        self._impl = ext.Convolution(in_channels, out_channels, kernel_size, dilation)
 
     @property
     def receptive_field(self):

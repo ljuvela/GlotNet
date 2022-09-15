@@ -114,10 +114,10 @@ void ConvolutionLayer::setCondBias(const torch::Tensor &b)
 
 void ConvolutionLayer::reset()
 {
-    conv.resetFifo();
-    out1x1.resetFifo();
-    skip1x1.resetFifo();
-    cond1x1.resetFifo();
+    conv.resetBuffer();
+    out1x1.resetBuffer();
+    skip1x1.resetBuffer();
+    cond1x1.resetBuffer();
 }
 
 void ConvolutionLayer::prepare(size_t timesteps)

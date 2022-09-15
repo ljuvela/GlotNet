@@ -12,7 +12,7 @@ Convolution::Convolution(size_t input_channels, size_t output_channels, int filt
     output_channels(output_channels),
     filter_width(filter_width)
 {
-    resetFifo();
+    resetBuffer();
     resetKernel();
 }
 
@@ -30,7 +30,7 @@ void Convolution::resetKernel()
     bias.setZero();
 }
 
-void Convolution::resetFifo()
+void Convolution::resetBuffer()
 {
     memory.clear();
     memory.reserve(getReceptiveField());
@@ -150,7 +150,7 @@ void Convolution::setParameters(const std::vector<const torch::Tensor *> & param
 ConvolutionAR::ConvolutionAR(size_t input_channels, size_t output_channels, int filter_width, int dilation)
 : Convolution(input_channels, output_channels, filter_width, dilation)
 {
-    this->resetFifo();
+    this->resetBuffer();
     x_curr.resize(1u * Convolution::getNumInputChannels()); 
     x_prev.resize(1u * Convolution::getNumInputChannels()); 
 }
@@ -158,7 +158,6 @@ ConvolutionAR::ConvolutionAR(size_t input_channels, size_t output_channels, int 
 
 void ConvolutionAR::process(const float *data_in, float *data_out, int64_t total_samples)
 {
-
     const size_t channels = Convolution::getNumInputChannels();
     
     // Timestep 0
