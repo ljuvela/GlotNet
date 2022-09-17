@@ -66,7 +66,7 @@ class Trainer():
     def fit(self, num_iters: int = 1, global_iter_max=None):
         while self.iter < num_iters:
             for minibatch in self.data_loader:
-                x = minibatch[0]
+                x, = minibatch
                 x_curr = x[:, :, 1:]
                 x_prev = x[:, :, :-1]
 
