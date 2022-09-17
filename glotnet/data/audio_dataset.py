@@ -1,7 +1,7 @@
 from glob import glob
 from logging import warn
 import os
-import soundfile as sf
+import torchaudio
 from typing import List, Tuple
 import torch
 from torch.utils.data import Dataset
@@ -35,15 +35,15 @@ class AudioDataset(Dataset):
 
     def _check_audio_file(self, f):
 
-        info = sf.info(f)
-        if info.channels != self.config.channels:
+        info = torchaudio.info(f)
+        if info.num_channels != self.config.channels:
             raise ValueError(
-                f"Expected {self.config.channels} but got {info.channels} in {f}")
-        if info.samplerate != self.config.sample_rate:
+                f"Expected {self.config.channels} but got {info.num_channels} in {f}")
+        if info.sample_rate != self.config.sample_rate:
             raise ValueError(
-                f"Expected sample rate {self.config.sample_rate} but got {info.samplerate} in {f}")
+                f"Expected sample rate {self.config.sample_rate} but got {info.sample_rate} in {f}")
 
-        num_samples = info.frames
+        num_samples = info.num_frames
 
         if num_samples < self.config.segment_len:
             warn(
@@ -64,9 +64,7 @@ class AudioDataset(Dataset):
 
     def __getitem__(self, i):
         f, start, stop = self.segment_index[i]
-        x, fs = sf.read(f, start=start, stop=stop)
-        
-        x = torch.tensor(x, dtype=self.dtype)
+        x, fs = torchaudio.load(f, frame_offset=start, num_frames=stop-start)
         if x.ndim == 1:
             x = x.unsqueeze(0) # shape is (channels=1, time)
         x = x.unsqueeze(0) # shape is (batch=1, channels, time)
