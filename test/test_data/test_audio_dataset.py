@@ -7,7 +7,6 @@ import torchaudio
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.data.config import DataConfig
 
-
 def test_directory_read():
 
     config = DataConfig(padding=1000)
@@ -21,11 +20,7 @@ def test_directory_read():
             num_samples = np.random.randint(
                 low=int(0.1 * config.sample_rate),
                 high=int(8 * config.sample_rate))
-            # x = np.random.randn(num_samples, config.channels)
             x = torch.randn(config.channels, num_samples)
-
-            # sf.write(os.path.join(dir, f"{i}{ext}"),
-            #          x, samplerate=config.sample_rate)
             torchaudio.save(os.path.join(dir, f"{i}{ext}"),
                      x, sample_rate=config.sample_rate)
 

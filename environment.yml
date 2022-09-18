@@ -2,6 +2,7 @@ channels:
   - pytorch
   - conda-forge
 dependencies:
+  - eigen
   - python
   - pytorch
   - torchaudio

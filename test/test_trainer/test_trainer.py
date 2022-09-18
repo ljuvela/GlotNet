@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+
 from glotnet.train.trainer import Trainer
 from glotnet.train.config import TrainerConfig
 
@@ -22,9 +23,14 @@ def test_trainer():
     x_prev = x[:, :, :-1]
 
     dataset = TensorDataset(x)
-    data_loader = DataLoader(dataset=dataset, batch_size=batch_size)
-    config = TrainerConfig()
-    trainer = Trainer(config=config, data_loader=data_loader)
+    config = TrainerConfig(batch_size=batch_size)
+    criterion = Trainer.create_criterion(config)
+    model = Trainer.create_model(config, criterion)
+
+    trainer = Trainer(model=model,
+                      criterion=criterion,
+                      dataset=dataset,
+                      config=config)
 
     likelihood_0 = trainer.log_prob(x_curr, x_prev)
     trainer.fit(num_iters=1)

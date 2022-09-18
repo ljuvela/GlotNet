@@ -1,29 +1,43 @@
 import torch
 
+from torch.utils.data import Dataset, DataLoader
+
 from .config import TrainerConfig
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity
 
-
 class Trainer():
 
-    def __init__(self, config: TrainerConfig,
-                 data_loader: torch.utils.data.DataLoader):
-
+    def __init__(self,
+                 model: WaveNet,
+                 criterion: Distribution,
+                 dataset: Dataset,
+                 config: TrainerConfig):
+        """ Init GlotNet Trainer """
         self.config = config
-        self.criterion: Distribution = self.create_criterion()
-        self.model: WaveNet = self.create_model()
-        self.optim: torch.optim.Optimizer = self.create_optimizer()
-
-        self.data_loader = data_loader
+        self.criterion = criterion
+        self.model = model
+        self.optim = self.create_optimizer()
+        self.dataset = dataset
+        self.data_loader = DataLoader(dataset, batch_size=config.batch_size)
         self.iter_global = 0
         self.iter = 0
 
-    def create_model(self) -> WaveNet:
+    def create_criterion(config: TrainerConfig) -> Distribution:
+        """ Create scoring distribution instance from config """
+        distribution = Trainer.distributions.get(
+            config.distribution, None)
+        if distribution is None:
+            raise NotImplementedError(
+                f"Distribution {config.distribution} not supported")
+        dist = distribution()
+        return dist
+
+    def create_model(config: TrainerConfig, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
-        cfg = self.config
+        cfg = config
         model = WaveNet(input_channels=cfg.input_channels,
-                        output_channels=self.criterion.params_dim,
+                        output_channels=distribution.params_dim,
                         residual_channels=cfg.residual_channels,
                         skip_channels=cfg.skip_channels,
                         kernel_size=cfg.filter_width,
@@ -34,15 +48,6 @@ class Trainer():
                         cond_channels=cfg.cond_channels)
         return model
 
-    def create_criterion(self) -> Distribution:
-        """ Create scoring distribution instance from config """
-        distribution = Trainer.distributions.get(
-            self.config.distribution, None)
-        if distribution is None:
-            raise NotImplementedError(
-                f"Distribution {self.config.distribution} not supported")
-        dist = distribution()
-        return dist
 
     def create_optimizer(self) -> torch.optim.Optimizer:
         """ Create optimizer instance from config """
