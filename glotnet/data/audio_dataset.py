@@ -1,5 +1,5 @@
 from glob import glob
-from logging import warn
+from logging import warning
 import os
 import torchaudio
 from typing import List, Tuple
@@ -46,12 +46,13 @@ class AudioDataset(Dataset):
         num_samples = info.num_frames
 
         if num_samples < self.config.segment_len:
-            warn(
+            warning(
                 f"File {f} is shorter than specified segment length {self.config.segment_len}, was {num_samples}")
 
         # read sements from the end (to minimize zero padding)
         stop = num_samples
         start = stop - self.config.segment_len - self.config.padding
+        start = max(start, 0)
         while stop >= 0:
             self.segment_index.append(
                 (os.path.realpath(f), start, stop))
