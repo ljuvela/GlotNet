@@ -68,8 +68,11 @@ class AudioDataset(Dataset):
         x, fs = torchaudio.load(f, frame_offset=start, num_frames=stop-start)
         if x.ndim == 1:
             x = x.unsqueeze(0) # shape is (channels=1, time)
-        x = x.unsqueeze(0) # shape is (batch=1, channels, time)
         pad_left = self.config.segment_len + self.config.padding - x.size(-1)
         # zero pad to segment_len + padding
         x = torch.nn.functional.pad(x, (pad_left, 0))
-        return x
+        
+        # TODO: extract acoustic features 
+        # c = ...
+        
+        return (x,)

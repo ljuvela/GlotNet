@@ -1,3 +1,4 @@
+from xml.dom import minicompat
 import torch
 
 from torch.utils.data import Dataset, DataLoader
@@ -6,14 +7,16 @@ from .config import TrainerConfig
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity
 
-class Trainer():
+class Trainer(torch.nn.Module):
 
     def __init__(self,
                  model: WaveNet,
                  criterion: Distribution,
                  dataset: Dataset,
-                 config: TrainerConfig):
+                 config: TrainerConfig,
+                 device: torch.device = torch.device('cpu')):
         """ Init GlotNet Trainer """
+        super().__init__()
         self.config = config
         self.criterion = criterion
         self.model = model
@@ -22,6 +25,11 @@ class Trainer():
         self.data_loader = DataLoader(dataset, batch_size=config.batch_size)
         self.iter_global = 0
         self.iter = 0
+        self.device = device
+
+    def to(self, device: torch.device):
+        self.device = device
+        super().to(device)
 
     def create_criterion(config: TrainerConfig) -> Distribution:
         """ Create scoring distribution instance from config """
@@ -68,14 +76,28 @@ class Trainer():
             self.optim.load_state_dict(optim_state_dict)
         self.iter_global = iter
 
+    def _unpack_minibatch(self, minibatch):
+        """ Unpack minibatch and move to appropriate device """
+        if len(minibatch) == 1:
+            x, = minibatch
+            c = None
+        elif len(minibatch) == 2:
+            x, c = minibatch
+            c = c.to(self.device)
+        else:
+            raise ValueError("")
+        x = x.to(self.device)
+        return x, c
+
     def fit(self, num_iters: int = 1, global_iter_max=None):
         while self.iter < num_iters:
             for minibatch in self.data_loader:
-                x, = minibatch
+                x, c = self._unpack_minibatch(minibatch)
                 x_curr = x[:, :, 1:]
                 x_prev = x[:, :, :-1]
 
-                params = self.model(x_prev)
+                params = self.model(x_prev, c)
+                # TODO discard non-valid samples (padding)
 
                 nll = self.criterion.nll(x=x_curr, params=params)
 

@@ -26,7 +26,7 @@ def test_directory_read():
 
         dataset = AudioDataset(config, dir, ext)
 
-        for i, d in enumerate(dataset):
+        for i, (d,) in enumerate(dataset):
             assert d.size(-1) == padded_seqment_len, \
                 f"all items in dataset should be of length {padded_seqment_len}, got {d.size(-1)} in element {i}"
 
