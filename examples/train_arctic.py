@@ -1,6 +1,6 @@
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.data.config import DataConfig
-from glotnet.train.trainer import Trainer, TrainerConfig
+from glotnet.trainer.trainer import Trainer, TrainerConfig
 
 from torchaudio.datasets import CMUARCTIC
 

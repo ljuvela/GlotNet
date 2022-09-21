@@ -59,7 +59,7 @@ class GaussianDensity(Distribution):
         return nll
 
     def forward(self, x, params):
-        return self.nll(x, params)
+        return self.nll(x, params).mean()
 
     def sample(self, params, use_extension=False):
         

@@ -6,12 +6,12 @@ from typing import List, Tuple
 import torch
 from torch.utils.data import Dataset
 
-from .config import DataConfig
+from glotnet.config import Config
 
 class AudioDataset(Dataset):
 
     def __init__(self,
-                 config: DataConfig,
+                 config: Config,
                  audio_dir: str,
                  audio_ext: str = '.wav',
                  file_list: List[str] = None,

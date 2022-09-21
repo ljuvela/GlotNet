@@ -1,0 +1,4 @@
+{
+    "max_iters": 10,
+    "residual_channels": 8
+}
