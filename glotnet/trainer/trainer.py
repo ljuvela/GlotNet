@@ -2,8 +2,9 @@ from xml.dom import minicompat
 import torch
 
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
-from .config import TrainerConfig
+from glotnet.config import Config
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity
 
@@ -13,7 +14,7 @@ class Trainer(torch.nn.Module):
                  model: WaveNet,
                  criterion: Distribution,
                  dataset: Dataset,
-                 config: TrainerConfig,
+                 config: Config,
                  device: torch.device = torch.device('cpu')):
         """ Init GlotNet Trainer """
         super().__init__()
@@ -23,6 +24,7 @@ class Trainer(torch.nn.Module):
         self.optim = self.create_optimizer()
         self.dataset = dataset
         self.data_loader = DataLoader(dataset, batch_size=config.batch_size)
+        self.writer = self.create_writer()
         self.iter_global = 0
         self.iter = 0
         self.device = device
@@ -31,7 +33,7 @@ class Trainer(torch.nn.Module):
         self.device = device
         super().to(device)
 
-    def create_criterion(config: TrainerConfig) -> Distribution:
+    def create_criterion(config: Config) -> Distribution:
         """ Create scoring distribution instance from config """
         distribution = Trainer.distributions.get(
             config.distribution, None)
@@ -41,7 +43,7 @@ class Trainer(torch.nn.Module):
         dist = distribution()
         return dist
 
-    def create_model(config: TrainerConfig, distribution: Distribution) -> WaveNet:
+    def create_model(config: Config, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
         cfg = config
         model = WaveNet(input_channels=cfg.input_channels,
@@ -67,6 +69,10 @@ class Trainer(torch.nn.Module):
         optim = Optimizer(self.model.parameters(), lr=cfg.learning_rate)
         return optim
 
+    def create_writer(self) -> SummaryWriter:
+        return SummaryWriter(self.config.log_dir)
+        
+
     def resume(self, model_state_dict, optim_state_dict=None, iter=0):
         """ Resume training
 
@@ -90,6 +96,8 @@ class Trainer(torch.nn.Module):
         return x, c
 
     def fit(self, num_iters: int = 1, global_iter_max=None):
+        self.iter = 0
+        self.losses = []
         while self.iter < num_iters:
             for minibatch in self.data_loader:
                 x, c = self._unpack_minibatch(minibatch)
@@ -99,10 +107,9 @@ class Trainer(torch.nn.Module):
                 params = self.model(x_prev, c)
                 # TODO discard non-valid samples (padding)
 
-                nll = self.criterion.nll(x=x_curr, params=params)
-
-                loss = nll.mean()
+                loss = self.criterion(x=x_curr, params=params)
                 loss.backward()
+                self.losses.append(loss.item())
 
                 self.optim.step()
                 self.optim.zero_grad()
@@ -114,6 +121,7 @@ class Trainer(torch.nn.Module):
                 if (global_iter_max is not None
                         and self.iter_global >= global_iter_max):
                     break
+
 
     def log_prob(self, x_curr: torch.Tensor,
                  x_prev: torch.Tensor,

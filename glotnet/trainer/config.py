@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 from typing import List, Tuple
 
 
@@ -24,6 +25,13 @@ class TrainerConfig:
     learning_rate: float = 1e-3
     batch_size: int = 4
     shuffle: bool = True
+    max_iters: int = 10 ** 6
 
     loss_weight_nll: float = 1.0
     loss_weight_scale_hinge_reg: float = 0.1
+
+    def from_json(filepath: str):
+        """ Load config from Json"""
+        with open(filepath, 'r') as f:
+            cfg = json.load(f)
+        return TrainerConfig(**cfg)

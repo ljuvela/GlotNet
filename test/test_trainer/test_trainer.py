@@ -1,8 +1,9 @@
+import tempfile
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
-from glotnet.train.trainer import Trainer
-from glotnet.train.config import TrainerConfig
+from glotnet.trainer.trainer import Trainer
+from glotnet.config import Config
 
 def test_trainer():
 
@@ -19,11 +20,9 @@ def test_trainer():
 
     # data shape is ((batch_size, channels, timesteps)
     x = x.unsqueeze(0).unsqueeze(0)
-    x_curr = x[:, :, 1:]
-    x_prev = x[:, :, :-1]
 
     dataset = TensorDataset(x)
-    config = TrainerConfig(batch_size=batch_size)
+    config = Config(batch_size=batch_size)
     criterion = Trainer.create_criterion(config)
     model = Trainer.create_model(config, criterion)
 
@@ -32,12 +31,35 @@ def test_trainer():
                       dataset=dataset,
                       config=config)
 
+    x_curr = x[:, :, 1:]
+    x_prev = x[:, :, :-1]
     likelihood_0 = trainer.log_prob(x_curr, x_prev)
     trainer.fit(num_iters=1)
     likelihood_1 = trainer.log_prob(x_curr, x_prev)
 
     assert likelihood_1 > likelihood_0, \
         "Training must improve likelihood"
+
+def test_logging():
+
+    batch_size = 4
+    timesteps = 100
+    channels = 1
+    num_examples = 32
+
+    x = torch.randn(num_examples, channels, timesteps)
+
+    with tempfile.TemporaryDirectory() as dir:
+
+        dataset = TensorDataset(x)
+        config = Config(batch_size=batch_size)
+        config.log_dir = dir
+        criterion = Trainer.create_criterion(config)
+        model = Trainer.create_model(config, criterion)
+
+
+def test_resume_training():
+    pass
 
 
 if __name__ == "__main__":

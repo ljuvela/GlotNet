@@ -2,3 +2,4 @@ torch >= 1.11
 numpy
 pytest
 torchaudio
+tensorboard
