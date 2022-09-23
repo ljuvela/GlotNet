@@ -25,6 +25,7 @@ class Convolution(torch.nn.Conv1d):
             return self._forward_native(input=input, cond_input=cond_input)
 
     def _forward_native(self, input: torch.Tensor, cond_input: torch.Tensor) -> torch.Tensor:
+        """ Native torch conv1d with causal padding"""
         padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
         if padding > 0:
             input = torch.nn.functional.pad(input, (padding, 0))
@@ -62,7 +63,11 @@ class ConvolutionFunction(torch.autograd.Function):
         input = input.contiguous()
 
         if cond_input is None:
-            output, = ext.convolution_forward(input, weight, bias, dilation)
+            conv = ext.Convolution(weight.size(1), weight.size(0), weight.size(2), dilation)
+            conv.set_kernel(weight)
+            conv.set_bias(bias)
+            output, = conv.forward(input)
+            # output, = ext.convolution_forward(input, weight, bias, dilation)
         else:
             output, = ext.convolution_cond_forward(input, cond_input, weight, bias, dilation)
 
