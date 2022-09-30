@@ -6,6 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from glotnet.config import Config
 from glotnet.model.feedforward.wavenet import WaveNet
+from glotnet.model.autoregressive.wavenet import WaveNetAR
 from glotnet.losses.distributions import Distribution, GaussianDensity
 
 class Trainer(torch.nn.Module):
@@ -46,6 +47,7 @@ class Trainer(torch.nn.Module):
     def create_model(config: Config, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
         cfg = config
+        # TODO: distribution should be a part of the model
         model = WaveNet(input_channels=cfg.input_channels,
                         output_channels=distribution.params_dim,
                         residual_channels=cfg.residual_channels,
@@ -58,6 +60,29 @@ class Trainer(torch.nn.Module):
                         cond_channels=cfg.cond_channels)
         return model
 
+    def generate(self, input: torch.Tensor):
+        """ Generate samples in autoregressive inference mode
+        
+        Args: input shape is (batch, channels, timesteps)
+        """
+        cfg = self.config
+        distribution = self.criterion
+        # TODO: teacher forcing and AR inference should be in the same model!
+        model_ar = WaveNetAR(input_channels=cfg.input_channels,
+                        output_channels=distribution.params_dim,
+                        residual_channels=cfg.residual_channels,
+                        skip_channels=cfg.skip_channels,
+                        kernel_size=cfg.filter_width,
+                        dilations=cfg.dilations,
+                        causal=True,
+                        activation=cfg.activation,
+                        use_residual=cfg.use_residual,
+                        cond_channels=cfg.cond_channels)
+
+        model_ar.load_state_dict(self.model.state_dict(), strict=False)
+        model_ar.distribution.set_temperature(0.1) # TODO: schedule?
+        output = model_ar.forward(input=input)
+        return output.clamp(min=0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
         """ Create optimizer instance from config """
@@ -69,11 +94,14 @@ class Trainer(torch.nn.Module):
         optim = Optimizer(self.model.parameters(), lr=cfg.learning_rate)
         return optim
 
+    def create_scheduler(self) -> torch.optim.lr_scheduler._LRScheduler:
+        """ Create learning rate sceduler """
+        raise NotImplementedError("Learning rate scheduling not implemented yet")
+
     def create_writer(self) -> SummaryWriter:
         os.makedirs(self.config.log_dir, exist_ok=True)
         writer = SummaryWriter(log_dir=self.config.log_dir)
         return writer
-        
 
     def resume(self, model_state_dict, optim_state_dict=None, iter=0):
         """ Resume training
@@ -99,29 +127,37 @@ class Trainer(torch.nn.Module):
 
     def fit(self, num_iters: int = 1, global_iter_max=None):
         self.iter = 0
-        self.losses = []
-        while self.iter < num_iters:
+        stop = False
+        while not stop:
             for minibatch in self.data_loader:
                 x, c = self._unpack_minibatch(minibatch)
                 x_curr = x[:, :, 1:]
                 x_prev = x[:, :, :-1]
 
                 params = self.model(x_prev, c)
-                # TODO discard non-valid samples (padding)
 
-                loss = self.criterion(x=x_curr, params=params)
+                # discard non-valid samples (padding)
+                loss = self.criterion(x=x_curr[self.config.padding:],
+                                      params=params[self.config.padding:])
                 loss.backward()
-                self.losses.append(loss.item())
+
+                # logging 
+                self.writer.add_scalar("loss", loss.item(), global_step=self.iter_global)
+                # TODO: log scale parameter
 
                 self.optim.step()
                 self.optim.zero_grad()
 
+                print(f"Iter {self.iter_global}: loss = {loss.item()}")
+
                 self.iter += 1
                 self.iter_global += 1
                 if self.iter >= num_iters:
+                    stop = True
                     break
                 if (global_iter_max is not None
                         and self.iter_global >= global_iter_max):
+                    stop = True
                     break
 
 
@@ -139,4 +175,8 @@ class Trainer(torch.nn.Module):
 
     distributions = {
         "gaussian": GaussianDensity
+    }
+
+    schedulers = {
+        "cyclic" : torch.optim.lr_scheduler.CyclicLR,
     }

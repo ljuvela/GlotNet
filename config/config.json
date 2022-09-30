@@ -1,4 +1,8 @@
 {
-    "max_iters": 10,
-    "residual_channels": 8
+    "max_iters": 5000,
+    "validation_interval" : 50,
+    "residual_channels": 32,
+    "skip_channels" : 32,
+    "dilations" :  [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+
 }

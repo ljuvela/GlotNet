@@ -2,6 +2,8 @@ from dataclasses import asdict, dataclass
 import json
 from typing import List, Tuple
 
+import torch
+
 @dataclass
 class Config:
     """ GlotNet configuration """
@@ -29,8 +31,8 @@ class Config:
 
     # Training
     max_iters: int = 10 ** 6
-    logging_interval = 10 ** 2
-    validation_interval = 10 ** 3
+    logging_interval: int = 10 ** 2
+    validation_interval: int = 10 ** 3
 
     # Audio properties
     sample_rate: int = 16000
