@@ -1,4 +1,4 @@
-from xml.dom import minicompat
+import os
 import torch
 
 from torch.utils.data import Dataset, DataLoader
@@ -70,7 +70,9 @@ class Trainer(torch.nn.Module):
         return optim
 
     def create_writer(self) -> SummaryWriter:
-        return SummaryWriter(self.config.log_dir)
+        os.makedirs(self.config.log_dir, exist_ok=True)
+        writer = SummaryWriter(log_dir=self.config.log_dir)
+        return writer
         
 
     def resume(self, model_state_dict, optim_state_dict=None, iter=0):

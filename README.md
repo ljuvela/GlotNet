@@ -25,9 +25,9 @@ pip install -r requirements.txt
 
 ### Build
 
-Build
+Build and install
 ```bash
-python setup.py install
+pip install .
 ```
 
 Run tests
@@ -38,8 +38,9 @@ pytest test
 
 ### Development
 
+Build in edit mode 
 ```bash
-python setup.py develop
+pip install -v e .
 ```
 
 Flake8 linter tests must pass. Install by

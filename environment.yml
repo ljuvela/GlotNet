@@ -4,6 +4,6 @@ channels:
 dependencies:
   - eigen
   - python
-  - pytorch
+  - pytorch=1.12
   - torchaudio
   - tensorboard
