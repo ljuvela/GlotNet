@@ -47,7 +47,7 @@ class Config:
     num_mels: int = 80
 
     # summary writer 
-    log_dir: str = 'runs/logs'
+    log_dir: str = None
 
     # saving
     saves_dir: str = 'runs/saves'

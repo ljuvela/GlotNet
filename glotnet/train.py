@@ -14,7 +14,7 @@ def parse_args():
         '--config', help='configuration in json format')
     parser.add_argument('--log_dir')
     parser.add_argument('--saves_dir', help="Directory for saving model artefacts")
-    parser.add_argument('--data_dir', help="Audio file directory for training")
+    parser.add_argument('--data_dir', type=str, help="Audio file directory for training")
     parser.add_argument('--device', type=str, default='cpu', help="Torch device string")
     return parser.parse_args()
 
@@ -30,7 +30,8 @@ def main(args):
     model = Trainer.create_model(config, distribution=criterion)
     config.padding = model.receptive_field
 
-    audio_dir = '/Users/lauri/DATA/torchaudio/ARCTIC/cmu_us_slt_arctic/wav'
+    # audio_dir = '/Users/lauri/DATA/torchaudio/ARCTIC/cmu_us_slt_arctic/wav'
+    audio_dir = args.data_dir
     dataset = AudioDataset(config, audio_dir=audio_dir)
 
     device = torch.device(args.device)

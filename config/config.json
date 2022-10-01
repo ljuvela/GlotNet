@@ -1,8 +1,13 @@
 {
-    "max_iters": 5000,
-    "validation_interval" : 50,
-    "residual_channels": 32,
-    "skip_channels" : 32,
-    "dilations" :  [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+    "max_iters": 20000,
+    "validation_interval" : 1000,
+    "residual_channels": 64,
+    "skip_channels" : 64,
+    "dilations" :  [1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                    1, 2, 4, 8, 16, 32, 64, 128, 256, 512],
 
+    "segment_len" : 16000,
+    "dataloader_workers" : 4,
+    "batch_size" : 32,
+    "learning_rate": 1e-3
 }

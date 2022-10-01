@@ -9,6 +9,8 @@ __pycache__/
 # VSCode
 .vscode/*
 
+scripts/
+
 # Tensorboard logs
 *.tfevents.*
 

@@ -19,16 +19,18 @@ class Trainer(torch.nn.Module):
                  device: torch.device = torch.device('cpu')):
         """ Init GlotNet Trainer """
         super().__init__()
+        self.device = device
         self.config = config
-        self.criterion = criterion
-        self.model = model
+        self.criterion = criterion.to(device)
+        self.model = model.to(device)
         self.optim = self.create_optimizer()
         self.dataset = dataset
-        self.data_loader = DataLoader(dataset, batch_size=config.batch_size)
+        self.data_loader = DataLoader(
+            dataset, batch_size=config.batch_size,
+            num_workers=config.dataloader_workers)
         self.writer = self.create_writer()
         self.iter_global = 0
         self.iter = 0
-        self.device = device
 
     def to(self, device: torch.device):
         self.device = device
@@ -99,7 +101,6 @@ class Trainer(torch.nn.Module):
         raise NotImplementedError("Learning rate scheduling not implemented yet")
 
     def create_writer(self) -> SummaryWriter:
-        os.makedirs(self.config.log_dir, exist_ok=True)
         writer = SummaryWriter(log_dir=self.config.log_dir)
         return writer
 
@@ -137,8 +138,8 @@ class Trainer(torch.nn.Module):
                 params = self.model(x_prev, c)
 
                 # discard non-valid samples (padding)
-                loss = self.criterion(x=x_curr[self.config.padding:],
-                                      params=params[self.config.padding:])
+                loss = self.criterion(x=x_curr[..., self.config.padding:],
+                                      params=params[..., self.config.padding:])
                 loss.backward()
 
                 # logging 
