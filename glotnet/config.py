@@ -27,6 +27,7 @@ class Config:
     optimizer: str = 'adam'
     learning_rate: float = 1e-3
     batch_size: int = 4
+    dataloader_workers: int = 0
     shuffle: bool = True
 
     # Training
