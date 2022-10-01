@@ -46,20 +46,27 @@ class GaussianDensity(Distribution):
         """
         
         """
-        # TODO: calculate entropy floor hinge regularizer
 
-        #
 
         # NLL
         m = params[:, 0:1, :]
         log_s = params[:, 1:2, :]
         s = torch.exp(log_s)
 
+        # calculate entropy floor hinge regularizer
+        entropy_floor = -7.0
+        self.batch_penalty = log_s.clamp(max=entropy_floor).pow(2).sum()
+        penalty_mask = log_s < entropy_floor
+        self.batch_penalty = (log_s * penalty_mask).pow(2)
+        self.batch_log_scale = log_s
+
         nll = 0.5 * (m - x).div(s).pow(2) + log_s + self.const
+        self.batch_nll = nll
         return nll
 
     def forward(self, x, params):
-        return self.nll(x, params).mean()
+        nll = self.nll(x, params)
+        return nll.mean() + self.batch_penalty.mean()
 
     def sample(self, params, use_extension=False):
         

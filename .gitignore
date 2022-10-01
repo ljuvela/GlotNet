@@ -11,6 +11,12 @@ __pycache__/
 
 scripts/
 
+# Experiment artefact default dir
+runs/
+
+# slurm .out files
+*.out
+
 # Tensorboard logs
 *.tfevents.*
 

@@ -84,7 +84,7 @@ class Trainer(torch.nn.Module):
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(0.1) # TODO: schedule?
         output = model_ar.forward(input=input)
-        return output.clamp(min=0.99, max=0.99)
+        return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
         """ Create optimizer instance from config """
@@ -145,11 +145,27 @@ class Trainer(torch.nn.Module):
                 # logging 
                 self.writer.add_scalar("loss", loss.item(), global_step=self.iter_global)
                 # TODO: log scale parameter
+                self.writer.add_scalar(
+                    "nll",
+                    self.criterion.batch_nll.mean().item(),
+                    global_step=self.iter_global)
+
+                penalty = self.criterion.batch_penalty.mean().item()
+                self.writer.add_scalar(
+                    "entropy_floor_penalty",
+                    penalty,
+                    global_step=self.iter_global)
+
+                self.writer.add_scalar(
+                    "min_log_scale",
+                    self.criterion.batch_log_scale.min().item(),
+                    global_step=self.iter_global)
 
                 self.optim.step()
                 self.optim.zero_grad()
 
                 print(f"Iter {self.iter_global}: loss = {loss.item()}")
+                print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
 
                 self.iter += 1
                 self.iter_global += 1

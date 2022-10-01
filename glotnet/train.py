@@ -1,5 +1,5 @@
 import argparse
-
+import os
 import torch
 from glotnet.trainer.trainer import Trainer
 from glotnet.config import Config
@@ -40,7 +40,8 @@ def main(args):
                       dataset=dataset,
                       config=config,
                       device=device)
-    
+    trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
+
     while trainer.iter_global < config.max_iters:
         x = trainer.generate(torch.zeros(1, 1, 2 * config.sample_rate))
         trainer.writer.add_audio("generated audio",
@@ -49,6 +50,8 @@ def main(args):
                                  sample_rate=config.sample_rate)
         trainer.fit(num_iters=config.validation_interval,
                     global_iter_max=config.max_iters)
+        torch.save(trainer.model.state_dict(), os.path.join(trainer.writer.log_dir, 'model-latest.pt'))
+     
         # TODO: validation
 
 

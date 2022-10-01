@@ -53,7 +53,7 @@ class AudioDataset(Dataset):
         stop = num_samples
         start = stop - self.config.segment_len - self.config.padding
         start = max(start, 0)
-        while stop >= 0:
+        while stop > 0:
             self.segment_index.append(
                 (os.path.realpath(f), start, stop))
             stop = stop - self.config.segment_len
