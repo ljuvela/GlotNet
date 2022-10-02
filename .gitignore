@@ -9,6 +9,14 @@ __pycache__/
 # VSCode
 .vscode/*
 
+scripts/
+
+# Experiment artefact default dir
+runs/
+
+# slurm .out files
+*.out
+
 # Tensorboard logs
 *.tfevents.*
 

@@ -27,6 +27,7 @@ class Config:
     optimizer: str = 'adam'
     learning_rate: float = 1e-3
     batch_size: int = 4
+    dataloader_workers: int = 0
     shuffle: bool = True
 
     # Training
@@ -59,7 +60,7 @@ class Config:
 
 
     # summary writer 
-    log_dir: str = 'runs/logs'
+    log_dir: str = None
 
     # saving
     saves_dir: str = 'runs/saves'

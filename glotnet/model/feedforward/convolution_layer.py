@@ -36,6 +36,7 @@ class ConvolutionLayer(torch.nn.Module):
             out_channels=self.channel_mul * residual_channels,
             kernel_size=kernel_size, dilation=dilation, bias=bias,
             device=device, dtype=dtype, causal=causal)
+        # TODO: make parameter alloc conditional on use_output_transform
         self.out = Convolution(
             in_channels=residual_channels,
             out_channels=residual_channels,

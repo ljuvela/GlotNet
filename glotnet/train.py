@@ -1,5 +1,5 @@
 import argparse
-
+import os
 import torch
 from glotnet.trainer.trainer import Trainer
 from glotnet.config import Config
@@ -14,7 +14,7 @@ def parse_args():
         '--config', help='configuration in json format')
     parser.add_argument('--log_dir')
     parser.add_argument('--saves_dir', help="Directory for saving model artefacts")
-    parser.add_argument('--data_dir', help="Audio file directory for training")
+    parser.add_argument('--data_dir', type=str, help="Audio file directory for training")
     parser.add_argument('--device', type=str, default='cpu', help="Torch device string")
     return parser.parse_args()
 
@@ -30,7 +30,8 @@ def main(args):
     model = Trainer.create_model(config, distribution=criterion)
     config.padding = model.receptive_field
 
-    audio_dir = '/Users/lauri/DATA/torchaudio/ARCTIC/cmu_us_slt_arctic/wav'
+    # audio_dir = '/Users/lauri/DATA/torchaudio/ARCTIC/cmu_us_slt_arctic/wav'
+    audio_dir = args.data_dir
     dataset = AudioDataset(config, audio_dir=audio_dir)
 
     device = torch.device(args.device)
@@ -39,7 +40,8 @@ def main(args):
                       dataset=dataset,
                       config=config,
                       device=device)
-    
+    trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
+
     while trainer.iter_global < config.max_iters:
         x = trainer.generate(torch.zeros(1, 1, 2 * config.sample_rate))
         trainer.writer.add_audio("generated audio",
@@ -48,6 +50,8 @@ def main(args):
                                  sample_rate=config.sample_rate)
         trainer.fit(num_iters=config.validation_interval,
                     global_iter_max=config.max_iters)
+        torch.save(trainer.model.state_dict(), os.path.join(trainer.writer.log_dir, 'model-latest.pt'))
+     
         # TODO: validation
 
 

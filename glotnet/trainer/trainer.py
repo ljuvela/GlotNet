@@ -19,20 +19,22 @@ class Trainer(torch.nn.Module):
                  device: torch.device = torch.device('cpu')):
         """ Init GlotNet Trainer """
         super().__init__()
+        self.device = device
         self.config = config
-        self.criterion = criterion
-        self.model = model
+        self.criterion = criterion.to(device)
+        self.model = model.to(device)
         self.optim = self.create_optimizer()
         self.dataset = dataset
         self.data_loader = DataLoader(
             dataset,
             batch_size=config.batch_size,
             shuffle=config.shuffle,
-            drop_last=True)
+            drop_last=True,
+            num_workers=config.dataloader_workers)
+
         self.writer = self.create_writer()
         self.iter_global = 0
         self.iter = 0
-        self.device = device
 
     def to(self, device: torch.device):
         self.device = device
@@ -86,7 +88,7 @@ class Trainer(torch.nn.Module):
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(0.1) # TODO: schedule?
         output = model_ar.forward(input=input)
-        return output.clamp(min=0.99, max=0.99)
+        return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
         """ Create optimizer instance from config """
@@ -103,7 +105,6 @@ class Trainer(torch.nn.Module):
         raise NotImplementedError("Learning rate scheduling not implemented yet")
 
     def create_writer(self) -> SummaryWriter:
-        os.makedirs(self.config.log_dir, exist_ok=True)
         writer = SummaryWriter(log_dir=self.config.log_dir)
         return writer
 
@@ -141,18 +142,34 @@ class Trainer(torch.nn.Module):
                 params = self.model(x_prev, c)
 
                 # discard non-valid samples (padding)
-                loss = self.criterion(x=x_curr[self.config.padding:],
-                                      params=params[self.config.padding:])
+                loss = self.criterion(x=x_curr[..., self.config.padding:],
+                                      params=params[..., self.config.padding:])
                 loss.backward()
 
                 # logging 
                 self.writer.add_scalar("loss", loss.item(), global_step=self.iter_global)
                 # TODO: log scale parameter
+                self.writer.add_scalar(
+                    "nll",
+                    self.criterion.batch_nll.mean().item(),
+                    global_step=self.iter_global)
+
+                penalty = self.criterion.batch_penalty.mean().item()
+                self.writer.add_scalar(
+                    "entropy_floor_penalty",
+                    penalty,
+                    global_step=self.iter_global)
+
+                self.writer.add_scalar(
+                    "min_log_scale",
+                    self.criterion.batch_log_scale.min().item(),
+                    global_step=self.iter_global)
 
                 self.optim.step()
                 self.optim.zero_grad()
 
                 print(f"Iter {self.iter_global}: loss = {loss.item()}")
+                print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
 
                 self.iter += 1
                 self.iter_global += 1

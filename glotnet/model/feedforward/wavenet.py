@@ -47,6 +47,7 @@ class WaveNet(torch.nn.Module):
             activation=self.activation,
             use_residual=True,
             cond_channels=cond_channels)
+        # TODO: output layers should be just convolution, These hanve conv and Out
         self.output1 = ConvolutionLayer(
             in_channels=self.skip_channels,
             out_channels=self.residual_channels,
