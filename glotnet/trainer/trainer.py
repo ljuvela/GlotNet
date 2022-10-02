@@ -24,7 +24,11 @@ class Trainer(torch.nn.Module):
         self.model = model
         self.optim = self.create_optimizer()
         self.dataset = dataset
-        self.data_loader = DataLoader(dataset, batch_size=config.batch_size)
+        self.data_loader = DataLoader(
+            dataset,
+            batch_size=config.batch_size,
+            shuffle=config.shuffle,
+            drop_last=True)
         self.writer = self.create_writer()
         self.iter_global = 0
         self.iter = 0

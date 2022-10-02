@@ -39,12 +39,24 @@ class Config:
     channels: int = 1
     segment_len: int = 8000
     padding: int = 0
-
     # acoustic features
-    hop_size: int = 256
-    frame_size: int = 1024
-    nfft: int = 1024
-    num_mels: int = 80
+    hop_length: int = 256
+    win_length: int = 1024
+    n_fft: int = 1024
+    n_mels: int = 80
+    mel_fmin: float = 0.0
+    mel_fmax: float = 8000
+
+    # from https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L180
+    # audio = parser.add_argument_group("audio parameters")
+    # audio.add_argument("--sample-rate", default=22050, type=int, help="Sampling rate")
+    # audio.add_argument("--n-fft", default=1024, type=int, help="Filter length for STFT")
+    # audio.add_argument("--hop-length", default=256, type=int, help="Hop (stride) length")
+    # audio.add_argument("--win-length", default=1024, type=int, help="Window length")
+    # audio.add_argument("--n-mels", default=80, type=int, help="")
+    # audio.add_argument("--mel-fmin", default=0.0, type=float, help="Minimum mel frequency")
+    # audio.add_argument("--mel-fmax", default=8000.0, type=float, help="Maximum mel frequency")
+
 
     # summary writer 
     log_dir: str = 'runs/logs'
