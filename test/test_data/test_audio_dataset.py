@@ -58,6 +58,37 @@ def test_batching():
             
 
 
+def test_mel_extraction():
+    config = Config(padding=1000)
+    num_files = 3
+    ext = '.wav'
+
+    batch_size = 4
+    channels = 1
+    config.batch_size = batch_size
+    config.channels = channels
+    padded_seqment_len = config.segment_len + config.padding
+    
+    with tempfile.TemporaryDirectory() as dir:
+        generate_random_wav_files(dir, num_files, config.sample_rate, config.channels)
+        dataset = AudioDataset(config, dir, ext, output_mel=True)
+        # Test that batch elements are correct size
+        dataloader = DataLoader(dataset=dataset,
+                                batch_size=config.batch_size,
+                                shuffle=True, drop_last=True)
+
+        for minibatch in dataloader:
+            x, c = minibatch
+            assert x.shape == (batch_size, channels, padded_seqment_len), \
+                f"Expected audio size {(batch_size, channels, padded_seqment_len)}, got {x.shape}"
+            print(f"cond shape {c.shape} ")
+
+            shape_ref = (batch_size, config.n_mels, padded_seqment_len // config.hop_length + 1)
+            assert c.shape == shape_ref, \
+                f"Expected mel shape {shape_ref}, got {c.shape}"
+
+
 if __name__ == "__main__":
     test_padding()
     test_batching()
+    test_mel_extraction()

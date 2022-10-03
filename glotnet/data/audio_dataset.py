@@ -103,6 +103,7 @@ class AudioDataset(Dataset):
         if self.output_mel:
             # TODO: extract acoustic features 
             c = self.transforms(x)
+            c = c[0] # drop batch dimension, DataLoader will put it back
             return (x, c)
         else:
             return (x,)
