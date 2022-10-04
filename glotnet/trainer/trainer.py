@@ -26,8 +26,12 @@ class Trainer(torch.nn.Module):
         self.optim = self.create_optimizer()
         self.dataset = dataset
         self.data_loader = DataLoader(
-            dataset, batch_size=config.batch_size,
+            dataset,
+            batch_size=config.batch_size,
+            shuffle=config.shuffle,
+            drop_last=True,
             num_workers=config.dataloader_workers)
+
         self.writer = self.create_writer()
         self.iter_global = 0
         self.iter = 0
@@ -135,12 +139,20 @@ class Trainer(torch.nn.Module):
                 x_curr = x[:, :, 1:]
                 x_prev = x[:, :, :-1]
 
+                if c is not None:
+                    c = torch.nn.functional.interpolate(
+                        input=c, size= x.size(-1), mode='linear')
+                    # trim last sample to match x_prev size
+                    c = c[..., :-1] 
+
                 params = self.model(x_prev, c)
 
                 # discard non-valid samples (padding)
                 loss = self.criterion(x=x_curr[..., self.config.padding:],
                                       params=params[..., self.config.padding:])
                 loss.backward()
+
+                self.batch_loss = loss
 
                 # logging 
                 self.writer.add_scalar("loss", loss.item(), global_step=self.iter_global)
