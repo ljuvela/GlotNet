@@ -60,7 +60,8 @@ class WaveNetAR(WaveNet):
     def temperature(self):
         return self.distribution.temperature
 
-    def forward(self, input, cond_input: torch.Tensor=None, timesteps=None, use_extension=True):
+    def forward(self, input: torch.Tensor, cond_input: torch.Tensor = None,
+                timesteps: int = None, use_extension: bool = True):
         """ 
         Args:
             input: shape (batch_size, channels, timesteps)
@@ -88,6 +89,10 @@ class WaveNetAR(WaveNet):
 
         if use_extension:
             time_major = True
+            if input.device != torch.device('cpu'):
+                raise RuntimeError(f"Input tensor device must be cpu, got {input.device}")
+            if cond_input is not None and cond_input.device != torch.device('cpu'):
+                raise RuntimeError(f"Cond input device must be cpu, got {cond_input.device}")
             output = WaveNetARFunction.apply(
                 input,
                 self.stack.weights_conv, self.stack.biases_conv,

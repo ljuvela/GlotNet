@@ -50,7 +50,7 @@ class GaussianDensity(Distribution):
         s = torch.exp(log_s)
 
         # calculate entropy floor hinge regularizer
-        entropy_floor = -5.0 # -7.0 never seems to trigger
+        entropy_floor = -7.0 # -7.0 never seems to trigger
         self.batch_penalty = log_s.clamp(max=entropy_floor).pow(2).sum()
         penalty_mask = log_s < entropy_floor
         self.batch_penalty = (log_s * penalty_mask).pow(2)

@@ -66,11 +66,22 @@ class Trainer(torch.nn.Module):
                         cond_channels=cfg.cond_channels)
         return model
 
-    def generate(self, input: torch.Tensor, temperature:float=1.0):
+    def generate(self, temperature: float = 1.0):
         """ Generate samples in autoregressive inference mode
         
-        Args: input shape is (batch, channels, timesteps)
+        Args: 
+            temperature: scaling factor for sampling noise
         """
+        minibatch = self.dataset.__getitem__(0)
+        x, c = self._unpack_minibatch(minibatch)
+        c = c.unsqueeze(0)
+        x = x.unsqueeze(0)
+        x = x.to('cpu')
+        if c is not None:
+            c = torch.nn.functional.interpolate(
+                        input=c, size= x.size(-1), mode='linear')
+            c = c.to('cpu')
+
         cfg = self.config
         distribution = self.criterion
         # TODO: teacher forcing and AR inference should be in the same model!
@@ -87,7 +98,8 @@ class Trainer(torch.nn.Module):
 
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(temperature) # TODO: schedule?
-        output = model_ar.forward(input=input)
+
+        output = model_ar.forward(input=torch.zeros_like(x), cond_input=c)
         return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:

@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument('--log_dir')
     parser.add_argument('--saves_dir', help="Directory for saving model artefacts")
     parser.add_argument('--data_dir', type=str, help="Audio file directory for training")
+    parser.add_argument('--mel_cond', type=bool, default=False, help="Condition on Mel Spectrum")
     parser.add_argument('--device', type=str, default='cpu', help="Torch device string")
     return parser.parse_args()
 
@@ -25,6 +26,8 @@ def main(args):
     else:
         config = Config.from_json(args.config)
 
+    if args.mel_cond:
+        config.cond_channels = config.n_mels
     
     criterion = Trainer.create_criterion(config)
     model = Trainer.create_model(config, distribution=criterion)
@@ -32,7 +35,8 @@ def main(args):
 
     # audio_dir = '/Users/lauri/DATA/torchaudio/ARCTIC/cmu_us_slt_arctic/wav'
     audio_dir = args.data_dir
-    dataset = AudioDataset(config, audio_dir=audio_dir)
+    dataset = AudioDataset(config, audio_dir=audio_dir, output_mel=args.mel_cond)
+    
 
     device = torch.device(args.device)
     trainer = Trainer(model=model,
@@ -43,13 +47,12 @@ def main(args):
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
     while trainer.iter_global < config.max_iters:
-        ar_input = torch.zeros(1, 1, 2 * config.sample_rate)
-        x = trainer.generate(ar_input, temperature=0.1)
+        x = trainer.generate(temperature=0.1)
         trainer.writer.add_audio("generated audio_temp_0.1",
                                  x[:, 0, :],
                                  global_step=trainer.iter_global,
                                  sample_rate=config.sample_rate)
-        x = trainer.generate(ar_input, temperature=1.0)
+        x = trainer.generate(temperature=1.0)
         trainer.writer.add_audio("generated audio_temp_1.0",
                                  x[:, 0, :],
                                  global_step=trainer.iter_global,
