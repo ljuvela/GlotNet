@@ -43,8 +43,14 @@ def main(args):
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
     while trainer.iter_global < config.max_iters:
-        x = trainer.generate(torch.zeros(1, 1, 2 * config.sample_rate))
-        trainer.writer.add_audio("generated audio",
+        ar_input = torch.zeros(1, 1, 2 * config.sample_rate)
+        x = trainer.generate(ar_input, temperature=0.1)
+        trainer.writer.add_audio("generated audio_temp_0.1",
+                                 x[:, 0, :],
+                                 global_step=trainer.iter_global,
+                                 sample_rate=config.sample_rate)
+        x = trainer.generate(ar_input, temperature=1.0)
+        trainer.writer.add_audio("generated audio_temp_1.0",
                                  x[:, 0, :],
                                  global_step=trainer.iter_global,
                                  sample_rate=config.sample_rate)

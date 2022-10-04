@@ -62,7 +62,7 @@ class Trainer(torch.nn.Module):
                         cond_channels=cfg.cond_channels)
         return model
 
-    def generate(self, input: torch.Tensor):
+    def generate(self, input: torch.Tensor, temperature:float=1.0):
         """ Generate samples in autoregressive inference mode
         
         Args: input shape is (batch, channels, timesteps)
@@ -82,7 +82,7 @@ class Trainer(torch.nn.Module):
                         cond_channels=cfg.cond_channels)
 
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
-        model_ar.distribution.set_temperature(0.1) # TODO: schedule?
+        model_ar.distribution.set_temperature(temperature) # TODO: schedule?
         output = model_ar.forward(input=input)
         return output.clamp(min=-0.99, max=0.99)
 
