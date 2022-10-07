@@ -47,7 +47,9 @@ class Trainer(torch.nn.Module):
         if distribution is None:
             raise NotImplementedError(
                 f"Distribution {config.distribution} not supported")
-        dist = distribution()
+        dist = distribution(entropy_floor=config.entropy_floor,
+                            weight_entropy_penalty=config.loss_weight_entropy_hinge,
+                            weight_nll=config.loss_weight_nll)
         return dist
 
     def create_model(config: Config, distribution: Distribution) -> WaveNet:
@@ -85,16 +87,19 @@ class Trainer(torch.nn.Module):
         cfg = self.config
         distribution = self.criterion
         # TODO: teacher forcing and AR inference should be in the same model!
-        model_ar = WaveNetAR(input_channels=cfg.input_channels,
-                        output_channels=distribution.params_dim,
-                        residual_channels=cfg.residual_channels,
-                        skip_channels=cfg.skip_channels,
-                        kernel_size=cfg.filter_width,
-                        dilations=cfg.dilations,
-                        causal=True,
-                        activation=cfg.activation,
-                        use_residual=cfg.use_residual,
-                        cond_channels=cfg.cond_channels)
+        if not hasattr(self, 'model_ar'):
+            self.model_ar = WaveNetAR(
+                input_channels=cfg.input_channels,
+                output_channels=distribution.params_dim,
+                residual_channels=cfg.residual_channels,
+                skip_channels=cfg.skip_channels,
+                kernel_size=cfg.filter_width,
+                dilations=cfg.dilations,
+                causal=True,
+                activation=cfg.activation,
+                use_residual=cfg.use_residual,
+                cond_channels=cfg.cond_channels)
+        model_ar = self.model_ar
 
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(temperature) # TODO: schedule?
@@ -188,8 +193,9 @@ class Trainer(torch.nn.Module):
                 self.optim.step()
                 self.optim.zero_grad()
 
-                print(f"Iter {self.iter_global}: loss = {loss.item()}")
-                print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
+                if self.iter % 100 == 0:
+                    print(f"Iter {self.iter_global}: loss = {loss.item()}")
+                    print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
 
                 self.iter += 1
                 self.iter_global += 1
@@ -202,13 +208,6 @@ class Trainer(torch.nn.Module):
                     break
 
 
-    def log_prob(self, x_curr: torch.Tensor,
-                 x_prev: torch.Tensor,
-                 cond: torch.Tensor = None) -> torch.Tensor:
-        """ Log probablilty of observations """
-        params = self.model.forward(x_prev, cond)
-        nll = self.criterion.nll(x_curr, params)
-        return nll.sum() * -1.0
 
     optimizers = {
         "adam": torch.optim.Adam

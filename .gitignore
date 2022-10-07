@@ -11,8 +11,9 @@ __pycache__/
 
 scripts/
 
-# Experiment artefact default dir
+# Experiment artefacts and configs
 runs/
+experiments/
 
 # slurm .out files
 *.out

@@ -47,20 +47,15 @@ def main(args):
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
     while trainer.iter_global < config.max_iters:
-        x = trainer.generate(temperature=0.1)
-        trainer.writer.add_audio("generated audio_temp_0.1",
-                                 x[:, 0, :],
-                                 global_step=trainer.iter_global,
-                                 sample_rate=config.sample_rate)
+        trainer.fit(num_iters=config.validation_interval,
+                    global_iter_max=config.max_iters)
+        torch.save(trainer.model.state_dict(), os.path.join(trainer.writer.log_dir, 'model-latest.pt'))
         x = trainer.generate(temperature=1.0)
         trainer.writer.add_audio("generated audio_temp_1.0",
                                  x[:, 0, :],
                                  global_step=trainer.iter_global,
                                  sample_rate=config.sample_rate)
-        trainer.fit(num_iters=config.validation_interval,
-                    global_iter_max=config.max_iters)
-        torch.save(trainer.model.state_dict(), os.path.join(trainer.writer.log_dir, 'model-latest.pt'))
-     
+
         # TODO: validation
 
 

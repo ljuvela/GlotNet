@@ -27,7 +27,13 @@ class Distribution(torch.nn.Module):
 
 class GaussianDensity(Distribution):
 
-    def __init__(self, num_bits=None, temperature=1.0, out_dim=1):
+    def __init__(self,
+                 num_bits: int = None,
+                 temperature: float = 1.0,
+                 out_dim: int = 1,
+                 entropy_floor: float = -7.0,
+                 weight_nll: float = 1.0,
+                 weight_entropy_penalty: float = 0.1):
         """
         Args:
             input_channels: number of input channels
@@ -37,6 +43,9 @@ class GaussianDensity(Distribution):
         super().__init__(params_dim=params_dim, out_dim=out_dim)
         self.num_bits = num_bits
         self.temperature = temperature
+        self.entropy_floor = entropy_floor
+        self.weight_nll = weight_nll
+        self.weight_entropy_penalty = weight_entropy_penalty
         self.register_buffer('const', torch.tensor(2 * torch.pi).sqrt().log())
 
     def set_temperature(self, temp: float):
@@ -50,7 +59,7 @@ class GaussianDensity(Distribution):
         s = torch.exp(log_s)
 
         # calculate entropy floor hinge regularizer
-        entropy_floor = -7.0 # -7.0 never seems to trigger
+        entropy_floor = self.entropy_floor
         self.batch_penalty = log_s.clamp(max=entropy_floor).pow(2).sum()
         penalty_mask = log_s < entropy_floor
         self.batch_penalty = (log_s * penalty_mask).pow(2)
@@ -62,7 +71,9 @@ class GaussianDensity(Distribution):
 
     def forward(self, x, params):
         nll = self.nll(x, params)
-        return nll.mean() + self.batch_penalty.mean()
+        loss = self.weight_nll * nll.mean() 
+        loss = loss + self.weight_entropy_penalty * self.batch_penalty.mean()
+        return loss
 
     def sample(self, params, use_extension=False):
         

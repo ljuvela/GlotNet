@@ -1,5 +1,5 @@
 {
-    "max_iters": 20000,
+    "max_iters": 50000,
     "validation_interval" : 500,
     "residual_channels": 64,
     "skip_channels" : 64,
@@ -10,5 +10,9 @@
     "segment_len" : 16000,
     "dataloader_workers" : 4,
     "batch_size" : 32,
-    "learning_rate": 1e-4
+    "learning_rate": 1e-4,
+
+    "loss_weight_nll": 1.0,
+    "loss_weight_entropy_hinge": 0.1,
+    "entropy_floor": -9.0
 }
