@@ -11,6 +11,8 @@ from glotnet.losses.distributions import Distribution, GaussianDensity
 
 class Trainer(torch.nn.Module):
 
+    optim : torch.optim.Optimizer
+
     def __init__(self,
                  model: WaveNet,
                  criterion: Distribution,
@@ -125,14 +127,20 @@ class Trainer(torch.nn.Module):
         writer = SummaryWriter(log_dir=self.config.log_dir)
         return writer
 
-    def resume(self, model_state_dict, optim_state_dict=None, iter=0):
-        """ Resume training
-
-        """
+    def load(self, model_path: str, optim_path: str = None):
+        """ Load trainer model and optimizer states """
+        model_state_dict = torch.load(model_path, map_location='cpu')
         self.model.load_state_dict(model_state_dict)
-        if optim_state_dict is not None:
-            self.optim.load_state_dict(optim_state_dict)
-        self.iter_global = iter
+        if optim_path is None:
+            return
+        optim_state_dict = torch.load(optim_path, map_location='cpu')
+        self.optim.load_state_dict(optim_state_dict)
+
+    def save(self, model_path: str, optim_path: str = None):
+        """" Save model and optimizer state dictionaries"""
+        torch.save(self.model.state_dict(), model_path)
+        if optim_path is not None:
+            torch.save(self.optim.state_dict(), optim_path)
 
     def _unpack_minibatch(self, minibatch):
         """ Unpack minibatch and move to appropriate device """

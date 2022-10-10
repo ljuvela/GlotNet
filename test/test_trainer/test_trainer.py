@@ -42,26 +42,8 @@ def test_trainer():
     assert loss_2 < loss_1, \
         "Training must decrease loss function value"
 
-def test_logging():
-
-    batch_size = 4
-    timesteps = 100
-    channels = 1
-    num_examples = 32
-
-    x = torch.randn(num_examples, channels, timesteps)
-
-    with tempfile.TemporaryDirectory() as dir:
-
-        dataset = TensorDataset(x)
-        config = Config(batch_size=batch_size)
-        config.log_dir = dir
-        criterion = Trainer.create_criterion(config)
-        model = Trainer.create_model(config, criterion)
 
 
-def test_resume_training():
-    pass
 
 
 def test_trainer_conditional():
@@ -103,6 +85,62 @@ def test_trainer_conditional():
         "Training must decrease loss function value"
 
 
+def test_resume_training():
+    
+    config = Config(batch_size=4, learning_rate=1e-5)
+
+    # data
+    seg_len = config.batch_size * config.segment_len
+    x = torch.randn(1, seg_len)
+
+    with tempfile.TemporaryDirectory() as dir:
+        torchaudio.save(os.path.join(dir, f"data.wav"),
+                        x, sample_rate=config.sample_rate)
+
+        config.cond_channels = config.n_mels
+        dataset = AudioDataset(
+            config=config,
+            audio_dir=dir,
+            output_mel=True)
+            
+        criterion = Trainer.create_criterion(config)
+
+        model1 = Trainer.create_model(config, criterion)
+        trainer1 = Trainer(model=model1,
+                          criterion=criterion,
+                          dataset=dataset,
+                          config=config)
+
+        model_pt = os.path.join(dir, 'model.pt')
+        optim_pt = os.path.join(dir, "optim.pt")
+
+        trainer1.fit(num_iters=1)
+        trainer1.save(model_path=model_pt, optim_path=optim_pt)
+
+        model2 = Trainer.create_model(config, criterion)
+        trainer2 = Trainer(model=model2,
+                           criterion=criterion,
+                           dataset=dataset,
+                           config=config)
+
+        trainer2.load(model_path=model_pt, optim_path=optim_pt)
+
+        # for (k1, v1), (k2, v2) in zip(trainer1.optim.state.items(), trainer2.optim.state.items()):
+        #     print(k1)
+        #     print(k2)
+        #     assert torch.allclose(v1, v2), "Optimizer state values must match"
+
+        # for pg1, pg2 in zip(trainer1.optim.param_groups, trainer2.optim.param_groups):
+        #     for v1, v2 in zip(pg1.values(), pg2.values()):
+        #         if type(v1) == list:
+        #             for p1, p2 in zip(v1, v2):
+        #                 assert torch.allclose(p1, p1), "Optimizer parameter values must match"
+        #         else:
+        #             assert v1 == v2
+
+        for p1, p2 in zip(trainer1.model.parameters(), trainer2.model.parameters()):
+            assert torch.allclose(p1, p2)
+
 
 if __name__ == "__main__":
 
@@ -113,3 +151,5 @@ if __name__ == "__main__":
     print("Testing conditional training")
     test_trainer_conditional()
     print("-- OK!")
+
+    test_resume_training()

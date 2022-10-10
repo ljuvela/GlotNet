@@ -22,7 +22,7 @@ class Config:
     distribution: str = 'gaussian'
     loss_weight_nll: float = 1.0
     loss_weight_entropy_hinge: float = 0.1
-    entropy_floor: float = -7.0
+    entropy_floor: float = -9.0
 
     # Optimizer
     optimizer: str = 'adam'
