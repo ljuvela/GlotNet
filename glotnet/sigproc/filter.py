@@ -4,6 +4,8 @@ import math
 
 # TODO: wrap STFT into class
 
+def ceil_division(n, d):
+    return -(n // -d)
 class LFilter(torch.nn.Module):
     """ Linear filtering with STFT """
 
@@ -28,7 +30,8 @@ class LFilter(torch.nn.Module):
             a : filter denominator coefficients
                 (batch, a_len, n_frames)
         """
-        num_frames = math.ceil(x.size(-1) / self.hop_length)
+        # num_frames = math.ceil(x.size(-1) / self.hop_length)
+        num_frames = ceil_division(x.size(-1), self.hop_length)
 
         left_pad = self.win_length
         last_frame_center = num_frames * self.hop_length
