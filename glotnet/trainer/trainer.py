@@ -9,6 +9,10 @@ from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.model.autoregressive.wavenet import WaveNetAR
 from glotnet.losses.distributions import Distribution, GaussianDensity
 
+from typing import Union
+
+DeviceType = Union[str, torch.device]
+
 class Trainer(torch.nn.Module):
 
     optim : torch.optim.Optimizer
@@ -18,7 +22,7 @@ class Trainer(torch.nn.Module):
                  criterion: Distribution,
                  dataset: Dataset,
                  config: Config,
-                 device: torch.device = torch.device('cpu')):
+                 device: DeviceType = 'cpu'):
         """ Init GlotNet Trainer """
         super().__init__()
         self.device = device
@@ -38,7 +42,7 @@ class Trainer(torch.nn.Module):
         self.iter_global = 0
         self.iter = 0
 
-    def to(self, device: torch.device):
+    def to(self, device: DeviceType):
         self.device = device
         super().to(device)
 

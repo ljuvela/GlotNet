@@ -101,7 +101,6 @@ class AudioDataset(Dataset):
         x = torch.nn.functional.pad(x, (pad_left, 0))
         
         if self.output_mel:
-            # TODO: extract acoustic features 
             c = self.transforms(x)
             c = c[0] # drop batch dimension, DataLoader will put it back
             return (x, c)
