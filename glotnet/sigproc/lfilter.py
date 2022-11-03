@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import math
 
 # TODO: wrap STFT into class
-
+# TODO: support grouped convolution (multichannel, no mixing)
 
 def ceil_division(n: int, d: int) -> int:
     """ Ceiling integer division """

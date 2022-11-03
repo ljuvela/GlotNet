@@ -3,9 +3,9 @@ import torch
 # from importlib import reload
 # import glotnet.sigproc.filter; reload(glotnet.sigproc.filter)
 
-from glotnet.sigproc.filter import LFilter
+from glotnet.sigproc.lfilter import LFilter
 from torchaudio.functional import lfilter as lfilter_ref
-from glotnet.sigproc.filter import ceil_division
+from glotnet.sigproc.lfilter import ceil_division
 
 def test_lfilter_perferct_reconstruction():
 
