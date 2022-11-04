@@ -11,12 +11,14 @@ namespace bindings
 class Convolution
 {
 public:
-    Convolution(int64_t input_channels, int64_t output_channels, int64_t filter_width, int64_t dilation)
+    Convolution(int64_t input_channels, int64_t output_channels,
+                int64_t filter_width, int64_t dilation, bool use_film)
         : conv(input_channels, output_channels, filter_width, dilation),
-        input_channels(input_channels),
-        output_channels(output_channels),
-        filter_width(filter_width),
-        dilation(dilation)
+          input_channels(input_channels),
+          output_channels(output_channels),
+          filter_width(filter_width),
+          dilation(dilation),
+          use_film(use_film)
     {
     }
 
@@ -78,7 +80,7 @@ public:
             conv.processConditional(&(input_a[b][0][0]),
                                     &(cond_a[b][0][0]),
                                     &(output_a[b][0][0]),
-                                    timesteps);
+                                    timesteps, use_film);
         }
 
         return {output};
@@ -91,6 +93,7 @@ private:
     int64_t output_channels;
     int64_t filter_width;
     int64_t dilation;
+    const bool use_film;
 };
 
 } // namespace torch
@@ -146,7 +149,7 @@ void init_convolution(py::module &m)
 {
     m.def("convolution_forward_ar", &(glotnet::convolution::forward_autoregressive), "Convolution autoregressive forward");
     py::class_<glotnet::bindings::Convolution>(m, "Convolution")
-        .def(py::init<int64_t, int64_t, int64_t, int64_t>())
+        .def(py::init<int64_t, int64_t, int64_t, int64_t, bool>())
         .def("set_weight", &glotnet::bindings::Convolution::setWeight)
         .def("set_bias", &glotnet::bindings::Convolution::setBias)
         .def("forward", &glotnet::bindings::Convolution::forward)

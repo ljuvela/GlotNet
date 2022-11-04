@@ -13,7 +13,10 @@ public:
     Convolution(size_t input_channels, size_t output_channels, int filter_width, int dilation = 1);
     inline int getReceptiveField() const;
     void process(const float *data_in, float *data_out, int64_t total_samples);
-    void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples);
+    void processConditional(
+        const float *data_in, const float *conditioning, 
+        float *data_out, int64_t total_samples,
+        const bool use_film = false);
     size_t getNumInputChannels() { return input_channels; }
     size_t getNumOutputChannels() { return output_channels; }
     void setWeight(const torch::Tensor &W);
@@ -30,13 +33,20 @@ private:
     // No workaround allocators needed post C++17 ?
     std::vector<Eigen::RowVectorXf, Eigen::aligned_allocator<Eigen::RowVectorXf>> memory;
     Eigen::RowVectorXf out_vec;
+    Eigen::RowVectorXf cond_mul;
+    Eigen::RowVectorXf cond_add;
     int pos;
     const int dilation;
     const size_t input_channels;
     const size_t output_channels;
     const int filter_width;
-    void processSingleSample(const float *data_in, float *data_out, int i, int total_samples);
-    void processSingleSampleConditional(const float *data_in, const float *conditioning, float *data_out, int i, int total_samples);
+    void processSingleSample(
+        const float *data_in, float *data_out,
+        int i, int total_samples);
+    void processSingleSampleConditional(
+        const float *data_in, const float *conditioning,
+        float *data_out, int i, int total_samples,
+        const bool use_film = false);
     inline int mod(int a, int b) const;
 };
 

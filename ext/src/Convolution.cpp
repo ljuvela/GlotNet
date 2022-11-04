@@ -6,6 +6,8 @@ namespace glotnet
 Convolution::Convolution(size_t input_channels, size_t output_channels, int filter_width, int dilation) :
     bias(output_channels),
     out_vec(output_channels),
+    cond_mul(output_channels),
+    cond_add(output_channels),
     pos(0),
     dilation(dilation),
     input_channels(input_channels),
@@ -78,32 +80,52 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
     pos = mod(pos + 1, receptive_field);
 }
 
-void Convolution::processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples)
+void Convolution::processConditional(
+    const float *data_in, const float *conditioning,
+    float *data_out, int64_t total_samples, 
+    const bool use_film)
 {
     for (int i = 0; i < total_samples; ++i)
     {
-        processSingleSampleConditional(data_in, conditioning, data_out, i, total_samples);
+        processSingleSampleConditional(
+            data_in, conditioning,
+            data_out, i, total_samples,
+            use_film);
     }
 }
 
-void Convolution::processSingleSampleConditional(const float * data_in, const float * conditioning, 
-float * data_out, int t, int total_samples)
+void Convolution::processSingleSampleConditional(
+    const float *data_in, const float *conditioning,
+    float *data_out, int t, int total_samples, 
+    const bool use_film)
 {
     // update input buffer
     memcpy(memory[pos].data(), &data_in[t * input_channels], sizeof(float) * input_channels);
 
-    // initialize output with conditioning
-    memcpy(out_vec.data(), &conditioning[t * output_channels], sizeof(float) * output_channels);
+    if (use_film)
+    {
+        const unsigned int o = output_channels;
+        memcpy(cond_add.data(), &conditioning[(t * 2) * o], sizeof(float) * output_channels);
+        memcpy(cond_mul.data(), &conditioning[(t * 2) * o + o], sizeof(float) * output_channels);
+    }
+    else
+    {
+        memcpy(cond_add.data(), &conditioning[t * output_channels], sizeof(float) * output_channels);
+    }
 
     // dilated convolution
     int j = 0;
+    out_vec.setZero();
     const int receptive_field = getReceptiveField();
     for (auto & w : weight)
     {
         const int read_pos = mod((pos - dilation * j++), receptive_field);
         out_vec += memory[read_pos] * w;
     }
-    out_vec += bias;
+    if (use_film)
+        out_vec = cond_mul.cwiseProduct(out_vec + bias) + cond_add;
+    else
+        out_vec += bias + cond_add;
 
     // copy output
     memcpy(&data_out[t * output_channels], out_vec.data(), sizeof(float) * output_channels);
