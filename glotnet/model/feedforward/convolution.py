@@ -77,7 +77,7 @@ class Convolution(torch.nn.Conv1d):
             dilation=self.dilation, groups=self.groups)
         if cond_input is not None:
             if self.use_film:
-                a, b = torch.chunk(cond_input, 2, dim=1)
+                b, a = torch.chunk(cond_input, 2, dim=1)
                 output = a * output + b
             else:
                 output = output + cond_input
@@ -103,7 +103,7 @@ class ConvolutionFunction(torch.autograd.Function):
             cond_input = cond_input.contiguous()
        
         conv = impl
-        conv.set_kernel(weight)
+        conv.set_weight(weight)
         conv.set_bias(bias)
         if cond_input is None:
             output, = conv.forward(input)

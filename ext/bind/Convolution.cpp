@@ -20,11 +20,11 @@ public:
     {
     }
 
-    void setKernel(const torch::Tensor &weight)
+    void setWeight(const torch::Tensor &weight)
     {
         assert (filter_width == weight.size(2));
         assert (output_channels == weight.size(0));
-        conv.setKernel(weight);
+        conv.setWeight(weight);
     }
 
     void setBias(const torch::Tensor &bias)
@@ -124,7 +124,7 @@ std::vector<at::Tensor> forward_autoregressive(
     auto output_a = output.accessor<float, 3>(); // size (batch, time, output_channels)
 
     auto conv = ConvolutionAR(input_channels, output_channels, filter_width, dilation);
-    conv.setKernel(weight);
+    conv.setWeight(weight);
     conv.setBias(bias);
 
     for (int64_t b = 0; b < batch_size; b++)
@@ -147,7 +147,7 @@ void init_convolution(py::module &m)
     m.def("convolution_forward_ar", &(glotnet::convolution::forward_autoregressive), "Convolution autoregressive forward");
     py::class_<glotnet::bindings::Convolution>(m, "Convolution")
         .def(py::init<int64_t, int64_t, int64_t, int64_t>())
-        .def("set_kernel", &glotnet::bindings::Convolution::setKernel)
+        .def("set_weight", &glotnet::bindings::Convolution::setWeight)
         .def("set_bias", &glotnet::bindings::Convolution::setBias)
         .def("forward", &glotnet::bindings::Convolution::forward)
         .def("forward_cond", &glotnet::bindings::Convolution::forward_cond);

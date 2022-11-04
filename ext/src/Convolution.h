@@ -16,14 +16,14 @@ public:
     void processConditional(const float *data_in, const float *conditioning, float *data_out, int64_t total_samples);
     size_t getNumInputChannels() { return input_channels; }
     size_t getNumOutputChannels() { return output_channels; }
-    void setKernel(const torch::Tensor &W);
+    void setWeight(const torch::Tensor &W);
     void setBias(const torch::Tensor &b);
     void setParameters(const std::vector<const torch::Tensor *> & params);
     void resetBuffer();
-    void resetKernel();
+    void resetWeight();
 
 private:
-    std::vector<Eigen::MatrixXf, Eigen::aligned_allocator<Eigen::MatrixXf>> kernel;
+    std::vector<Eigen::MatrixXf, Eigen::aligned_allocator<Eigen::MatrixXf>> weight;
     Eigen::RowVectorXf bias;
     // TODO: benchmark against std::deque and boost circular buffer
     // TODO: https://eigen.tuxfamily.org/dox/group__TopicStlContainers.html

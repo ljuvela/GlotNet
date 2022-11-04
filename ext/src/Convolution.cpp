@@ -13,18 +13,18 @@ Convolution::Convolution(size_t input_channels, size_t output_channels, int filt
     filter_width(filter_width)
 {
     resetBuffer();
-    resetKernel();
+    resetWeight();
 }
 
-void Convolution::resetKernel()
+void Convolution::resetWeight()
 {
-    kernel.clear();
-    kernel.reserve(filter_width);
+    weight.clear();
+    weight.reserve(filter_width);
     for (int i = 0; i < filter_width; ++i)
     {
         Eigen::MatrixXf x(input_channels, output_channels);
         x.setZero();
-        kernel.push_back(x);
+        weight.push_back(x);
     }
     bias = Eigen::RowVectorXf(output_channels);
     bias.setZero();
@@ -65,10 +65,10 @@ void Convolution::processSingleSample(const float *data_in, float *data_out, int
     out_vec = bias;
     int j = 0;
     const size_t receptive_field = getReceptiveField();
-    for (auto & k : kernel)
+    for (auto & w : weight)
     {
         const int read_pos = mod((pos - dilation * j++), receptive_field);
-        out_vec += memory[read_pos] * k;
+        out_vec += memory[read_pos] * w;
     }
 
     // copy output
@@ -98,10 +98,10 @@ float * data_out, int t, int total_samples)
     // dilated convolution
     int j = 0;
     const int receptive_field = getReceptiveField();
-    for (auto & k : kernel)
+    for (auto & w : weight)
     {
         const int read_pos = mod((pos - dilation * j++), receptive_field);
-        out_vec += memory[read_pos] * k;
+        out_vec += memory[read_pos] * w;
     }
     out_vec += bias;
 
@@ -119,9 +119,9 @@ inline int Convolution::mod(int a, int b) const
     return rltz * (r + b) + (1 - rltz) * r;
 }
 
-void Convolution::setKernel(const torch::Tensor &W)
+void Convolution::setWeight(const torch::Tensor &W)
 {
-    auto W_a = W.accessor<float, 3>(); // (out_channels, in_channels, kernel_size)
+    auto W_a = W.accessor<float, 3>(); // (out_channels, in_channels, filter_size)
     assert(input_channels == W.size(1));
     assert(output_channels == W.size(0));
     assert(filter_width == W.size(2));
@@ -129,7 +129,7 @@ void Convolution::setKernel(const torch::Tensor &W)
     for (size_t k = 0; k < filter_width; ++k)
         for (size_t row = 0; row < input_channels; ++row)
             for (size_t col = 0; col < output_channels; ++col)
-                kernel[filter_width - 1 - k](row, col) = W_a[col][row][k];
+                weight[filter_width - 1 - k](row, col) = W_a[col][row][k];
 }
 
 void Convolution::setBias(const torch::Tensor &b)
@@ -143,7 +143,7 @@ void Convolution::setBias(const torch::Tensor &b)
 void Convolution::setParameters(const std::vector<const torch::Tensor *> & params)
 {
     assert (params.size() == 2);
-    this->setKernel(*params[0]);
+    this->setWeight(*params[0]);
     this->setBias(*params[1]);
 }
 

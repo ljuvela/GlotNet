@@ -74,7 +74,7 @@ inline void ConvolutionLayer::copyData(const float *data_src, int64_t ch_src,
 
 void ConvolutionLayer::setConvolutionWeight(const torch::Tensor &W)
 {
-    conv.setKernel(W);
+    conv.setWeight(W);
 }
 
 void ConvolutionLayer::setConvolutionBias(const torch::Tensor &b)
@@ -84,7 +84,7 @@ void ConvolutionLayer::setConvolutionBias(const torch::Tensor &b)
 
 void ConvolutionLayer::setOutputWeight(const torch::Tensor &W)
 {
-    out1x1.setKernel(W);
+    out1x1.setWeight(W);
 }
 
 void ConvolutionLayer::setOutputBias(const torch::Tensor &b)
@@ -94,7 +94,7 @@ void ConvolutionLayer::setOutputBias(const torch::Tensor &b)
 
 void ConvolutionLayer::setSkipWeight(const torch::Tensor &W)
 {
-    skip1x1.setKernel(W);
+    skip1x1.setWeight(W);
 }
 
 void ConvolutionLayer::setSkipBias(const torch::Tensor &b)
@@ -104,7 +104,7 @@ void ConvolutionLayer::setSkipBias(const torch::Tensor &b)
 
 void ConvolutionLayer::setCondWeight(const torch::Tensor &W)
 {
-    cond1x1.setKernel(W);
+    cond1x1.setWeight(W);
 }
 
 void ConvolutionLayer::setCondBias(const torch::Tensor &b)
