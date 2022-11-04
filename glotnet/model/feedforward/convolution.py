@@ -3,24 +3,66 @@ import glotnet.cpp_extensions as ext
 
 class Convolution(torch.nn.Conv1d):
 
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None,
-                 causal=True):
-        super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 kernel_size: int,
+                 stride: int = 1,
+                 padding: int = 0,
+                 dilation: int = 1,
+                 groups: int = 1,
+                 bias: bool = True,
+                 padding_mode: str = 'zeros',
+                 device=None,
+                 dtype=None,
+                 causal: bool = True,
+                use_film: bool = False
+                 ):
+        super().__init__(in_channels, out_channels,
+                         kernel_size, stride,
+                         padding, dilation,
+                         groups, bias, padding_mode,
+                         device, dtype)
         self.causal = causal
+        self.use_film = use_film
         self._impl = ext.Convolution(in_channels, out_channels, kernel_size, dilation)
 
     @property
-    def receptive_field(self):
+    def receptive_field(self) -> int:
+        """ Receptive field length """
         return (self.kernel_size[0] - 1) * self.dilation[0] + 1
 
-    def forward(self, input: torch.Tensor, cond_input: torch.Tensor = None, sequential: bool = False) -> torch.Tensor:
+    def forward(self,
+                input: torch.Tensor,
+                cond_input: torch.Tensor = None,
+                sequential: bool = False
+                ) -> torch.Tensor:
+        """
+        Args:
+            input shape is (batch, in_channels, time)
+            cond_input: conditioning input
+                
+                shape = (batch, 2*out_channels, time) if self.use_film else (batch, out_channels, time)
+        Returns:
+            output shape is (batch, out_channels, time)
+        """
 
         if cond_input is not None:
-            assert cond_input.size(1) == self.out_channels, f"Cond input number of channels mismatch. Expected {self.out_channels}, got {cond_input.size(1)}"
-            assert cond_input.size(2) == input.size(2), f"Mismatching timesteps, input has {input.size(2)}, cond_input has {cond_input.size(2)}" 
+            if self.use_film and cond_input.size(1) != 2 * self.out_channels:       
+                raise ValueError(f"Cond input number of channels mismatch."
+                                 f"Expected {2*self.out_channels}, got {cond_input.size(1)}")
+            if not self.use_film and cond_input.size(1) != self.out_channels:
+                raise ValueError(f"Cond input number of channels mismatch."
+                                 f"Expected {self.out_channels}, got {cond_input.size(1)}")
+            if cond_input.size(2) != input.size(2):
+                raise ValueError(f"Mismatching timesteps, "
+                                 f"input has {input.size(2)}, cond_input has {cond_input.size(2)}")
 
         if sequential:
-            return ConvolutionFunction.apply(input, self.weight, self.bias, self.dilation[0], cond_input)
+            return ConvolutionFunction.apply(
+                self._impl,
+                input, cond_input,
+                *self.parameters())
         else:
             return self._forward_native(input=input, cond_input=cond_input)
 
@@ -34,46 +76,42 @@ class Convolution(torch.nn.Conv1d):
             stride=self.stride, padding=0,
             dilation=self.dilation, groups=self.groups)
         if cond_input is not None:
-            output = output + cond_input
+            if self.use_film:
+                a, b = torch.chunk(cond_input, 2, dim=1)
+                output = a * output + b
+            else:
+                output = output + cond_input
         return output
 
 class ConvolutionFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, weight, bias, dilation, cond_input=None, time_major=True):
+    def forward(ctx, impl, input, cond_input=None, *params):
         """ Dilated covolution bindings forward pass
 
         Args:
-            input: tensor of shape (batch, channels, time) (default) or (batch, time, channels)
-            weight: Conv1d weight tensor, shape = (ch_out, ch_in, kernel_size)
-            bias: Conv1d bias tensor, shape = (ch_out,)
-            dilation: int type dilation factor
+            input: tensor of shape (batch, channels, time)
             cond_input: (default = None)
-            time_major: 
-                if True: input.shape == (batch, channels, time), (PyTorch default)
-                else: input.shape == (batch, time, channels),
 
         """
-        ctx.time_major = time_major
-        if ctx.time_major:
-            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-            if cond_input is not None:
-                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-                cond_input = cond_input.contiguous()
+        weight, bias = params
+
+        input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
         input = input.contiguous()
-
+        if cond_input is not None:
+            cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            cond_input = cond_input.contiguous()
+       
+        conv = impl
+        conv.set_kernel(weight)
+        conv.set_bias(bias)
         if cond_input is None:
-            conv = ext.Convolution(weight.size(1), weight.size(0), weight.size(2), dilation)
-            conv.set_kernel(weight)
-            conv.set_bias(bias)
             output, = conv.forward(input)
-            # output, = ext.convolution_forward(input, weight, bias, dilation)
         else:
-            output, = ext.convolution_cond_forward(input, cond_input, weight, bias, dilation)
+            output, = conv.forward_cond(input, cond_input)
 
-        if ctx.time_major:
-            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
+        output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
         return output 
 
-    def backward(self, d_output):
+    def backward(self, *output_grads):
         raise NotImplementedError
