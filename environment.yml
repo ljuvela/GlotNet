@@ -2,8 +2,13 @@ channels:
   - pytorch
   - conda-forge
 dependencies:
-  - eigen
   - python
   - pytorch=1.12
+  - eigen
   - torchaudio
   - tensorboard
+  - scikit-build
+  - cmake
+  - ninja
+  - pytest
+  - openmp

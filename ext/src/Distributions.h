@@ -11,6 +11,8 @@ namespace distributions
 class Distribution
 {
 public:
+
+    virtual ~Distribution() = default;
     virtual void sample(const float *params, float *output, size_t timesteps) = 0;
     virtual void setTemperature(float temperature) = 0;
 };

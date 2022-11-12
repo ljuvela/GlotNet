@@ -8,7 +8,7 @@ void init_wavenet(py::module&);
 void init_wavenet_ar(py::module&);
 void init_distributions(py::module&);
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+PYBIND11_MODULE(cpp_extensions, m)
 {
     init_convolution(m);
     init_activations(m);

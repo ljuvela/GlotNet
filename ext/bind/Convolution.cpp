@@ -65,8 +65,6 @@ public:
         int64_t timesteps = input.size(1);
         int64_t input_channels = input.size(2);
 
-        assert(input_channels == weight.size(1));
-        assert(bias_size == output_channels);
 
         auto output = torch::zeros({batch_size, timesteps, output_channels});
 
