@@ -55,7 +55,7 @@ target_link_libraries(${python_module_name}
 )
 target_include_directories(${python_module_name} PRIVATE ${TORCH_INCLUDE_DIRS})
 
-find_package(Eigen3 PATHS third_party/eigen)
+add_subdirectory(third_party/eigen)
 target_link_libraries (${python_module_name} PRIVATE Eigen3::Eigen)
 
 install(TARGETS ${python_module_name} DESTINATION .)
