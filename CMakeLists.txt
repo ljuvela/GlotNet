@@ -4,8 +4,6 @@ project(GlotNet LANGUAGES C CXX VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# add_subdirectory(third_party/eigen)
-
 find_package(OpenMP REQUIRED)
 
 # Add Conda headers
@@ -35,11 +33,6 @@ pybind11_add_module(${python_module_name} MODULE
     ext/src/ConvolutionStack.cpp
 )
 
-find_package(Python COMPONENTS Interpreter)
-set(Torch_DIR "${Python_SITELIB}/torch/share/cmake/Torch")
-
-find_package(Torch REQUIRED)
-find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 
 if(OpenMP_CXX_FOUND)
     target_link_libraries(${python_module_name} PUBLIC OpenMP::OpenMP_CXX)
@@ -48,6 +41,12 @@ endif()
 if(DEFINED ENV{CONDA_PREFIX})
     target_link_libraries(${python_module_name} PUBLIC -L${CONDA_PREFIX}/lib/)
 endif ()
+
+find_package(Python COMPONENTS Interpreter)
+set(Torch_DIR "${Python_SITELIB}/torch/share/cmake/Torch")
+
+find_package(Torch REQUIRED)
+find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 
 target_link_libraries(${python_module_name}
     PRIVATE ${TORCH_LIBRARIES}
