@@ -3,11 +3,17 @@ import tempfile
 import numpy as np
 import torch
 import torchaudio
+import pytest
 
 from torch.utils.data.dataloader import DataLoader
 
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.config import Config
+
+# TODO pytest fixture tempdir
+# @pytest.fixture(scope="session")
+# def generate_random_wav_files(tmp_path_factory, num_files, sample_rate, channels, ext='.wav'):
+
 
 def generate_random_wav_files(dir, num_files, sample_rate, channels, ext='.wav'):
     """ Generate random wave files for testing """

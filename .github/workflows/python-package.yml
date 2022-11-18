@@ -26,12 +26,12 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        apt install cmake ninja-build
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        sudo apt-get install -y cmake ninja-build libeigen3-dev
         git submodule update --init --recursive
-        python setup.py install
+        pip install -v -e .
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names

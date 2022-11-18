@@ -25,6 +25,10 @@ pip install -r requirements.txt
 
 ### Build
 
+```
+python setup.py develop -- -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-march=native -O3 -std=c++17"
+```
+
 Build and install
 ```bash
 pip install .

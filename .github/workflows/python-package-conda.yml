@@ -31,7 +31,7 @@ jobs:
     - name: Build extensions
       run: |
         git submodule update --init --recursive
-        python setup.py install
+        pip install -v -e .
     - name: Test with pytest
       run: |
         conda install pytest

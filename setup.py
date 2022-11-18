@@ -1,6 +1,5 @@
 from setuptools import find_packages
 from skbuild import setup
-packages = find_packages('.', exclude='third_party')
 
 setup(
     name="glotnet",
@@ -8,7 +7,7 @@ setup(
     description="",
     author='Lauri Juvela',
     license="",
-    packages=packages,
+    packages=['glotnet'],
     cmake_install_dir='glotnet',
     python_requires='>=3.7',
 )
