@@ -8,6 +8,8 @@ from glotnet.config import Config
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.model.autoregressive.wavenet import WaveNetAR
 from glotnet.losses.distributions import Distribution, GaussianDensity
+from glotnet.data.audio_dataset import AudioDataset
+
 
 from typing import Union
 
@@ -18,21 +20,36 @@ class Trainer(torch.nn.Module):
     optim : torch.optim.Optimizer
 
     def __init__(self,
-                 model: WaveNet,
-                 criterion: Distribution,
-                 dataset: Dataset,
                  config: Config,
+                 dataset=None,
                  device: DeviceType = 'cpu'):
         """ Init GlotNet Trainer """
         super().__init__()
         self.device = device
         self.config = config
+
+
+        criterion= self._create_criterion()
         self.criterion = criterion.to(device)
+
+        model = self._create_model(criterion)
         self.model = model.to(device)
+        self.config.padding = model.receptive_field
+
         self.optim = self.create_optimizer()
-        self.dataset = dataset
+
+        if dataset is None:
+            if config.dataset_compute_mel:
+                config.cond_channels = config.n_mels
+            self.dataset = AudioDataset(
+                config=config,
+                audio_dir=config.dataset_audio_dir,
+                output_mel=config.dataset_compute_mel)
+        else:
+            self.dataset = dataset
+
         self.data_loader = DataLoader(
-            dataset,
+            self.dataset,
             batch_size=config.batch_size,
             shuffle=config.shuffle,
             drop_last=True,
@@ -46,8 +63,9 @@ class Trainer(torch.nn.Module):
         self.device = device
         super().to(device)
 
-    def create_criterion(config: Config) -> Distribution:
+    def _create_criterion(self) -> Distribution:
         """ Create scoring distribution instance from config """
+        config = self.config
         distribution = Trainer.distributions.get(
             config.distribution, None)
         if distribution is None:
@@ -58,9 +76,9 @@ class Trainer(torch.nn.Module):
                             weight_nll=config.loss_weight_nll)
         return dist
 
-    def create_model(config: Config, distribution: Distribution) -> WaveNet:
+    def _create_model(self, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
-        cfg = config
+        cfg = self.config
         # TODO: distribution should be a part of the model
         model = WaveNet(input_channels=cfg.input_channels,
                         output_channels=distribution.params_dim,

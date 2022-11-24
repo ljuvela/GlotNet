@@ -28,22 +28,10 @@ def main(args):
 
     if args.mel_cond:
         config.cond_channels = config.n_mels
-    
-    criterion = Trainer.create_criterion(config)
-    model = Trainer.create_model(config, distribution=criterion)
-    config.padding = model.receptive_field
+        config.dataset_compute_mel = True
 
-    # audio_dir = '/Users/lauri/DATA/torchaudio/ARCTIC/cmu_us_slt_arctic/wav'
-    audio_dir = args.data_dir
-    dataset = AudioDataset(config, audio_dir=audio_dir, output_mel=args.mel_cond)
-    
-
-    device = torch.device(args.device)
-    trainer = Trainer(model=model,
-                      criterion=criterion,
-                      dataset=dataset,
-                      config=config,
-                      device=device)
+    config.dataset_audio_dir = args.data_dir
+    trainer = Trainer(config=config, device=args.device)
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
     while trainer.iter_global < config.max_iters:

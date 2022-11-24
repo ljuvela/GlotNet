@@ -27,11 +27,6 @@ def main(args):
     
    
     config = Config.from_json(args.config)
-    config.cond_channels = config.n_mels
-    
-    criterion = Trainer.create_criterion(config)
-    model = Trainer.create_model(config, distribution=criterion)
-    config.padding = model.receptive_field
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -46,11 +41,10 @@ def main(args):
                                output_mel=True,
                                file_list=[f])
     
-
-        trainer = Trainer(model=model,
-                        criterion=criterion,
-                        dataset=dataset,
-                        config=config)
+        trainer = Trainer(config=config,
+                          dataset=dataset,
+                          device='cpu')
+                        
 
         # TODO: only load once
         trainer.load(model_path=args.model)

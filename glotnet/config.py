@@ -49,6 +49,10 @@ class Config:
     mel_fmin: float = 0.0
     mel_fmax: float = 8000
 
+    # Dataset properties
+    dataset_audio_dir: str = None
+    dataset_compute_mel: bool = False
+
     # from https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L180
     # audio = parser.add_argument_group("audio parameters")
     # audio.add_argument("--sample-rate", default=22050, type=int, help="Sampling rate")
