@@ -38,6 +38,7 @@ def test_allpole_class():
 
     y = allpole.forward(x=x.unsqueeze(0).unsqueeze(0),
                         a=a.reshape(1, -1, 1).expand(-1, -1, T))
+
     y.sum().backward()
 
     # test autograd against torchaudio.functional.lfilter
@@ -54,7 +55,6 @@ def test_allpole_class():
     print(a.grad)
     print(a_ref.grad)
 
-    import ipdb; ipdb.set_trace()
 
     # check that gradients are the same
     assert torch.allclose(x.grad, x_ref.grad)

@@ -7,6 +7,11 @@ from glotnet.sigproc.lfilter import LFilter
 from torchaudio.functional import lfilter as lfilter_ref
 from glotnet.sigproc.lfilter import ceil_division
 
+from torchaudio import functional as Fa
+
+
+import pytest
+
 def test_lfilter_perferct_reconstruction():
 
     lfilter = LFilter(n_fft=16, hop_length=4, win_length=16)
@@ -64,6 +69,41 @@ def test_lfilter_constant_filter_coefs():
     # print(close)
     # print(y.norm()/ y_ref.norm())
 
-if __name__ == "__main__":
-    test_lfilter_perferct_reconstruction()
-    test_lfilter_constant_filter_coefs()
+
+
+def test_lfilter_extension():
+
+    import glotnet.cpp_extensions as ext
+
+    lfilt_ext = ext.LFilter()
+
+
+    # x = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) * 1.0
+    # a = torch.tensor([1, -0.5, 0.2])
+    x = torch.tensor([1, 2, 3]) * 1.0
+    a = torch.tensor([1, -0.5])
+    T = x.shape[0]
+
+    x_ext = x.reshape(1, -1, 1).contiguous()
+    a_ext = a.reshape(1, 1, -1).expand(-1, T, -1).contiguous()
+    b_ext = torch.zeros_like(a_ext)
+    b_ext[..., 0] = 1.0
+    y_ext = torch.zeros_like(x_ext)
+    lfilt_ext.forward(x_ext, a_ext, b_ext, y_ext)
+
+    # test against torchaudio.functional.lfilter
+    b = torch.zeros_like(a)
+    b[0] = 1
+    y_ref = Fa.lfilter(waveform=x.unsqueeze(0),
+                    b_coeffs=b.unsqueeze(0),
+                    a_coeffs=a.unsqueeze(0),
+                    clamp=False).squeeze(0)
+
+    # todo : transpose to correct shape
+
+    print(y_ext)
+    print(y_ref)
+
+    assert torch.allclose(y_ext, y_ref)
+
+    lfilt_ref = LFilter(n_fft=512, hop_length=128, win_length=256)

@@ -6,7 +6,6 @@ namespace glotnet
 {
 
 
-
 class AllPoleFilter
 {
 public:
