@@ -10,8 +10,6 @@ from glotnet.sigproc.lfilter import ceil_division
 from torchaudio import functional as Fa
 
 
-import pytest
-
 def test_lfilter_perferct_reconstruction():
 
     lfilter = LFilter(n_fft=16, hop_length=4, win_length=16)
@@ -23,10 +21,11 @@ def test_lfilter_perferct_reconstruction():
 
     assert torch.allclose(y, x)
 
+
 def test_lfilter_causality():
     pass
 
-# if __name__ == "__main__":
+
 def test_lfilter_constant_filter_coefs():
 
     batch = 1
@@ -66,44 +65,82 @@ def test_lfilter_constant_filter_coefs():
     close = torch.allclose(y_ref * norm, y * norm, atol=1e-5, rtol=1e-4)
     # close = torch.allclose(y_ref * norm, y * norm, atol=1e-6, rtol=1e-5)
     assert(close)
-    # print(close)
-    # print(y.norm()/ y_ref.norm())
 
 
 
-def test_lfilter_extension():
+def test_lfilter_extension_allpole():
 
     import glotnet.cpp_extensions as ext
 
     lfilt_ext = ext.LFilter()
 
-
-    # x = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) * 1.0
-    # a = torch.tensor([1, -0.5, 0.2])
-    x = torch.tensor([1, 2, 3]) * 1.0
-    a = torch.tensor([1, -0.5])
+    x = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) * 1.0
+    a = torch.tensor([1.0, -0.5, 0.2])
+    b = torch.tensor([1.0, 0.0, 0.0])
     T = x.shape[0]
 
     x_ext = x.reshape(1, -1, 1).contiguous()
     a_ext = a.reshape(1, 1, -1).expand(-1, T, -1).contiguous()
-    b_ext = torch.zeros_like(a_ext)
-    b_ext[..., 0] = 1.0
+    b_ext = b.reshape(1, 1, -1).expand(-1, T, -1).contiguous()
     y_ext = torch.zeros_like(x_ext)
+
     lfilt_ext.forward(x_ext, a_ext, b_ext, y_ext)
 
-    # test against torchaudio.functional.lfilter
-    b = torch.zeros_like(a)
-    b[0] = 1
-    y_ref = Fa.lfilter(waveform=x.unsqueeze(0),
-                    b_coeffs=b.unsqueeze(0),
-                    a_coeffs=a.unsqueeze(0),
-                    clamp=False).squeeze(0)
+    y_ref = lfilter_ref(waveform=x.unsqueeze(0),
+                        b_coeffs=b.unsqueeze(0),
+                        a_coeffs=a.unsqueeze(0),
+                        clamp=False).squeeze(0)
 
-    # todo : transpose to correct shape
+    assert torch.allclose(y_ext.flatten(), y_ref.flatten())
 
-    print(y_ext)
-    print(y_ref)
 
-    assert torch.allclose(y_ext, y_ref)
+def test_lfilter_extension_allzero():
 
-    lfilt_ref = LFilter(n_fft=512, hop_length=128, win_length=256)
+    import glotnet.cpp_extensions as ext
+
+    lfilt_ext = ext.LFilter()
+
+    x = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) * 1.0
+    b = torch.tensor([1, -0.5, 0.2])
+    a = torch.tensor([1.0, 0.0, 0.0])
+    T = x.shape[0]
+
+    x_ext = x.reshape(1, -1, 1).contiguous()
+    a_ext = a.reshape(1, 1, -1).expand(-1, T, -1).contiguous()
+    b_ext = b.reshape(1, 1, -1).expand(-1, T, -1).contiguous()
+    y_ext = torch.zeros_like(x_ext)
+
+    lfilt_ext.forward(x_ext, a_ext, b_ext, y_ext)
+
+    y_ref = lfilter_ref(waveform=x.unsqueeze(0),
+                        b_coeffs=b.unsqueeze(0),
+                        a_coeffs=a.unsqueeze(0),
+                        clamp=False).squeeze(0)
+
+    assert torch.allclose(y_ext.flatten(), y_ref.flatten())
+
+
+def test_lfilter_extension_pole_zero():
+
+    import glotnet.cpp_extensions as ext
+
+    lfilt_ext = ext.LFilter()
+
+    x = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) * 1.0
+    a = torch.tensor([1, -0.5, 0.2])
+    b = torch.tensor([1, 0.1, 0.4])
+    T = x.shape[0]
+
+    x_ext = x.reshape(1, -1, 1).contiguous()
+    a_ext = a.reshape(1, 1, -1).expand(-1, T, -1).contiguous()
+    b_ext = b.reshape(1, 1, -1).expand(-1, T, -1).contiguous()
+    y_ext = torch.zeros_like(x_ext)
+
+    lfilt_ext.forward(x_ext, a_ext, b_ext, y_ext)
+
+    y_ref = lfilter_ref(waveform=x.unsqueeze(0),
+                        b_coeffs=b.unsqueeze(0),
+                        a_coeffs=a.unsqueeze(0),
+                        clamp=False).squeeze(0)
+
+    assert torch.allclose(y_ext.flatten(), y_ref.flatten())
