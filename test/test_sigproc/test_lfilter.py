@@ -67,7 +67,6 @@ def test_lfilter_constant_filter_coefs():
     assert(close)
 
 
-
 def test_lfilter_extension_allpole():
 
     import glotnet.cpp_extensions as ext

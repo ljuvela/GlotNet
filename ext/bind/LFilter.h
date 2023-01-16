@@ -70,7 +70,6 @@ public:
     }
 
 
-
 private:
 
     void resize(int64_t batch, int64_t channels, int64_t order)
