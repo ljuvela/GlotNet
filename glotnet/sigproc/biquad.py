@@ -3,21 +3,20 @@ import torch
 from .lfilter import LFilter
 from typing import Tuple
 
-class BiquadBandPass(LFilter):
 
-    def __init__(self, freq: float = 0.5, gain: float = 0.0, Q: float = 0.7071):
-        """
-        Args:
-            freq: normalized frequency from 0 to 1 (Nyquist)
-            gain: gain in dB
-            Q: quality factor determining filter resonance bandwidth
-        """
+class BiquadBandPassFunctional(torch.nn.Module):
+
+    def __init__(self):
+
+        super().__init__()
+
         # TODO: pass STFT arguments to LFilter
-        super().__init__(n_fft=2048, hop_length=512, win_length=1024)
-
-        self.gain_dB = torch.nn.Parameter(torch.tensor(gain, dtype=torch.float32).reshape(1, 1))
-        self.freq = torch.nn.Parameter(torch.tensor(freq, dtype=torch.float32).reshape(1, 1))
-        self.Q = torch.nn.Parameter(torch.tensor(Q, dtype=torch.float32).reshape(1, 1))
+        self.n_fft = 2048
+        self.hop_length = 512
+        self.win_length = 1024
+        self.lfilter = LFilter(n_fft=self.n_fft,
+                               hop_length=self.hop_length,
+                               win_length=self.win_length)
 
     def _params_to_direct_form(self,
                                freq: torch.Tensor,
@@ -25,7 +24,10 @@ class BiquadBandPass(LFilter):
                                Q: torch.Tensor
                                ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        
+        Args: 
+            freq, center frequency, shape is (..., 1)
+            gain, gain in decibels, shape is (..., 1)
+            Q, resonance sharpness, shape is (..., 1)
         """
         if torch.any(freq > 1.0):
             raise ValueError(f"Normalized frequency must be below 1.0, max was {freq.max()}")
@@ -50,17 +52,24 @@ class BiquadBandPass(LFilter):
 
     def forward(self,
                 x: torch.Tensor,
-                freq: torch.Tensor = None,
-                gain: torch.Tensor = None,
-                Q: torch.Tensor = None,
+                freq: torch.Tensor,
+                gain: torch.Tensor,
+                Q: torch.Tensor,
                 ) -> torch.Tensor:
+        """ 
+        Args:
+            x: input signal
+                shape = (batch, channels, time)
+            freq: center frequencies 
+                shape = (batch, channels, n_filters, n_frames)
+                n_frames should be time // hop_size
+            gain: gains in decibels,
+                shape = (batch, channels, n_filters, n_frames)
+            Q: filter resonance (quality factor)
+                shape = (batch, channels, n_filters, n_frames)
+        """
 
-        if freq is None:
-            freq = self.freq
-        if gain is None:
-            gain = self.gain_dB
-        if Q is None:
-            Q = self.Q
+
 
         b, a = self._params_to_direct_form(freq=freq, gain=gain, Q=Q)
         num_frames = x.size(-1) // self.hop_length
@@ -69,9 +78,41 @@ class BiquadBandPass(LFilter):
         if a.ndim < 3:
             a = a.reshape(1, -1, 1).expand(-1, -1, num_frames)
         
+        # reshape parallel filters to batch
 
-        return super().forward(x, b=b, a=a)
+        # expand input for parallel filters
+
+        y = self.lfilter.forward(x, b=b, a=a)
+
+        return y
 
 
+class BiquadBandPassModule(BiquadBandPassFunctional):
 
+    def __init__(self, freq: float = 0.5, gain: float = 0.0, Q: float = 0.7071):
+        """
+        Args:
+            freq: normalized frequency from 0 to 1 (Nyquist)
+            gain: gain in dB
+            Q: quality factor determining filter resonance bandwidth
+        """
+        super().__init__()
 
+        # TODO: separate wrapper module for self-contained parameters (inherit biquad functional?)
+        self.gain_dB = torch.nn.Parameter(torch.tensor(gain, dtype=torch.float32).reshape(1, 1))
+        self.freq = torch.nn.Parameter(torch.tensor(freq, dtype=torch.float32).reshape(1, 1))
+        self.Q = torch.nn.Parameter(torch.tensor(Q, dtype=torch.float32).reshape(1, 1))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        freq = self.freq
+        gain = self.gain_dB
+        Q = self.Q
+
+        # TODO reshape inputs
+
+        y = super.forward(x, freq, gain, Q)
+
+        # TODO reshape outputs
+
+        return y

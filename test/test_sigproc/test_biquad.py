@@ -2,7 +2,7 @@ import torch
 from importlib import reload
 
 import glotnet.sigproc.biquad; reload(glotnet.sigproc.biquad)
-from glotnet.sigproc.biquad import BiquadBandPass
+from glotnet.sigproc.biquad import BiquadBandPassFunctional, BiquadBandPassModule
 from glotnet.sigproc.oscillator import Oscillator
 
 
@@ -21,7 +21,7 @@ def test_peak_biquad_gains():
     gain = 6.0
     # normalized frequency (nyquist = 1)
     freq = f0 / (fs / 2)
-    biquad = BiquadBandPass(freq=freq, gain=gain)
+    biquad = BiquadBandPassModule(freq=freq, gain=gain)
     
     y_100 = biquad(x_100)
     y_2000 = biquad(x_2000)
