@@ -1,10 +1,17 @@
 import torch
 
 class Oscillator(torch.nn.Module):
-    """ Sinusoidal oscillator
-    """
-    def __init__(self, audio_rate=48000, control_rate=200):
-        super(Oscillator, self).__init__()
+    """ Sinusoidal oscillator """
+    def __init__(self, 
+                 audio_rate:int=48000,
+                 control_rate:int=200):
+        """
+        Args:
+            audio_rate: audio sample rate in samples per second
+            control_rate: control sample rate in samples per second
+                typically equal to 1 / frame_length
+        """
+        super().__init__()
 
         self.audio_rate = audio_rate
         self.control_rate = control_rate
@@ -18,7 +25,7 @@ class Oscillator(torch.nn.Module):
 
         self.audio_step = 1.0 / audio_rate
         self.control_step = 1.0 / control_rate
-       
+
 
     def forward(self, f0, init_phase=None):
         """ 
