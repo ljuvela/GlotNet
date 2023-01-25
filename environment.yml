@@ -3,12 +3,12 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - pytorch=1.12
-  - torchaudio=0.12
-  - tensorboard=2.11.0
-  - scikit-build=0.16.2
-  - cmake=3.24
-  - eigen=3.4
-  - ninja=1.11
-  - pytest=7.2
-  - openmp=8.0
+  - pytorch=1.13
+  - torchaudio
+  - tensorboard
+  - scikit-build
+  - cmake
+  - eigen
+  - ninja
+  - pytest
+  - openmp
