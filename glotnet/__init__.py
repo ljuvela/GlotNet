@@ -1,1 +1,2 @@
-__all__ = ['convolution']
+# prevents Library not loaded: @rpath/libc10.dylib
+import torch

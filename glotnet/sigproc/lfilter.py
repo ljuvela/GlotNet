@@ -14,6 +14,7 @@ def pad_frames(frames: torch.Tensor, target_len: int) -> torch.Tensor:
     l_pad = n_pad // 2
     r_pad = ceil_division(n_pad, 2)
     return F.pad(frames, pad=(l_pad, r_pad), mode='replicate')
+    
 class LFilter(torch.nn.Module):
     """ Linear filtering with STFT """
 

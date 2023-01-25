@@ -29,14 +29,3 @@ def test_gated():
     y2 = act(x, use_extension=False)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), f"Outputs must match\n  y1={y1},  y2={y2}"
     print("   ok!")
-
-
-if __name__ == "__main__":
-    test_linear()
-    # test_layer_tanh()
-    test_gated()
-    # test_layer_gated_cond()
-
-
-
-

@@ -56,7 +56,6 @@ class AllPoleFunction(torch.autograd.Function):
         dyda = allpole(-y, a)
         dyda = torch.nn.functional.pad(dyda, (p, 0))
 
-        # import ipdb; ipdb.set_trace()
         # da = torch.zeros_like(a)
         # for i in range(0, T):
         #     for j in range(0, p):
