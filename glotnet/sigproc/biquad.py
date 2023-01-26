@@ -26,9 +26,17 @@ class BiquadBandPassFunctional(torch.nn.Module):
                                ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args: 
-            freq, center frequency, shape is (..., 1)
-            gain, gain in decibels, shape is (..., 1)
-            Q, resonance sharpness, shape is (..., 1)
+            freq, center frequency,
+                shape is (batch, 1, n_frames)
+            gain, gain in decibels
+                shape is (batch, 1, n_frames)
+            Q, resonance sharpness
+                shape is (batch, 1, n_frames)
+
+        Returns:
+            a, filter denominator coefficients
+                shape is (batch, n_taps, n_frames)
+
         """
         if torch.any(freq > 1.0):
             raise ValueError(f"Normalized frequency must be below 1.0, max was {freq.max()}")
@@ -45,12 +53,9 @@ class BiquadBandPassFunctional(torch.nn.Module):
         a1 = -2.0 * torch.cos(omega)
         a2 = 1 - alpha / A
 
+        a = torch.cat([a0, a1, a2], dim=1)
+        b = torch.cat([b0, b1, b2], dim=1)
 
-        # TODO: unsqueeze for multichannel
-        a = torch.cat([a0, a1, a2], dim=-1)
-        b = torch.cat([b0, b1, b2], dim=-1)
-        print(f"{a.shape}")
-        print(f"{b.shape}")
         b = b / a0
         a = a / a0
         return b, a
@@ -67,25 +72,29 @@ class BiquadBandPassFunctional(torch.nn.Module):
                 shape = (batch, channels, time)
             freq: center frequencies 
                 shape = (batch, channels, n_filters, n_frames)
-                n_frames should be time // hop_size
+                n_frames is expected to be (time // hop_size)
             gain: gains in decibels,
                 shape = (batch, channels, n_filters, n_frames)
             Q: filter resonance (quality factor)
                 shape = (batch, channels, n_filters, n_frames)
         """
 
+        # save parameter shapes for later
+        batch, channels, n_filters, n_frames = freq.shape
+
+        # reshape to (batch * channels * n_filters, 1, n_frames)
+        freq = freq.reshape(-1, 1, freq.size(-1))
+        gain = gain.reshape(-1, 1, gain.size(-1))
+        Q = Q.reshape(-1, Q.size(-1))
+
         b, a = self._params_to_direct_form(freq=freq, gain=gain, Q=Q)
-        num_frames = x.size(-1) // self.hop_length
-        if b.ndim < 3:
-            b = b.reshape(1, -1, 1).expand(-1, -1, num_frames)
-        if a.ndim < 3:
-            a = a.reshape(1, -1, 1).expand(-1, -1, num_frames)
 
-        # reshape parallel filters to batch
-
-        # expand input for parallel filters
+        x = x.reshape(batch * channels * n_filters, 1, -1)
 
         y = self.lfilter.forward(x, b=b, a=a)
+
+        # reshape to (batch, channels, n_filters, time)
+        y = y.reshape(batch, channels, n_filters, -1)
 
         return y
 
@@ -131,23 +140,34 @@ class BiquadBandPassModule(BiquadBandPassFunctional):
             raise ValueError(
                 "Maximum normalized frequency is smaller than 0.0.")
 
-        self.gain_dB = torch.nn.Parameter(gain.unsqueeze(0))
-        self.freq = torch.nn.Parameter(freq.unsqueeze(0))
-        self.Q = torch.nn.Parameter(Q.unsqueeze(0))
+        # reshape to (batch, channels, n_filters)
+        self.gain_dB = torch.nn.Parameter(gain.reshape(1, 1, -1))
+        self.freq = torch.nn.Parameter(freq.reshape(1, 1, -1))
+        self.Q = torch.nn.Parameter(Q.reshape(1, 1, -1))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x, shape is (batch, channels, timesteps)
 
+        Returns:
+            y, shape is (batch, channels, timesteps)
+        """
         freq = self.freq
         gain = self.gain_dB
         Q = self.Q
 
+        # Expand time dimension
+        # TODO: separate backend for time-constant params
         timesteps = x.size(2)
         num_frames = timesteps // self.hop_length
+        freq = freq.unsqueeze(-1).expand(-1, -1, -1, num_frames)
+        gain = gain.unsqueeze(-1).expand(-1, -1, -1, num_frames)
+        Q = Q.unsqueeze(-1).expand(-1, -1, -1, num_frames)
 
         # reshape parameters
         # freq.expand()
 
-        import ipdb; ipdb.set_trace()
         y = super().forward(x, freq, gain, Q)
 
         # TODO reshape outputs
