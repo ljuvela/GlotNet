@@ -3,8 +3,6 @@ import torch
 from glotnet.sigproc.biquad import BiquadBandPassFunctional, BiquadBandPassModule
 from glotnet.sigproc.oscillator import Oscillator
 
-import pytest
-
 def test_peak_biquad_gains():
 
 
@@ -14,8 +12,8 @@ def test_peak_biquad_gains():
 
     osc = Oscillator(audio_rate=fs, control_rate=fs)
 
-    x_100 = osc(f0=100 * torch.ones(1, 1, timesteps))
-    x_2000 = osc(f0=2000 * torch.ones(1, 1, timesteps))
+    x_100 = osc(f0=100 * torch.ones(1, 1, timesteps), init_phase=torch.pi)
+    x_2000 = osc(f0=2000 * torch.ones(1, 1, timesteps), init_phase=torch.pi)
 
     # gain in dB
     gain = 6.0
@@ -46,19 +44,15 @@ def test_peak_biquad_bank():
     biquad = BiquadBandPassModule(freq=freq, gain=gain, fs=fs)
 
     osc = Oscillator(audio_rate=fs, control_rate=fs)    
-    x = osc(f0=freq.reshape(1, -1, 1) * torch.ones(batch, channels, timesteps))
 
-    # x = x.sum(dim=1, keepdim=True)
-
+    x = osc(f0=freq.reshape(1, -1, 1) * torch.ones(batch, channels, timesteps), init_phase=torch.pi)
     y = biquad.forward(x)
 
     for i, _ in enumerate(freq):
         print(10 ** (0.05 * gain[i]))
         print(y[:, :, i].max() )
-    #     assert (y[:, :, i].max() - 10 ** (0.05 * gain[i])).abs() < 0.1
-    
-    
-    
+        assert (y[:, :, i].max() - 10 ** (0.05 * gain[i])).abs() < 0.01
+
 
 def test_biquad_backprop():
 
@@ -69,8 +63,3 @@ def test_peak_biquad_variable_freq():
 
     biquad = BiquadBandPassFunctional()
 
-
-
-
-
-    

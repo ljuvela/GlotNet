@@ -32,7 +32,7 @@ class Oscillator(torch.nn.Module):
         Args:
             f0 : fundamental frequency, shape (batch_size, channels, num_frames)
         Returns:
-            x : sinusoid, shape (batch_size, channels, num_samples)    
+            x : sinusoid, shape (batch_size, channels, num_samples)
         """
 
         f0 = torch.clamp(f0, min=0.0, max=self.nyquist_rate)
@@ -43,5 +43,5 @@ class Oscillator(torch.nn.Module):
             init_phase =  2 * torch.pi * (torch.rand(if_shape[0], if_shape[1], 1) - 0.5)
         # integrate instantaneous frequency for phase
         phase = torch.cumsum(2 * torch.pi * inst_freq * self.audio_step, dim=-1)
-        return torch.sin(phase + init_phase) 
+        return torch.sin(phase + init_phase)
         
