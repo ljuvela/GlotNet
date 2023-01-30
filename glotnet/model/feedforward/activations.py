@@ -70,3 +70,30 @@ class ActivationFunction(torch.autograd.Function):
     def backward(ctx, d_output):
         raise NotImplementedError("Backward function not implemented for sequential processing")
 
+
+
+class Tanh(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return TanhFunction.apply(input)
+
+
+class TanhFunction(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, input: torch.Tensor):
+        
+        output = torch.tanh(input)
+        ctx.save_for_backward(input, output)
+        return output
+
+    @staticmethod
+    def backward(ctx, d_output: torch.Tensor):
+
+        input, output = ctx.saved_tensors
+        # d tanh(x) / dx = 1 - tanh(x) ** 2
+        d_input = (1 - output ** 2) * d_output
+        return d_input
