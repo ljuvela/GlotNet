@@ -8,13 +8,8 @@ from torch.utils.data import Dataset
 
 from glotnet.config import Config
 
-class SpectralNormalization(torch.nn.Module):
-    def forward(self, input):
-        return torch.log(torch.clamp(input, min=1e-5))
-
-class InverseSpectralNormalization(torch.nn.Module):
-    def forward(self, input):
-        return torch.exp(input)
+from glotnet.sigproc.melspec import SpectralNormalization, InverseSpectralNormalization
+from glotnet.sigproc.melspec import LogMelSpectrogram
 
 class AudioDataset(Dataset):
 
@@ -23,7 +18,7 @@ class AudioDataset(Dataset):
                  audio_dir: str,
                  audio_ext: str = '.wav',
                  file_list: List[str] = None,
-                 output_mel: bool = False,
+                 output_mel: bool = False, # TODO: take transform as argument
                  dtype: torch.dtype = torch.float32):
         self.config = config
         self.audio_dir = audio_dir
@@ -43,6 +38,7 @@ class AudioDataset(Dataset):
         for f in self.audio_files:
             self._check_audio_file(f)
 
+        # TODO: use sigproc.melspec.LogMelSpectrogram
         #https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L284
         self.transforms = torch.nn.Sequential(
             torchaudio.transforms.MelSpectrogram(

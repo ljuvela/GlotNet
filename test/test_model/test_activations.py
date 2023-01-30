@@ -38,9 +38,11 @@ def test_custom_tanh():
     x_ref = x.clone().detach().requires_grad_(True)
     y = tanh(x)
     y_ref = tanh_ref(x_ref)
-    assert torch.allclose(y, y_ref, atol=1e-6, rtol=1e-5), f"Outputs must match\n  y={y},  y_ref={y_ref}"
+    assert torch.allclose(y, y_ref, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match\n  y={y},  y_ref={y_ref}"
 
     # test backward pass
     y.sum().backward()
     y_ref.sum().backward()
-    assert torch.allclose(x.grad, x.grad, atol=1e-6, rtol=1e-5), f"Gradients must match\n  x.grad={x.grad},  x.grad={x.grad}"
+    assert torch.allclose(x.grad, x_ref.grad, atol=1e-6, rtol=1e-5), \
+        f"Gradients must match\n  x.grad={x.grad},  x.grad={x_ref.grad}"
