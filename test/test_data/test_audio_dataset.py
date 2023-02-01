@@ -9,6 +9,7 @@ from torch.utils.data.dataloader import DataLoader
 
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.config import Config
+from glotnet.sigproc.melspec import LogMelSpectrogram
 
 # TODO pytest fixture tempdir
 # @pytest.fixture(scope="session")
@@ -75,9 +76,19 @@ def test_mel_extraction():
     config.channels = channels
     padded_seqment_len = config.segment_len + config.padding
     
+    melspec =  LogMelSpectrogram(
+        sample_rate=config.sample_rate,
+        n_fft=config.n_fft,
+        win_length=config.win_length,
+        hop_length=config.hop_length,
+        f_min=config.mel_fmin,
+        f_max=config.mel_fmax,
+        n_mels=config.n_mels,
+    )
+
     with tempfile.TemporaryDirectory() as dir:
         generate_random_wav_files(dir, num_files, config.sample_rate, config.channels)
-        dataset = AudioDataset(config, dir, ext, output_mel=True)
+        dataset = AudioDataset(config, dir, ext, transforms=melspec)
         # Test that batch elements are correct size
         dataloader = DataLoader(dataset=dataset,
                                 batch_size=config.batch_size,

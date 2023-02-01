@@ -50,7 +50,7 @@ class Convolution(torch.nn.Conv1d):
         """
 
         if cond_input is not None:
-            if self.use_film and cond_input.size(1) != 2 * self.out_channels:       
+            if self.use_film and cond_input.size(1) != 2 * self.out_channels:
                 raise ValueError(f"Cond input number of channels mismatch."
                                  f"Expected {2*self.out_channels}, got {cond_input.size(1)}")
             if not self.use_film and cond_input.size(1) != self.out_channels:

@@ -9,6 +9,7 @@ from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.model.autoregressive.wavenet import WaveNetAR
 from glotnet.losses.distributions import Distribution, GaussianDensity
 from glotnet.data.audio_dataset import AudioDataset
+from glotnet.sigproc.melspec import LogMelSpectrogram
 
 
 from typing import Union
@@ -28,7 +29,6 @@ class Trainer(torch.nn.Module):
         self.device = device
         self.config = config
 
-
         criterion= self._create_criterion()
         self.criterion = criterion.to(device)
 
@@ -41,10 +41,20 @@ class Trainer(torch.nn.Module):
         if dataset is None:
             if config.dataset_compute_mel:
                 config.cond_channels = config.n_mels
+                melspec = LogMelSpectrogram(
+                    sample_rate=config.sample_rate,
+                    n_fft=config.n_fft,
+                    win_length=config.win_length,
+                    hop_length=config.hop_length,
+                    f_min=config.mel_fmin,
+                    f_max=config.mel_fmax,
+                    n_mels=config.n_mels)
+            else:
+                melspec = None
             self.dataset = AudioDataset(
                 config=config,
                 audio_dir=config.dataset_audio_dir,
-                output_mel=config.dataset_compute_mel)
+                transforms=melspec)
         else:
             self.dataset = dataset
 

@@ -11,6 +11,8 @@ class InverseSpectralNormalization(torch.nn.Module):
     def forward(self, input):
         return torch.exp(input)
 
+# Tacotron 2 reference configuration
+#https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L284
 class LogMelSpectrogram(torch.nn.Module):
     """ Log Mel Spectrogram """
 
@@ -20,8 +22,8 @@ class LogMelSpectrogram(torch.nn.Module):
                  win_length: int = None,
                  hop_length: int = None,
                  n_mels: int = 80,
-                 fmin: float = 0.0,
-                 fmax: float = None,
+                 f_min: float = 0.0,
+                 f_max: float = None,
                  mel_scale: str = "slaney",
                  normalized: bool = False,
                  power: float = 1.0,
@@ -34,8 +36,8 @@ class LogMelSpectrogram(torch.nn.Module):
             n_fft=n_fft,
             win_length=win_length,
             hop_length=hop_length,
-            f_min=fmin,
-            f_max=fmax,
+            f_min=f_min,
+            f_max=f_max,
             n_mels=n_mels,
             mel_scale=mel_scale,
             normalized=normalized,
