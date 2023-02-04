@@ -92,11 +92,11 @@ class LogMelSpectrogram(torch.nn.Module):
         return a
 
         # TODO : include gain in filters
-        G = torch.sqrt(torch.dot(r[:(self.filter_order+1)], a))
+        # G = torch.sqrt(torch.dot(r[:(self.filter_order+1)], a))
 
-        # scale filter roots
-        w = self.filter_root_scale ** torch.arange(self.filter_order+1, dtype=torch.float32, device=a.device)
-        a_w = a * w
+        # # scale filter roots
+        # w = self.filter_root_scale ** torch.arange(self.filter_order+1, dtype=torch.float32, device=a.device)
+        # a_w = a * w
 
-        A_complex = rfft(a_w, n=self.n_fft)
-        A = torch.abs(A_complex)
+        # A_complex = torch.fft.rfft(a_w, n=self.n_fft)
+        # A = torch.abs(A_complex)
