@@ -71,7 +71,6 @@ class LFilter(torch.nn.Module):
                             **self.fold_kwargs)
 
         # window
-        # import ipdb; ipdb.set_trace()
         x_windowed = x_framed * self.window
 
         # FFT
