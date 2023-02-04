@@ -2,6 +2,7 @@ import torch
 import glotnet.cpp_extensions as ext
 
 class Convolution(torch.nn.Conv1d):
+    """ Causal convolution with optional FILM conditioning """
 
     def __init__(self,
                  in_channels: int,
@@ -49,7 +50,7 @@ class Convolution(torch.nn.Conv1d):
         """
 
         if cond_input is not None:
-            if self.use_film and cond_input.size(1) != 2 * self.out_channels:       
+            if self.use_film and cond_input.size(1) != 2 * self.out_channels:
                 raise ValueError(f"Cond input number of channels mismatch."
                                  f"Expected {2*self.out_channels}, got {cond_input.size(1)}")
             if not self.use_film and cond_input.size(1) != self.out_channels:
@@ -68,7 +69,16 @@ class Convolution(torch.nn.Conv1d):
             return self._forward_native(input=input, cond_input=cond_input)
 
     def _forward_native(self, input: torch.Tensor, cond_input: torch.Tensor) -> torch.Tensor:
-        """ Native torch conv1d with causal padding"""
+        """ Native torch conv1d with causal padding
+
+        Args:
+            input shape is (batch, in_channels, time)
+            cond_input: conditioning input
+                shape = (batch, 2*out_channels, time) if self.use_film else (batch, out_channels, time)
+        Returns:
+            output shape is (batch, out_channels, time)
+
+        """
         padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
         if padding > 0:
             input = torch.nn.functional.pad(input, (padding, 0))

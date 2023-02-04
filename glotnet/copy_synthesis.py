@@ -7,6 +7,8 @@ from glotnet.config import Config
 from glotnet.data.config import DataConfig
 from glotnet.data.audio_dataset import AudioDataset
 
+from glotnet.sigproc.melspec import LogMelSpectrogram
+
 from glob import glob
 import torchaudio
 
@@ -25,17 +27,20 @@ def parse_args():
 
 def main(args):
     
-   
     config = Config.from_json(args.config)
-    config.cond_channels = config.n_mels
-    
-    criterion = Trainer.create_criterion(config)
-    model = Trainer.create_model(config, distribution=criterion)
-    config.padding = model.receptive_field
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # audio_dir = '/Users/lauri/DATA/torchaudio/ARCTIC/cmu_us_slt_arctic/wav'
+    melspec = LogMelSpectrogram(
+        sample_rate=config.sample_rate,
+        n_fft=config.n_fft,
+        win_length=config.win_length,
+        hop_length=config.hop_length,
+        f_min=config.mel_fmin,
+        f_max=config.mel_fmax,
+        n_mels=config.n_mels,
+    )
+
     input_dir = args.input_dir
     files = glob(os.path.join(input_dir, '*.wav'))
     files = files[:10]
@@ -43,14 +48,13 @@ def main(args):
         config.segment_len = torchaudio.info(f).num_frames
         dataset = AudioDataset(config,
                                audio_dir=input_dir,
-                               output_mel=True,
+                               transforms=melspec,
                                file_list=[f])
     
-
-        trainer = Trainer(model=model,
-                        criterion=criterion,
-                        dataset=dataset,
-                        config=config)
+        trainer = Trainer(config=config,
+                          dataset=dataset,
+                          device='cpu')
+                        
 
         # TODO: only load once
         trainer.load(model_path=args.model)

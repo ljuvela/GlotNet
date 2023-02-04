@@ -8,6 +8,13 @@ import math
 def ceil_division(n: int, d: int) -> int:
     """ Ceiling integer division """
     return -(n // -d)
+
+def pad_frames(frames: torch.Tensor, target_len: int) -> torch.Tensor:
+    n_pad = target_len - frames.size(-1)
+    l_pad = n_pad // 2
+    r_pad = ceil_division(n_pad, 2)
+    return F.pad(frames, pad=(l_pad, r_pad), mode='replicate')
+    
 class LFilter(torch.nn.Module):
     """ Linear filtering with STFT """
 
@@ -19,13 +26,6 @@ class LFilter(torch.nn.Module):
         window = torch.hann_window(window_length=self.win_length)
         self.register_buffer('window', window.reshape(1, -1, 1), persistent=False)
         self.scale = 2.0 * self.hop_length / self.win_length
-
-        # TODO: find scaling for synthesis window
-        # print(f"window sqsum {self.window.square().sum()}")
-        # print(f"window sum {self.window.sum()}")
-        # print(f"hop {self.hop_length}, nfft {self.n_fft}, win {self.win_length}")
-        # print(f"sum / sqsum : {self.window.sum()/self.window.square().sum()}")
-        # print(f"sqsum / sum: {self.window.square().sum()/self.window.sum()}")
 
         self.fold_kwargs = {
             'kernel_size':(self.win_length, 1),
@@ -52,17 +52,6 @@ class LFilter(torch.nn.Module):
 
         if x.size(1) != 1:
             raise RuntimeError("channels must be 1")
-        # X = torch.stft(input=x_padded[:, 0, :],
-        #                n_fft=self.n_fft,
-        #                hop_length=self.hop_length,
-        #                win_length=self.win_length,
-        #                window=self.window,
-        #                center=True,
-        #                pad_mode='constant',
-        #                onesided=True,
-        #                return_complex=True)
-
-
 
         # frame
         x_padded = x_padded.unsqueeze(-1)
@@ -75,12 +64,6 @@ class LFilter(torch.nn.Module):
 
         # FFT
         X = torch.fft.rfft(x_windowed, n=self.n_fft, dim=1)
-
-        def pad_frames(frames: torch.Tensor, target_len: int) -> torch.Tensor:
-            n_pad = target_len - frames.size(-1)
-            l_pad = n_pad // 2
-            r_pad = ceil_division(n_pad, 2)
-            return F.pad(frames, pad=(l_pad, r_pad), mode='replicate')
 
         if a is None:
             A = torch.ones_like(X)
@@ -102,25 +85,13 @@ class LFilter(torch.nn.Module):
         y_windowed = y_windowed[:, :self.win_length, :]
         # TODO: window again for OLA
         # y_windowed = y_windowed[:, :self.win_length, :] * self.window
-       
 
         # Overlap-add
-        # TODO: fold does not work correctly if win length and fft length don't match!
         # TODO: change OLA fold args kernel size to fft_len
         y = F.fold(y_windowed, output_size=fold_size,
                    **self.fold_kwargs)
         return y[:, :, left_pad:-right_pad, 0] * self.scale
 
-        # y = torch.istft(input=Y,
-        #                n_fft=self.n_fft,
-        #                hop_length=self.hop_length,
-        #                win_length=self.win_length,
-        #                window=self.window,
-        #                center=True,
-        #                onesided=True,
-        #                )
-        # y = y.unsqueeze(1)
-        # return y[:, :, left_pad:-right_pad] 
 
 
 

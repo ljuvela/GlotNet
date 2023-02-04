@@ -1,10 +1,17 @@
 import torch
 
 class Oscillator(torch.nn.Module):
-    """ Sinusoidal oscillator
-    """
-    def __init__(self, audio_rate=48000, control_rate=200):
-        super(Oscillator, self).__init__()
+    """ Sinusoidal oscillator """
+    def __init__(self, 
+                 audio_rate:int=48000,
+                 control_rate:int=200):
+        """
+        Args:
+            audio_rate: audio sample rate in samples per second
+            control_rate: control sample rate in samples per second
+                typically equal to 1 / frame_length
+        """
+        super().__init__()
 
         self.audio_rate = audio_rate
         self.control_rate = control_rate
@@ -18,14 +25,14 @@ class Oscillator(torch.nn.Module):
 
         self.audio_step = 1.0 / audio_rate
         self.control_step = 1.0 / control_rate
-       
+
 
     def forward(self, f0, init_phase=None):
         """ 
         Args:
             f0 : fundamental frequency, shape (batch_size, channels, num_frames)
         Returns:
-            x : sinusoid, shape (batch_size, channels, num_samples)    
+            x : sinusoid, shape (batch_size, channels, num_samples)
         """
 
         f0 = torch.clamp(f0, min=0.0, max=self.nyquist_rate)
@@ -36,5 +43,5 @@ class Oscillator(torch.nn.Module):
             init_phase =  2 * torch.pi * (torch.rand(if_shape[0], if_shape[1], 1) - 0.5)
         # integrate instantaneous frequency for phase
         phase = torch.cumsum(2 * torch.pi * inst_freq * self.audio_step, dim=-1)
-        return torch.sin(phase + init_phase) 
+        return torch.sin(phase + init_phase)
         

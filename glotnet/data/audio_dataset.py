@@ -2,34 +2,40 @@ from glob import glob
 from logging import warning
 import os
 import torchaudio
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import torch
 from torch.utils.data import Dataset
 
 from glotnet.config import Config
 
-class SpectralNormalization(torch.nn.Module):
-    def forward(self, input):
-        return torch.log(torch.clamp(input, min=1e-5))
-
-class InverseSpectralNormalization(torch.nn.Module):
-    def forward(self, input):
-        return torch.exp(input)
+from glotnet.sigproc.melspec import SpectralNormalization, InverseSpectralNormalization
+from glotnet.sigproc.melspec import LogMelSpectrogram
 
 class AudioDataset(Dataset):
+    """ Dataset for audio files """
 
     def __init__(self,
                  config: Config,
                  audio_dir: str,
                  audio_ext: str = '.wav',
                  file_list: List[str] = None,
-                 output_mel: bool = False,
+                 transforms: Union[torch.nn.Module, str] = None,
                  dtype: torch.dtype = torch.float32):
+        """
+        Args:
+            config: Config object
+            audio_dir: directory containing audio files
+            audio_ext: file extension of audio files
+            file_list: list of audio files
+            transforms: transforms to apply to audio, output as auxiliary feature for conditioning
+            dtype: data type of output
+        """
+
         self.config = config
         self.audio_dir = audio_dir
         self.audio_ext = audio_ext
-        self.output_mel = output_mel
         self.dtype = dtype
+        self.transforms = transforms
 
         if file_list is None:
             self.audio_files = glob(os.path.join(
@@ -42,24 +48,6 @@ class AudioDataset(Dataset):
 
         for f in self.audio_files:
             self._check_audio_file(f)
-
-        #https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L284
-        self.transforms = torch.nn.Sequential(
-            torchaudio.transforms.MelSpectrogram(
-                sample_rate=config.sample_rate,
-                n_fft=config.n_fft,
-                win_length=config.win_length,
-                hop_length=config.hop_length,
-                f_min=config.mel_fmin,
-                f_max=config.mel_fmax,
-                n_mels=config.n_mels,
-                mel_scale="slaney",
-                normalized=False,
-                power=1,
-                norm="slaney",
-            ),
-            SpectralNormalization(),
-        )
 
     def _check_audio_file(self, f):
 
@@ -100,7 +88,7 @@ class AudioDataset(Dataset):
         # zero pad to segment_len + padding
         x = torch.nn.functional.pad(x, (pad_left, 0))
         
-        if self.output_mel:
+        if self.transforms is not None:
             c = self.transforms(x)
             c = c[0] # drop batch dimension, DataLoader will put it back
             return (x, c)
