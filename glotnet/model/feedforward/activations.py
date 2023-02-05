@@ -16,6 +16,7 @@ limitations under the License.
 
 import torch
 import glotnet.cpp_extensions as ext
+from enum import Enum
 
 def _gated_activation(x: torch.Tensor) -> torch.Tensor:
 
@@ -23,23 +24,33 @@ def _gated_activation(x: torch.Tensor) -> torch.Tensor:
     half = x.size(1) // 2
     return torch.tanh(x[:, :half, :]) * torch.sigmoid(x[:, half:, :])
 
+
+class ActivationType(Enum):
+    gated = 'gated'
+    tanh = 'tanh'
+    linear = 'linear'
+
 class Activation(torch.nn.Module):
     """ Activation class """
 
-    def __init__(self, activation="gated"):
+    def __init__(self, activation: ActivationType = ActivationType.gated):
         super().__init__()
-        self.activation_str = activation
-        if activation == "gated":
-            self.activation_func = _gated_activation
-        elif activation == "tanh":
-            self.activation_func = torch.tanh
-        elif activation == "linear":
-            self.activation_func = torch.nn.Identity()
 
-    def forward(self, input, use_extension=True):
+        self.activation_type = activation
+
+        if activation == ActivationType.gated:
+            self.activation_func = _gated_activation
+        elif activation == ActivationType.tanh:
+            self.activation_func = torch.tanh
+        elif activation == ActivationType.linear:
+            self.activation_func = torch.nn.Identity()
+        else:
+            raise ValueError(f"Activation type {activation} not supported")
+
+    def forward(self, input:torch.Tensor, use_extension=True):
 
         if use_extension:
-            return ActivationFunction.apply(input, self.activation_str)
+            return ActivationFunction.apply(input, self.activation_type.value)
         else:
             return self.activation_func(input)
 
@@ -51,19 +62,14 @@ class ActivationFunction(torch.autograd.Function):
                 activation: str, time_major: bool = True
                 ) -> torch.Tensor:
 
-        ctx.time_major = time_major
-        if ctx.time_major:
-            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-        
+        input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
         input = input.contiguous()
         ctx.save_for_backward(input)
         ctx.activation_type = activation
 
         output, = ext.activations_forward(input, activation)
 
-        if ctx.time_major:
-            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
-
+        output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
         return output 
 
     @staticmethod
