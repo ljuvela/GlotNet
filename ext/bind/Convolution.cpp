@@ -51,8 +51,8 @@ public:
         for (int64_t b = 0; b < batch_size; b++)
         {
             conv.resetBuffer(); // TODO: multiprocessing with copies, no need to reset
-            conv.process(&(input_a[b][0][0]),
-                         &(output_a[b][0][0]),
+            conv.process(&input_a[b][0][0],
+                         &output_a[b][0][0],
                          timesteps);
         }
 
@@ -136,7 +136,6 @@ namespace convolution
 
 void init_convolution(py::module &m)
 {
-    // m.def("convolution_forward_ar", &(glotnet::convolution::forward_autoregressive), "Convolution autoregressive forward");
     py::class_<glotnet::bindings::Convolution>(m, "Convolution")
         .def(py::init<int64_t, int64_t, int64_t, int64_t, bool>())
         .def("set_weight", &glotnet::bindings::Convolution::setWeight)

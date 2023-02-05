@@ -1,5 +1,9 @@
 #include "ConvolutionStack.h"
 
+namespace glotnet
+{
+
+
 ConvolutionStack::ConvolutionStack(
     size_t num_channels, size_t num_skip_channels, size_t num_cond_channels,
     size_t filter_width, std::vector<int> dilations, std::string activation, bool residual)
@@ -130,3 +134,5 @@ void ConvolutionStack::initLayers()
             use_output_transform, activation));
     }
 }
+
+} // namespace glotnet

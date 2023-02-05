@@ -88,6 +88,7 @@ class Convolution(torch.nn.Conv1d):
             dilation=self.dilation, groups=self.groups)
         if cond_input is not None:
             if self.use_film:
+                # split over channels
                 b, a = torch.chunk(cond_input, 2, dim=1)
                 output = a * output + b
             else:

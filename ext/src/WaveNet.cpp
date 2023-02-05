@@ -1,5 +1,8 @@
 #include "WaveNet.h"
 
+namespace glotnet
+{
+
 WaveNet::WaveNet(size_t input_channels, size_t output_channels,
                  size_t convolution_channels, size_t skip_channels, size_t cond_channels,
                  size_t filter_width, std::string activation, std::vector<int> dilations)
@@ -142,3 +145,5 @@ void WaveNet::reduceSkipSum(const float * skip_data, float * skip_sum)
             for (size_t c = 0; c < C; c++)
                 skip_sum[t * C + c] += skip_data[l * (T * C) + (t * C) + c];
 }
+
+} // namespace wavenet

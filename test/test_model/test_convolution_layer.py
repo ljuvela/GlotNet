@@ -114,6 +114,28 @@ def test_layer_gated_cond():
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), f"Main outputs must match:\n ref={y1}\n ext={y2}"
 
 
+# def test_layer_gated_cond_film():
+#     torch.manual_seed(42)
+#     timesteps = 2
+#     batch = 1 
+#     in_channels = 1
+#     out_channels= 1
+#     cond_channels = 3
+#     skip_channels = 2
+#     kernel_size = 1
+#     dilation = 1
+#     x = 0.1 * torch.randn(batch, in_channels, timesteps)
+#     c = 0.1 * torch.randn(batch, cond_channels, timesteps)
+#     conv = ConvolutionLayer(in_channels, out_channels, kernel_size,
+#                             dilation=dilation, activation="gated",
+#                             cond_channels=cond_channels, skip_channels=skip_channels,
+#                             use_film=True)
+#     y1, s1 = conv(x, cond_input=c, sequential=False)
+#     y2, s2 = conv(x, cond_input=c, sequential=True)
+#     assert torch.allclose(s1, s2, atol=1e-6, rtol=1e-5), f"Skip outputs must match:\n ref={s1}\n ext={s2}"
+#     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), f"Main outputs must match:\n ref={y1}\n ext={y2}"
+
+
 
 
 

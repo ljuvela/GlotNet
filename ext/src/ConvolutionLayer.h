@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include <functional>
 #include <vector>
 #include <string>
 #include <torch/extension.h>
@@ -8,7 +9,10 @@
 #include "Convolution.h"
 #include "Activations.h"
 
-using namespace glotnet;
+using TensorRefList = std::vector<std::reference_wrapper<torch::Tensor>>;
+
+namespace glotnet
+{
 class ConvolutionLayer
 {
 public:
@@ -34,6 +38,7 @@ public:
     void setSkipBias(const torch::Tensor &b);
     void setCondWeight(const torch::Tensor &W);
     void setCondBias(const torch::Tensor &b);
+    void setParams(const TensorRefList &params);
 
 private:
     const size_t conv_out_channels;
@@ -50,3 +55,5 @@ private:
     inline void copyData(const float *data_src, int64_t channels_src, 
         float *data_dst, int64_t channels_dst, int64_t timesteps);
 };
+
+} // namespace glotnet
