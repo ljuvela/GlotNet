@@ -90,9 +90,3 @@ def test_gaussian_sample_extension():
     # loose tolerances when scoring sample similarity
     assert torch.allclose(X_ref, X, atol=1e-2, rtol=1e-1), \
         f"PSDs must match \n ref: {X_ref} \n custom: {X}"
-
-if __name__ == "__main__":
-
-    test_gaussian_nll()
-    test_gaussian_sample()
-    test_gaussian_sample_extension()

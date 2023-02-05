@@ -104,8 +104,3 @@ def test_mel_extraction():
             assert c.shape == shape_ref, \
                 f"Expected mel shape {shape_ref}, got {c.shape}"
 
-
-if __name__ == "__main__":
-    test_padding()
-    test_batching()
-    test_mel_extraction()

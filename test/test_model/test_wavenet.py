@@ -147,15 +147,6 @@ def test_wavenet_cond_multibatch():
     print("   ok!")
 
 
-if __name__ == "__main__":
-    test_wavenet_minimal()
-    test_wavenet_cond_minimal()
-    test_wavenet_multichan()
-    test_wavenet_multilayer()
-    test_wavenet_multibatch()
-    test_wavenet_cond_multibatch()
-
-
 
 
 

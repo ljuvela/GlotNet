@@ -19,6 +19,3 @@ def test_levinson():
     assert torch.allclose(a, a_ref, atol=1e-5, rtol=1e-4), \
         f'Results should match \n lev: {a} \n ref: {a_ref} '
 
-
-if __name__ == "__main__":
-    test_levinson()

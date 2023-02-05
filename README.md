@@ -48,8 +48,17 @@ pytest test
 
 Build in edit mode 
 ```bash
-pip install -v e .
+pip install -v -e .
 ```
+
+If you want to run tests with breakpoints, add the `-s` flag
+
+```bash
+pytest -s test
+```
+
+
+#### Linting
 
 Flake8 linter tests must pass. Install by
 ```bash
@@ -67,5 +76,3 @@ flake8
 
 ### Acknowledgements
 
-
-### Tests

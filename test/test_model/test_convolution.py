@@ -251,23 +251,4 @@ def test_forward_cond_film_siso():
         f"Outputs must match \n ext: {y1} \n ref: {y2}"
     print("   ok!")
 
-if __name__ == "__main__":
-
-    test_causal_conv()
-    test_receptive_field()
-    test_forward_siso()
-    test_forward_simo()
-    test_forward_miso()
-    test_forward_mimo()
-    test_forward_mimo_dilated()
-    test_forward_mimo_dilated_multibatch()
-    test_forward_cond_siso()
-    test_forward_cond_mimo()
-    test_conv_ar()
-    test_conv_ar_extension()
-    test_forward_cond_film_siso()
-
-
-
-
 

@@ -136,13 +136,6 @@ def test_wavenet_ar_cond():
     print("   ok!")
 
 
-if __name__ == "__main__":
-    test_wavenet_ar_minimal()
-    test_wavenet_ar_cond_minimal()
-    test_wavenet_ar()
-    test_wavenet_ar_cond()
-
-
 
 
 

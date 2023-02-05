@@ -66,7 +66,3 @@ def test_allpole_class():
 
 
 
-
-if __name__ == "__main__":
-    test_allpole()
-    test_allpole_class()

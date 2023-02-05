@@ -113,32 +113,6 @@ def test_layer_gated_cond():
     assert torch.allclose(s1, s2, atol=1e-6, rtol=1e-5), f"Skip outputs must match:\n ref={s1}\n ext={s2}"
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), f"Main outputs must match:\n ref={y1}\n ext={y2}"
 
-if __name__ == "__main__":
-
-    print("Test layer with linear activations")
-    test_layer_linear()
-    print("   ok!")
-
-    print("Test layer with linear activations and skip transform")
-    test_layer_linear_skips()
-    print("   ok!")
-
-    print("Test layer with tanh activation")
-    test_layer_tanh()
-    print("   ok!")
-
-    print("Test layer with gated activations, no output transform")
-    test_layer_gated_no_out_transform()
-    print("   ok!")
-
-    print("Test layer with gated activations")
-    test_layer_gated()
-    print("   ok!")
-
-    print("Test conditional layer with gated activations")
-    test_layer_gated_cond()
-    print("   ok!")
-
 
 
 

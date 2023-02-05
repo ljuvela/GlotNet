@@ -152,15 +152,3 @@ def test_stack_multibatch():
 
 
 
-if __name__ == "__main__":
-    test_stack_minimal()
-    test_stack_cond_minimal()
-    test_stack_multichan()
-    test_stack_multilayer()
-    test_stack_cond_multilayer()
-    test_stack_multibatch()
-
-
-
-
-
