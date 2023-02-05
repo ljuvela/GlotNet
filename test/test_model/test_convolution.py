@@ -207,7 +207,6 @@ def test_conv_ar():
     print("  ok!")
 
 
-
 def test_conv_ar_extension():
 
     print("Testing autoregressive conv extension")
@@ -219,7 +218,7 @@ def test_conv_ar_extension():
     x = torch.zeros(batch, channels, timesteps)
     x[..., 0] = 1.0
 
-    layer = ConvolutionAR(channels, channels, 2)
+    layer = ConvolutionAR(channels, channels, 1)
 
     # exponential decay
     coeff = 0.9

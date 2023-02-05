@@ -101,8 +101,10 @@ class ConvolutionFunction(torch.autograd.Function):
         """ Dilated covolution bindings forward pass
 
         Args:
+            impl: cpp extension object
             input: tensor of shape (batch, channels, time)
             cond_input: (default = None)
+            params: packed parameter list
 
         """
         weight, bias = params

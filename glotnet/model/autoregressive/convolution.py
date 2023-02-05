@@ -20,7 +20,10 @@ class ConvolutionAR(Convolution):
             assert cond_input.size(2) == input.size(2), f"Mismatching timesteps, input has {input.size(2)}, cond_input has {cond_input.size(2)}" 
 
         if use_extension:
-            return ConvolutionFunctionAR.apply(input, self.weight, self.bias, self.dilation[0], cond_input)
+            return ConvolutionFunctionAR.apply(
+                self._impl,
+                input, cond_input,
+                *self.parameters())
         else:
             return self._forward_native(input=input, cond_input=cond_input)
 
@@ -51,35 +54,33 @@ class ConvolutionAR(Convolution):
 class ConvolutionFunctionAR(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, weight, bias, dilation, cond_input=None, time_major=True):
+    def forward(ctx, impl, input, cond_input=None, *params):
         """ Dilated covolution bindings forward pass
 
         Args:
+            impl: cpp extension object
             input: tensor of shape (batch, channels, time) (default) or (batch, time, channels)
-            weight: Conv1d weight tensor, shape = (ch_out, ch_in, kernel_size)
-            bias: Conv1d bias tensor, shape = (ch_out,)
-            dilation: int type dilation factor
             cond_input: (default = None)
-            time_major: 
-                if True: input.shape == (batch, channels, time), (PyTorch default)
-                else: input.shape == (batch, time, channels),
+            params: packed parameter list
 
         """
-        ctx.time_major = time_major
-        if ctx.time_major:
-            input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-            if cond_input is not None:
-                cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
-                cond_input = cond_input.contiguous()
+        weight, bias = params
+
+        input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
         input = input.contiguous()
+        if cond_input is not None:
+            cond_input = cond_input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
+            cond_input = cond_input.contiguous()
 
+        conv = impl
+        conv.set_weight(weight)
+        conv.set_bias(bias)
         if cond_input is None:
-            output, = ext.convolution_forward_ar(input, weight, bias, dilation)
+            output, = conv.forward_ar(input)
         else:
-            output, = ext.convolution_cond_forward_ar(input, cond_input, weight, bias, dilation)
+            output, = conv.cond_forward_ar(input, cond_input)
 
-        if ctx.time_major:
-            output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
+        output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
         return output 
 
     def backward(self, d_output):
