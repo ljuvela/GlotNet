@@ -40,7 +40,8 @@ class ConvolutionLayer(torch.nn.Module):
             in_channels=in_channels,
             out_channels=self.channel_mul * residual_channels,
             kernel_size=kernel_size, dilation=dilation, bias=bias,
-            device=device, dtype=dtype, causal=causal, use_film=self.use_film)
+            device=device, dtype=dtype, causal=causal, 
+            use_film=self.use_film)
         self.out = Convolution(
             in_channels=residual_channels,
             out_channels=residual_channels,
@@ -61,7 +62,7 @@ class ConvolutionLayer(torch.nn.Module):
             0 if skip_channels is None else skip_channels,
             0 if cond_channels is None else cond_channels, 
             kernel_size, dilation,
-            use_output_transform, use_film, 
+            self.use_output_transform, self.use_film, 
             activation)
     
     @property
@@ -113,7 +114,14 @@ class ConvolutionLayer(torch.nn.Module):
             return self._forward_native(input=input, cond_input=cond_input)
 
 
-    def _forward_native(self, input, cond_input):
+    def _forward_native(self, input: torch.Tensor, cond_input: Union[torch.Tensor, None]):
+        """ Pure PyTorch implementation of forward pass
+
+        Args:
+            input, shape (batch_size, in_channels, timesteps)
+            cond_input, shape (batch_size, cond_channels, timesteps)
+        
+        """
         c = self.cond_1x1(cond_input) if self.use_conditioning else None
         x = self.conv(input, cond_input=c)
         if self.channel_mul == 2:

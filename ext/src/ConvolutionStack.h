@@ -35,6 +35,7 @@ private:
     const size_t num_cond_channels;
     const size_t num_skip_channels;
     const size_t filter_width;
+    const bool use_film = false;
     const std::string activation;
     int samples_per_block = 0;
     std::vector<float> residual_data;

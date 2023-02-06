@@ -249,6 +249,23 @@ def test_forward_cond_film_siso():
     y2 = conv(x, c, sequential=False)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
         f"Outputs must match \n ext: {y1} \n ref: {y2}"
-    print("   ok!")
+
+
+def test_forward_cond_film_mimo():
+    print("Testing film conditional forward pass with Multiple-In-Multiple-Out, batch size 1")
+    torch.manual_seed(42)
+    timesteps = 4
+    batch = 1
+    in_channels = 3
+    out_channels= 5
+    kernel_size = 2
+    dilation = 1
+    x = torch.randn(batch, in_channels, timesteps)
+    c = torch.randn(batch, 2 * out_channels, timesteps)
+    conv = Convolution(in_channels, out_channels, kernel_size, dilation=dilation, use_film=True)
+    y1 = conv(x, c, sequential=True)
+    y2 = conv(x, c, sequential=False)
+    assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
+        f"Outputs must match \n ext: {y1} \n ref: {y2}"
 
 

@@ -10,14 +10,16 @@ ConvolutionLayer::ConvolutionLayer(
     size_t filter_width,
     size_t dilation,
     bool use_output_transform,
+    bool use_film,
     std::string activation_name)
-    : conv_out_channels(Activations::isGated(activation_name) ? output_channels * 2 : output_channels),
+    : conv_out_channels((Activations::isGated(activation_name) + 1u) * (use_film + 1u) * output_channels),
       conv(input_channels, conv_out_channels, filter_width, dilation),
       out1x1(output_channels, output_channels, 1, 1),
       skip1x1(output_channels, skip_channels, 1, 1),
       cond1x1(cond_channels, conv_out_channels, 1, 1),
       use_output_transform(use_output_transform),
       use_gating(Activations::isGated(activation_name)),
+      use_film(use_film),
       activation(Activations::getActivationFuncArray(activation_name))
 {
 }
@@ -59,7 +61,8 @@ void ConvolutionLayer::processConditional(
     const size_t out_ch = use_gating ? conv_out_ch / 2 : conv_out_ch;
     this->prepare(timesteps); // TODO: take prepare call out of process loop
     cond1x1.process(conditioning, memory_cond.data(), timesteps);
-    conv.processConditional(data_in, memory_cond.data(), memory.data(), timesteps);
+    conv.processConditional(data_in, memory_cond.data(), memory.data(),
+                            timesteps, use_film);
     activation(memory.data(), timesteps, conv_out_ch);
     copyData(memory.data(), conv_out_ch, data_out, out_ch, timesteps);
     skip1x1.process(data_out, skip_data, timesteps);

@@ -131,7 +131,8 @@ void ConvolutionStack::initLayers()
             num_channels, num_channels,
             num_skip_channels, num_cond_channels,
             filter_width, dilations[i],
-            use_output_transform, activation));
+            use_output_transform, use_film,
+            activation));
     }
 }
 

@@ -23,6 +23,7 @@ public:
                      size_t filter_width,
                      size_t dilation = 1,
                      bool use_output_transform = false,
+                     bool use_film = false,
                      std::string activation_name = "linear"); // TODO: use enum for activation types
     void process(const float *data_in, float *data_out, int64_t total_samples);
     void process(const float *data_in, float *data_out, float *skip_data, int64_t total_samples);
@@ -48,6 +49,7 @@ private:
     Convolution cond1x1;
     const bool use_output_transform;
     const bool use_gating;
+    const bool use_film;
     std::vector<float> memory;
     std::vector<float> memory_cond;
     typedef void (*activationFunction)(float *x, size_t rows, size_t cols); // TODO: make this into a class

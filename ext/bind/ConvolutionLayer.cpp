@@ -22,7 +22,7 @@ public:
         : layer(input_channels, output_channels,
                 skip_channels, cond_channels,
                 filter_width, dilation, 
-                use_output_transform,
+                use_output_transform, use_film,
                 activation_name),
           input_channels(input_channels),
           output_channels(output_channels),
