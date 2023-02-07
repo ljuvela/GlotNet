@@ -42,8 +42,15 @@ if(DEFINED ENV{CONDA_PREFIX})
     target_link_libraries(${python_module_name} PUBLIC -L${CONDA_PREFIX}/lib/)
 endif ()
 
+if(DEFINED ENV{DOCKER_LIB_PATH})
+    target_link_libraries(${python_module_name} PUBLIC -L${DOCKER_LIB_PATH}/lib/)
+endif ()
+
 find_package(Python COMPONENTS Interpreter)
 set(Torch_DIR "${Python_SITELIB}/torch/share/cmake/Torch")
+if(DEFINED ENV{DOCKER_LIB_PATH})
+    set(Torch_DIR "/usr/local/lib/python3.8/dist-packages/torch/share/cmake/Torch")
+endif()
 
 find_package(Torch REQUIRED)
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
