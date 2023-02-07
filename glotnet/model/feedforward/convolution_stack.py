@@ -28,6 +28,7 @@ class ConvolutionStack(torch.nn.Module):
         self.use_1x1_block_out = use_1x1_block_out
         self.use_conditioning = cond_channels is not None
         self.cond_channels = cond_channels
+        self.causal = causal
         self.num_layers = len(dilations)
 
         self.layers = torch.nn.ModuleList()

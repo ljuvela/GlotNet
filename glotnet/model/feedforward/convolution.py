@@ -66,9 +66,11 @@ class Convolution(torch.nn.Conv1d):
                 input, cond_input,
                 *self.parameters())
         else:
-            return self._forward_native(input=input, cond_input=cond_input)
+            return self._forward_native(input=input, cond_input=cond_input, causal=self.causal)
 
-    def _forward_native(self, input: torch.Tensor, cond_input: torch.Tensor) -> torch.Tensor:
+    def _forward_native(self, input: torch.Tensor,
+                     cond_input: torch.Tensor,
+                     causal:bool=True) -> torch.Tensor:
         """ Native torch conv1d with causal padding
 
         Args:
@@ -79,13 +81,21 @@ class Convolution(torch.nn.Conv1d):
             output shape is (batch, out_channels, time)
 
         """
-        padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
-        if padding > 0:
-            input = torch.nn.functional.pad(input, (padding, 0))
-        output = torch.nn.functional.conv1d(
-            input, self.weight, bias=self.bias,
-            stride=self.stride, padding=0,
-            dilation=self.dilation, groups=self.groups)
+        
+        if causal:
+            padding = self.dilation[0] * self.stride[0] * (self.kernel_size[0]-1)
+            if padding > 0:
+                input = torch.nn.functional.pad(input, (padding, 0))
+            output = torch.nn.functional.conv1d(
+                input, self.weight, bias=self.bias,
+                stride=self.stride, padding=0,
+                dilation=self.dilation, groups=self.groups)
+        else:
+            output = torch.nn.functional.conv1d(
+                input, self.weight, bias=self.bias,
+                stride=self.stride, padding='same',
+                dilation=self.dilation, groups=self.groups)
+
         if cond_input is not None:
             if self.use_film:
                 b, a = torch.chunk(cond_input, 2, dim=1)
