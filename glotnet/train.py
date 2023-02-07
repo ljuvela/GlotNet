@@ -17,6 +17,8 @@ def parse_args():
     parser.add_argument('--data_dir', type=str, help="Audio file directory for training")
     parser.add_argument('--mel_cond', type=bool, default=False, help="Condition on Mel Spectrum")
     parser.add_argument('--device', type=str, default='cpu', help="Torch device string")
+    parser.add_argument('--model_pt', type=str, default=None, help="Pre-trained model .pt file")
+    parser.add_argument('--optim_pt', type=str, default=None, help="Optimizer state dictionary .pt file (use to continue training)")
     return parser.parse_args()
 
 def main(args):
@@ -34,10 +36,15 @@ def main(args):
     trainer = Trainer(config=config, device=args.device)
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
+    if args.model_pt is not None:
+        trainer.load(args.model_pt, args.optim_pt)
+
     while trainer.iter_global < config.max_iters:
         trainer.fit(num_iters=config.validation_interval,
                     global_iter_max=config.max_iters)
-        torch.save(trainer.model.state_dict(), os.path.join(trainer.writer.log_dir, 'model-latest.pt'))
+        trainer.save(
+            model_path=os.path.join(trainer.writer.log_dir, 'model-latest.pt'),
+            optim_path=os.path.join(trainer.writer.log_dir, 'optim-latest.pt'))
         x = trainer.generate(temperature=1.0)
         trainer.writer.add_audio("generated audio_temp_1.0",
                                  x[:, 0, :],
