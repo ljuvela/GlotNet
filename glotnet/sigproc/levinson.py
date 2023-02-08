@@ -73,3 +73,31 @@ def forward_levinson(K, M=None):
 
     L = torch.flip(L, dims=[-1]) # flip zero delay to zero:th index
     return L
+
+
+def spectrum_to_allpole(spectrum:torch.Tensor, order:int, root_scale:float=1.0):
+    """ Convert spectrum to all-pole filter coefficients
+    
+    Args:
+        spectrum: power spectrum (squared magnitude), shape=(..., K)
+        order: filter polynomial order
+
+    Returns:
+        g: filter gain
+        a: filter predictor polynomial tensor, shape=(..., order+1)
+    """
+    r = torch.fft.irfft(spectrum, dim=-1)
+    # add small value to diagonal to avoid singular matrix
+    r[..., 0] = r[..., 0] + 1e-6 
+    # all pole from autocorr
+    a = levinson(r, order)
+
+    # filter gain
+    # g = torch.sqrt(torch.dot(r[:(order+1)], a))
+    g = torch.sqrt(torch.sum(r[..., :(order+1)] * a, dim=-1, keepdim=True))
+
+    # scale filter roots
+    if root_scale < 1.0:
+        a = a * root_scale ** torch.arange(order+1, dtype=torch.float32, device=a.device)
+
+    return a, g

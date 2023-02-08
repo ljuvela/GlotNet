@@ -1,7 +1,7 @@
 import torch
 import torchaudio
 
-from .levinson import levinson
+from .levinson import levinson, spectrum_to_allpole
 
 class SpectralNormalization(torch.nn.Module):
     def forward(self, input):
@@ -74,29 +74,23 @@ class LogMelSpectrogram(torch.nn.Module):
 
         # invert normalization
         X = self.exp(X)
+ 
         # (..., F, T) -> (..., T, F)
         X = X.transpose(-1, -2)
         # pseudoinvert mel filterbank
         X = torch.matmul(X, self.fb_pinv).clamp(min=1e-9)
+        
+        # import matplotlib.pyplot as plt
+        # plt.plot(X[0,0,0])
+        # plt.show()
+        # import ipdb; ipdb.set_trace()
+        
         # power spectrum (squared magnitude) spectrum
         X = torch.pow(X, 2.0 / self.mel_spectrogram.power)
         X = X.clamp(min=1e-9)
-        # autocorrelation
-        r = torch.fft.irfft(X)
-        # add small value to diagonal to avoid singular matrix
-        r[..., 0] = r[..., 0] + 1e-6 
-        # all pole from autocorr
-        a = levinson(r, order)
+
+        g, a = spectrum_to_allpole(X, order=order)
         # (..., T, order) -> (..., order, T)
         a = a.transpose(-1, -2)
         return a
 
-        # TODO : include gain in filters
-        # G = torch.sqrt(torch.dot(r[:(self.filter_order+1)], a))
-
-        # # scale filter roots
-        # w = self.filter_root_scale ** torch.arange(self.filter_order+1, dtype=torch.float32, device=a.device)
-        # a_w = a * w
-
-        # A_complex = torch.fft.rfft(a_w, n=self.n_fft)
-        # A = torch.abs(A_complex)
