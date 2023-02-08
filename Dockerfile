@@ -7,7 +7,7 @@ RUN apt-get update
 RUN apt-get install rename
 RUN apt-get install -y sox ffmpeg libeigen3-dev
 
-ENV DOCKER_LIB_PATH='/usr/local'
+ENV DOCKER_LIB_PATH='/usr/local/lib'
 
 COPY requirements.txt /tmp
 RUN pip install --upgrade pip
