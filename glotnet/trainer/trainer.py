@@ -10,6 +10,7 @@ from glotnet.model.autoregressive.wavenet import WaveNetAR
 from glotnet.losses.distributions import Distribution, GaussianDensity
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
+from glotnet.sigproc.emphasis import Emphasis
 
 
 from typing import Union
@@ -51,12 +52,15 @@ class Trainer(torch.nn.Module):
                     n_mels=config.n_mels)
             else:
                 melspec = None
+
             self.dataset = AudioDataset(
                 config=config,
                 audio_dir=config.dataset_audio_dir,
                 transforms=melspec)
         else:
             self.dataset = dataset
+
+        self.pre_emphasis = Emphasis(alpha=config.pre_emphasis)
 
         self.data_loader = DataLoader(
             self.dataset,
@@ -139,6 +143,7 @@ class Trainer(torch.nn.Module):
         model_ar.distribution.set_temperature(temperature) # TODO: schedule?
 
         output = model_ar.forward(input=torch.zeros_like(x), cond_input=c)
+        output = self.pre_emphasis.deemphasis(output)
         return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
@@ -193,6 +198,7 @@ class Trainer(torch.nn.Module):
         while not stop:
             for minibatch in self.data_loader:
                 x, c = self._unpack_minibatch(minibatch)
+                x = self.pre_emphasis.emphasis(x)
                 x_curr = x[:, :, 1:]
                 x_prev = x[:, :, :-1]
 

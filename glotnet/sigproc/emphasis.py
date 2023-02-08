@@ -11,6 +11,9 @@ class Emphasis(torch.nn.Module):
             alpha : pre-emphasis coefficient
         """
         super().__init__()
+        if alpha < 0 or alpha >= 1:
+            raise ValueError(f"alpha must be in [0, 1), got {alpha}")
+        self.alpha = alpha
         self.lfilter = LFilter(n_fft=512, hop_length=256, win_length=512)
         self.register_buffer('coeffs', torch.tensor([1, -alpha], dtype=torch.float32))
 
@@ -23,6 +26,8 @@ class Emphasis(torch.nn.Module):
             y : output signal, shape (batch, channels, timesteps)
 
         """
+        if not (self.alpha > 0):
+            return x
         # expand coefficients to batch size and number of frames
         b = self.coeffs.unsqueeze(0).unsqueeze(-1).expand(x.size(0), -1, ceil_division(x.size(-1), self.lfilter.hop_length))
         # filter
@@ -46,6 +51,8 @@ class Emphasis(torch.nn.Module):
         Returns:
             y : output signal, shape (batch, channels, timesteps)
         """
+        if not (self.alpha > 0):
+            return x
         # expand coefficients to batch size and number of frames
         a = self.coeffs.unsqueeze(0).unsqueeze(-1).expand(x.size(0), -1, ceil_division(x.size(-1), self.lfilter.hop_length))
         # filter

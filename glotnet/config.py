@@ -48,6 +48,7 @@ class Config:
     n_mels: int = 80
     mel_fmin: float = 0.0
     mel_fmax: float = 8000
+    pre_emphasis: float = 0.0
 
     # Dataset properties
     dataset_audio_dir: str = None

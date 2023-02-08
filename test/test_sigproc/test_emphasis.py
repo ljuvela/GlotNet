@@ -43,4 +43,28 @@ def test_deemphasis():
         f"y: {y} y_ref: {y_ref}"
 
 
+def test_emphasis_zero():
 
+    batch = 1
+    time = 2048
+    osc = Oscillator(audio_rate=16000, control_rate=16000)
+    x = osc.forward(1000*torch.ones(batch, 1, time))
+
+    emphasis = Emphasis(alpha=0.0)
+
+    y = emphasis(x)
+
+    assert torch.allclose(x, y), f"y: {y} x: {x}"
+
+def test_deemphasis_zero():
+    
+        batch = 1
+        time = 2048
+        osc = Oscillator(audio_rate=16000, control_rate=16000)
+        x = osc.forward(1000*torch.ones(batch, 1, time))
+    
+        emphasis = Emphasis(alpha=0.0)
+    
+        y = emphasis.deemphasis(x)
+    
+        assert torch.allclose(x, y), f"y: {y} x: {x}"
