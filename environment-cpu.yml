@@ -12,4 +12,3 @@ dependencies:
   - eigen
   - ninja
   - pytest
-  - openmp
