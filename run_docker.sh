@@ -1,0 +1,2 @@
+#!/bin/sh
+docker run -it --rm --gpus '"device=0,1,2,3"' --ipc=host -v $PWD:/workspace/dockers -v $PWD/../Data/LJSpeech:/workspace/dockers/Dataset  glotnet_docker /bin/sh -c 'cd dockers; git submodule update --recursive --init; pip install -v -e .; pytest test; bash'

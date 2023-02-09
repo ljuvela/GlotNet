@@ -48,7 +48,7 @@ pytest test
 
 Build in edit mode 
 ```bash
-pip install -v e .
+pip install -v -e .
 ```
 
 Flake8 linter tests must pass. Install by
@@ -64,6 +64,26 @@ Run linter by
 ```bash
 flake8
 ```
+
+### Docker
+
+Docker can also be used to build an image with the requried packages.
+
+Build docker container
+```bash
+docker build -t glotnet_docker .
+```
+The docker container can be run using the command in `run_docker.sh`. This creates an interactive container using the selected number of GPU devices and mounts the directory containing the repository and a dataset.
+
+When the container is initialised with `run_docker.sh`, we call
+
+```bash
+git submodule update --recursive --init
+pip install -v -e .
+pytest test
+```
+
+A bash terminal is then opened in the container to interact with the repository.
 
 ### Acknowledgements
 
