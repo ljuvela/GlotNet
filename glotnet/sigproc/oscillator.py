@@ -4,7 +4,8 @@ class Oscillator(torch.nn.Module):
     """ Sinusoidal oscillator """
     def __init__(self, 
                  audio_rate:int=48000,
-                 control_rate:int=200):
+                 control_rate:int=200,
+                 shape:str='sin'):
         """
         Args:
             audio_rate: audio sample rate in samples per second
@@ -25,6 +26,7 @@ class Oscillator(torch.nn.Module):
 
         self.audio_step = 1.0 / audio_rate
         self.control_step = 1.0 / control_rate
+        self.shape = shape
 
 
     def forward(self, f0, init_phase=None):
@@ -43,5 +45,9 @@ class Oscillator(torch.nn.Module):
             init_phase =  2 * torch.pi * (torch.rand(if_shape[0], if_shape[1], 1) - 0.5)
         # integrate instantaneous frequency for phase
         phase = torch.cumsum(2 * torch.pi * inst_freq * self.audio_step, dim=-1)
-        return torch.sin(phase + init_phase)
+
+        if self.shape == 'sin':
+            return torch.sin(phase + init_phase)
+        elif self.shape == 'saw':
+            return (torch.fmod(phase + init_phase, 2 * torch.pi) - torch.pi) /  torch.pi
         

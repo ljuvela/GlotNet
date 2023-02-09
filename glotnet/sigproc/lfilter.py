@@ -51,7 +51,7 @@ class LFilter(torch.nn.Module):
         x_padded = F.pad(x, pad=(left_pad, right_pad))
 
         if x.size(1) != 1:
-            raise RuntimeError("channels must be 1")
+            raise RuntimeError(f"channels must be 1, got shape {x.shape}")
 
         # frame
         x_padded = x_padded.unsqueeze(-1)
