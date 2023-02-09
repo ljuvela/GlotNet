@@ -49,8 +49,6 @@ class WaveNetAR(WaveNet):
 
         if distribution is None:
             distribution = Identity()
-        if type(distribution) is GaussianDensity:
-            assert self.output_channels == 2 * self.input_channels
         self.distribution = distribution
 
     def set_temperature(self, temperature):

@@ -4,6 +4,8 @@ import torch
 from glotnet.trainer.trainer import Trainer
 from glotnet.config import Config
 
+from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
+
 from glotnet.data.config import DataConfig
 from glotnet.data.audio_dataset import AudioDataset
 
@@ -19,6 +21,7 @@ def parse_args():
     parser.add_argument('--device', type=str, default='cpu', help="Torch device string")
     parser.add_argument('--model_pt', type=str, default=None, help="Pre-trained model .pt file")
     parser.add_argument('--optim_pt', type=str, default=None, help="Optimizer state dictionary .pt file (use to continue training)")
+    parser.add_argument('--use_glotnet', type=bool, default=False, help="Use GlotNet model")
     return parser.parse_args()
 
 def main(args):
@@ -33,7 +36,10 @@ def main(args):
         config.dataset_compute_mel = True
 
     config.dataset_audio_dir = args.data_dir
-    trainer = Trainer(config=config, device=args.device)
+    if args.use_glotnet:
+        trainer = TrainerGlotNet(config=config, device=args.device)
+    else:
+        trainer = Trainer(config=config, device=args.device)
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
     if args.model_pt is not None:

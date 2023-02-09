@@ -11,7 +11,7 @@ from glotnet.losses.distributions import Distribution, GaussianDensity
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
-
+from glotnet.sigproc.lpc import LinearPredictor
 
 from typing import Union
 
@@ -29,6 +29,7 @@ class Trainer(torch.nn.Module):
         super().__init__()
         self.device = device
         self.config = config
+        self.config.input_channels = 3 * self.config.input_channels
 
         criterion= self._create_criterion()
         self.criterion = criterion.to(device)
@@ -61,6 +62,10 @@ class Trainer(torch.nn.Module):
             self.dataset = dataset
 
         self.pre_emphasis = Emphasis(alpha=config.pre_emphasis).to(device)
+        self.lpc = LinearPredictor(n_fft=config.n_fft,
+                                   hop_length=config.hop_length,
+                                   win_length=config.win_length,
+                                   order=10).to(device)
 
         self.data_loader = DataLoader(
             self.dataset,
@@ -201,10 +206,25 @@ class Trainer(torch.nn.Module):
                 x, c = self._unpack_minibatch(minibatch)
                 x = self.pre_emphasis.emphasis(x)
 
-                # estimate spectrum
+                # estimate lpc coefficients
+                a = self.lpc.estimate(x[:, 0, :])
+                
+                # add noise to signal
+                x = x + 1e-3 * torch.randn_like(x)
 
-                x_curr = x[:, :, 1:]
+                # get prediction signal
+                p = self.lpc.prediction(x, a)
+
+                # error signal (residual)
+                e = x - p
+
+                e_curr = e[:, :, 1:]
+                e_prev = e[:, :, :-1]
+
                 x_prev = x[:, :, :-1]
+                p_curr = p[:, :, 1:]
+
+                input = torch.cat([e_prev, p_curr, x_prev], dim=1)
 
                 if c is not None:
                     c = torch.nn.functional.interpolate(
@@ -212,10 +232,10 @@ class Trainer(torch.nn.Module):
                     # trim last sample to match x_prev size
                     c = c[..., :-1] 
 
-                params = self.model(x_prev, c)
+                params = self.model(input, c)
 
                 # discard non-valid samples (padding)
-                loss = self.criterion(x=x_curr[..., self.config.padding:],
+                loss = self.criterion(x=e_curr[..., self.config.padding:],
                                       params=params[..., self.config.padding:])
                 loss.backward()
 
