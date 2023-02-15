@@ -15,7 +15,8 @@ class GlotNetAR
 public:
     GlotNetAR(size_t input_channels, size_t output_channels,
               size_t convolution_channels, size_t skip_channels, size_t cond_channels,
-              size_t filter_width, std::string activation, std::vector<int> dilations)
+              size_t filter_width, std::string activation, std::vector<int> dilations, 
+              size_t lpc_order)
         : input_channels(input_channels),
           output_channels(output_channels),
           convolution_channels(convolution_channels),
@@ -24,9 +25,10 @@ public:
           filter_width(filter_width),
           activation(activation),
           dilations(dilations),
+          lpc_order(lpc_order),
           model(input_channels, output_channels,
                 convolution_channels, skip_channels, cond_channels,
-                filter_width, activation, dilations)
+                filter_width, activation, dilations, lpc_order)
     {
     }
 
@@ -63,6 +65,7 @@ void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
 
 std::vector<at::Tensor> forward(
     const torch::Tensor &input,
+    const torch::Tensor &a,
     bool use_residual=true,
     float temperature=1.0
     )
@@ -74,12 +77,12 @@ std::vector<at::Tensor> forward(
     model.setDistribution("gaussian");
     model.setSamplingTemperature(temperature);
 
-    const auto audio_channels = input_channels;
-    auto output = torch::zeros({batch_size, timesteps, audio_channels});
+    auto output = torch::zeros({batch_size, timesteps, 1});
 
     // Accessors
     const auto input_a = input.accessor<float, 3>();
     auto output_a = output.accessor<float, 3>();
+    auto a_a = a.accessor<float, 3>();
 
     // Process
     for (int64_t b = 0; b < batch_size; b++)
@@ -87,6 +90,7 @@ std::vector<at::Tensor> forward(
         model.reset();
         model.process(
             &input_a[b][0][0],
+            &a_a[b][0][0],
             &output_a[b][0][0],
             timesteps);
     }
@@ -132,6 +136,7 @@ void setParametersConditional(
 
 std::vector<at::Tensor> cond_forward(
     const torch::Tensor &input,
+    const torch::Tensor &a,
     const torch::Tensor &cond_input,
     bool use_residual=true,
     float temperature=1.0
@@ -146,13 +151,13 @@ std::vector<at::Tensor> cond_forward(
     model.setDistribution("gaussian");
     model.setSamplingTemperature(temperature);
 
-    const auto audio_channels = input_channels;
-    auto output =  torch::zeros({batch_size, timesteps, audio_channels});
+    auto output =  torch::zeros({batch_size, timesteps, 1});
 
     // Accessors
     const auto input_a = input.accessor<float, 3>();
     const auto cond_input_a = cond_input.accessor<float, 3>();
     auto output_a = output.accessor<float, 3>();
+    auto a_a = a.accessor<float, 3>();
 
     // Process
     for (int64_t b = 0; b < batch_size; b++)
@@ -160,6 +165,7 @@ std::vector<at::Tensor> cond_forward(
         model.reset();
         model.processConditional(
             &input_a[b][0][0],
+            &a_a[b][0][0],
             &cond_input_a[b][0][0],
             &output_a[b][0][0],
             timesteps);
@@ -183,6 +189,7 @@ const int64_t convolution_channels;
 const int64_t skip_channels;
 const int64_t cond_channels;
 const int64_t filter_width;
+const int64_t lpc_order;
 const std::string activation;
 const std::vector<int> dilations;
 
@@ -195,8 +202,18 @@ const std::vector<int> dilations;
 void init_glotnet_ar(py::module &m)
 {
 
-    py::class_<glotnet::binding::GlotNetAR>(m, "GlotNetAR")
-    .def(py::init<int, int, int, int, int, int, std::string, std::vector<int>>())
+py::class_<glotnet::binding::GlotNetAR>(m, "GlotNetAR")
+    .def(py::init<
+         int,              // input_channels
+         int,              // output_channels
+         int,              // convolution_channels
+         int,              // skip_channels
+         int,              // cond_channels
+         int,              // filter_width
+         std::string,      // activation
+         std::vector<int>, // dilations
+         int               // lpc_order
+         >())
     .def("forward", &glotnet::binding::GlotNetAR::forward)
     .def("cond_forward", &glotnet::binding::GlotNetAR::cond_forward)
     .def("reset", &glotnet::binding::GlotNetAR::reset)

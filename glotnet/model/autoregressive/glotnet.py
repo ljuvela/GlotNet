@@ -51,9 +51,11 @@ class GlotNetAR(WaveNet):
 
         cond_channels_int = 0 if cond_channels is None else cond_channels
 
-        self._impl = ext.GlotNetAR(input_channels, output_channels, 
-                        residual_channels, skip_channels,
-                        cond_channels_int, kernel_size, activation, dilations)
+        self._impl = ext.GlotNetAR(input_channels, output_channels,
+                                   residual_channels, skip_channels,
+                                   cond_channels_int, kernel_size,
+                                   activation, dilations,
+                                   lpc_order)
             
         self._validate_distribution(distribution)
 
@@ -202,7 +204,7 @@ class GlotNetAR(WaveNet):
             x_curr = p_curr + e_t # TODO + z_t
 
             # update output 
-            output[:, :, t] = x_curr[:,:, -1]
+            output[:, :, t] = x_curr[:, :, -1]
 
             # advance context
             context = torch.roll(context, -1, dims=-1)
@@ -218,7 +220,6 @@ class GlotNetAR(WaveNet):
             context[:, 1:2, -1] = p_next[:,:, -1]
 
 
-        import ipdb; ipdb.set_trace()
         # remove padding
         if padding:
             output = output[:, :, self.receptive_field:]
@@ -263,7 +264,7 @@ class GlotNetARFunction(torch.autograd.Function):
                 output_weights, output_biases,)
 
             output, = impl.forward(
-                input, use_residual, temperature)
+                input, a, use_residual, temperature)
         else:
             impl.set_parameters_conditional(stack_weights_conv, stack_biases_conv,
                                             stack_weights_out, stack_biases_out,
@@ -272,7 +273,7 @@ class GlotNetARFunction(torch.autograd.Function):
                                             input_weight, input_bias,
                                             output_weights, output_biases)
             output, = impl.cond_forward(
-                input, cond_input,
+                input, a, cond_input,
                 use_residual, temperature)
 
         output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)

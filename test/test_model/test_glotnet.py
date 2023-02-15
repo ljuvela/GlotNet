@@ -61,12 +61,12 @@ def test_glotnet_shapes():
 
 def test_glotnet_ar_minimal():
 
-    order = 4
+    order = 1
 
     dist = GaussianDensity(temperature=0.0)
     model = GlotNetAR(input_channels=3, output_channels=2,
-                      residual_channels=8, skip_channels=8,
-                      kernel_size=2, dilations=[1, 2, 4], distribution=dist,
+                      residual_channels=2, skip_channels=2,
+                      kernel_size=2, dilations=[1], distribution=dist,
                       hop_length=1, lpc_order=order)
 
     batch = 1
@@ -76,10 +76,9 @@ def test_glotnet_ar_minimal():
     a = torch.zeros(batch, order + 1, timesteps)
     a[:, 0, :] = 1.0
 
-    import ipdb; ipdb.set_trace()
     y_ref = model.forward(input=x, a=a)
-
     y_ext = model.inference(input=x, a=a)
+
 
     # # remove padding
     # y_ref = y_ref[..., receptive_field:]
