@@ -13,65 +13,66 @@ class GlotNetAR
 {
 
 public:
+    GlotNetAR(size_t input_channels, size_t output_channels,
+              size_t convolution_channels, size_t skip_channels, size_t cond_channels,
+              size_t filter_width, std::string activation, std::vector<int> dilations)
+        : input_channels(input_channels),
+          output_channels(output_channels),
+          convolution_channels(convolution_channels),
+          skip_channels(skip_channels),
+          cond_channels(cond_channels),
+          filter_width(filter_width),
+          activation(activation),
+          dilations(dilations),
+          model(input_channels, output_channels,
+                convolution_channels, skip_channels, cond_channels,
+                filter_width, activation, dilations)
+    {
+    }
 
-GlotNetAR()
-
-void set_parameters()
+void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
+                    const std::vector<torch::Tensor> &stack_biases_conv,
+                    const std::vector<torch::Tensor> &stack_weights_out,
+                    const std::vector<torch::Tensor> &stack_biases_out,
+                    const std::vector<torch::Tensor> &stack_weights_skip,
+                    const std::vector<torch::Tensor> &stack_biases_skip,
+                    const torch::Tensor &input_weight,
+                    const torch::Tensor &input_bias,
+                    const std::vector<torch::Tensor> &output_weights,
+                    const std::vector<torch::Tensor> &output_biases)
+{
+    // Set parameters
+    model.setInputWeight(input_weight);
+    model.setInputBias(input_bias);
+    int num_layers = dilations.size();
+    for (size_t i = 0; i < num_layers; i++)
+    {
+        model.setStackConvolutionWeight(stack_weights_conv[i], i);
+        model.setStackConvolutionBias(stack_biases_conv[i], i);
+        model.setStackOutputWeight(stack_weights_out[i], i);
+        model.setStackOutputBias(stack_biases_out[i], i);
+        model.setStackSkipWeight(stack_weights_skip[i], i);
+        model.setStackSkipBias(stack_biases_skip[i], i);
+    }
+    for (size_t i = 0; i < output_weights.size(); i++)
+    {
+        model.setOutputWeight(output_weights[i], i);
+        model.setOutputBias(output_biases[i], i);
+    }
+}
 
 std::vector<at::Tensor> forward(
     const torch::Tensor &input,
-    const std::vector<torch::Tensor> &stack_weights_conv,
-    const std::vector<torch::Tensor> &stack_biases_conv,
-    const std::vector<torch::Tensor> &stack_weights_out,
-    const std::vector<torch::Tensor> &stack_biases_out,
-    const std::vector<torch::Tensor> &stack_weights_skip,
-    const std::vector<torch::Tensor> &stack_biases_skip,
-    const torch::Tensor &input_weight,
-    const torch::Tensor &input_bias,
-    const std::vector<torch::Tensor> &output_weights,
-    const std::vector<torch::Tensor> &output_biases,
-    const std::vector<int> &dilations,
     bool use_residual=true,
-    const std::string activation="gated",
     float temperature=1.0
     )
 {
     const int64_t batch_size = input.size(0);
     const int64_t timesteps = input.size(1);
 
-    const int64_t filter_width = stack_weights_conv[0].size(2);
-    const int64_t residual_channels = stack_weights_conv[0].size(1);
-    const int64_t skip_channels = stack_weights_skip[0].size(0);
-    const int64_t input_channels = input_weight.size(1);
-    const int64_t output_channels = output_weights.back().size(0); 
-    const int64_t cond_channels = 0;
-
-    // Instantiate model
-    auto wavenet = WaveNetAR(input_channels, output_channels,
-                             residual_channels, skip_channels, cond_channels,
-                             filter_width, activation, dilations);
-    wavenet.prepare();
-    wavenet.setDistribution("gaussian");
-    wavenet.setSamplingTemperature(temperature);
-
-    // Set parameters
-    wavenet.setInputWeight(input_weight);
-    wavenet.setInputBias(input_bias);
-    int num_layers = dilations.size();
-    for (size_t i = 0; i < num_layers; i++)
-    {
-        wavenet.setStackConvolutionWeight(stack_weights_conv[i], i);
-        wavenet.setStackConvolutionBias(stack_biases_conv[i], i);
-        wavenet.setStackOutputWeight(stack_weights_out[i], i);
-        wavenet.setStackOutputBias(stack_biases_out[i], i);
-        wavenet.setStackSkipWeight(stack_weights_skip[i], i);
-        wavenet.setStackSkipBias(stack_biases_skip[i], i);
-    }
-    for (size_t i = 0; i < output_weights.size(); i++)
-    {
-        wavenet.setOutputWeight(output_weights[i], i);
-        wavenet.setOutputBias(output_biases[i], i);
-    }
+    model.prepare();
+    model.setDistribution("gaussian");
+    model.setSamplingTemperature(temperature);
 
     const auto audio_channels = input_channels;
     auto output = torch::zeros({batch_size, timesteps, audio_channels});
@@ -83,8 +84,8 @@ std::vector<at::Tensor> forward(
     // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
-        wavenet.reset();
-        wavenet.process(
+        model.reset();
+        model.process(
             &input_a[b][0][0],
             &output_a[b][0][0],
             timesteps);
@@ -92,8 +93,7 @@ std::vector<at::Tensor> forward(
     return {output};
 }
 
-std::vector<at::Tensor> cond_forward(
-    const torch::Tensor &input, const torch::Tensor &cond_input,
+void setParametersConditional(
     const std::vector<torch::Tensor> &stack_weights_conv,
     const std::vector<torch::Tensor> &stack_biases_conv,
     const std::vector<torch::Tensor> &stack_weights_out,
@@ -105,10 +105,35 @@ std::vector<at::Tensor> cond_forward(
     const torch::Tensor &input_weight,
     const torch::Tensor &input_bias,
     const std::vector<torch::Tensor> &output_weights,
-    const std::vector<torch::Tensor> &output_biases,
-    const std::vector<int> &dilations,
+    const std::vector<torch::Tensor> &output_biases)
+{
+
+      // Set parameters
+    model.setInputWeight(input_weight);
+    model.setInputBias(input_bias);
+    int num_layers = dilations.size();
+    for (size_t i = 0; i < num_layers; i++)
+    {
+        model.setStackConvolutionWeight(stack_weights_conv[i], i);
+        model.setStackConvolutionBias(stack_biases_conv[i], i);
+        model.setStackOutputWeight(stack_weights_out[i], i);
+        model.setStackOutputBias(stack_biases_out[i], i);
+        model.setStackSkipWeight(stack_weights_skip[i], i);
+        model.setStackSkipBias(stack_biases_skip[i], i);
+        model.setStackCondWeight(stack_weights_cond[i], i);
+        model.setStackCondBias(stack_biases_cond[i], i);
+    }
+    for (size_t i = 0; i < output_weights.size(); i++)
+    {
+        model.setOutputWeight(output_weights[i], i);
+        model.setOutputBias(output_biases[i], i);
+    }
+}
+
+std::vector<at::Tensor> cond_forward(
+    const torch::Tensor &input,
+    const torch::Tensor &cond_input,
     bool use_residual=true,
-    const std::string activation="gated",
     float temperature=1.0
     )
 {
@@ -116,42 +141,10 @@ std::vector<at::Tensor> cond_forward(
     const int64_t timesteps = cond_input.size(1);
     const int64_t cond_channels = cond_input.size(2);
 
-    const int64_t filter_width = stack_weights_conv[0].size(2);
-    const int64_t residual_channels = stack_weights_conv[0].size(1);
-    const int64_t skip_channels = stack_weights_skip[0].size(0);
-    const int64_t input_channels = input_weight.size(1);
-    const int64_t output_channels = output_weights.back().size(0);
-
-    // instantiate model
-    auto wavenet = WaveNetAR(input_channels, output_channels,
-                             residual_channels, skip_channels, cond_channels,
-                             filter_width, activation, dilations);
-
     // Set buffer size to match timesteps
-    wavenet.prepare();
-    wavenet.setDistribution("gaussian");
-    wavenet.setSamplingTemperature(temperature);
-
-    // Set parameters
-    wavenet.setInputWeight(input_weight);
-    wavenet.setInputBias(input_bias);
-    int num_layers = dilations.size();
-    for (size_t i = 0; i < num_layers; i++)
-    {
-        wavenet.setStackConvolutionWeight(stack_weights_conv[i], i);
-        wavenet.setStackConvolutionBias(stack_biases_conv[i], i);
-        wavenet.setStackOutputWeight(stack_weights_out[i], i);
-        wavenet.setStackOutputBias(stack_biases_out[i], i);
-        wavenet.setStackSkipWeight(stack_weights_skip[i], i);
-        wavenet.setStackSkipBias(stack_biases_skip[i], i);
-        wavenet.setStackCondWeight(stack_weights_cond[i], i);
-        wavenet.setStackCondBias(stack_biases_cond[i], i);
-    }
-    for (size_t i = 0; i < output_weights.size(); i++)
-    {
-        wavenet.setOutputWeight(output_weights[i], i);
-        wavenet.setOutputBias(output_biases[i], i);
-    }
+    model.prepare();
+    model.setDistribution("gaussian");
+    model.setSamplingTemperature(temperature);
 
     const auto audio_channels = input_channels;
     auto output =  torch::zeros({batch_size, timesteps, audio_channels});
@@ -164,8 +157,8 @@ std::vector<at::Tensor> cond_forward(
     // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
-        wavenet.reset();
-        wavenet.processConditional(
+        model.reset();
+        model.processConditional(
             &input_a[b][0][0],
             &cond_input_a[b][0][0],
             &output_a[b][0][0],
@@ -174,17 +167,39 @@ std::vector<at::Tensor> cond_forward(
     return {output};
 }
 
-}; 
+void reset()
+{
+    model.reset();
+}
+
+
+private:
+
+glotnet::GlotNetAR model;
+
+const int64_t input_channels;
+const int64_t output_channels;
+const int64_t convolution_channels;
+const int64_t skip_channels;
+const int64_t cond_channels;
+const int64_t filter_width;
+const std::string activation;
+const std::vector<int> dilations;
+
+
+};
 
 } // namespace binding
 } // namespace glotnet
 
 void init_glotnet_ar(py::module &m)
 {
-    m.def("wavenet_ar_forward", &(glotnet::wavenet_ar::forward), "WaveNet autoregressive forward");
-    m.def("wavenet_ar_cond_forward", &(glotnet::wavenet_ar::cond_forward), "WaveNet autoregressive conditional forward");
 
     py::class_<glotnet::binding::GlotNetAR>(m, "GlotNetAR")
-    .def(py::init<int, int, int, int, int, int, std::string, std::vector<int>>());
-
+    .def(py::init<int, int, int, int, int, int, std::string, std::vector<int>>())
+    .def("forward", &glotnet::binding::GlotNetAR::forward)
+    .def("cond_forward", &glotnet::binding::GlotNetAR::cond_forward)
+    .def("reset", &glotnet::binding::GlotNetAR::reset)
+    .def("set_parameters", &glotnet::binding::GlotNetAR::setParameters)
+    .def("set_parameters_conditional", &glotnet::binding::GlotNetAR::setParametersConditional);
 }

@@ -77,6 +77,8 @@ class GaussianDensity(Distribution):
 
     def sample(self, params, use_extension=False):
         
+        if params.size(1) != self.params_dim:
+            raise ValueError(f'Expected params to have {self.params_dim} channels, got {params.size(1)}')
         if use_extension:
             params = params.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
             x, = ext.sample_gaussian(params.contiguous(), self.temperature)

@@ -23,6 +23,8 @@ def parse_args():
                         help="Audio file directory")
     parser.add_argument('--output_dir', required=True, type=str,
                         help="Output audio file directory")
+    parser.add_argument('--max_files', default=None, type=int,
+                        help="Maximum number of files to process")
     return parser.parse_args()
 
 def main(args):
@@ -43,7 +45,8 @@ def main(args):
 
     input_dir = args.input_dir
     files = glob(os.path.join(input_dir, '*.wav'))
-    files = files[:10]
+    if args.max_files is not None:
+        files = files[:args.max_files]
     for f in files:
         config.segment_len = torchaudio.info(f).num_frames
         dataset = AudioDataset(config,

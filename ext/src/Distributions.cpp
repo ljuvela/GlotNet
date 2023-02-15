@@ -29,6 +29,20 @@ void GaussianDensity::sample(const float * params, float * output, size_t timest
     }
 }
 
+void GaussianDensity::setVarianceShape(float shape)
+{
+    variance_shape = shape;
+    one_per_log_one_plus_mu = std::log(1 + variance_shape);
+}
+
+float GaussianDensity::shapeVariance(float sigma)
+{
+    const float val = std::log(1.f + variance_shape * std::abs(sigma)) * one_per_log_one_plus_mu;
+    // clamp value to 1.0
+    const float val_clamped = std::min(val, 1.0f);
+    return std::copysignf(val_clamped, sigma);
+}
+
 
 } // distributions
 } // glotnet

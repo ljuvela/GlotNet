@@ -20,15 +20,20 @@ public:
 class GaussianDensity : public Distribution
 {
 public:
-    GaussianDensity(float log_sigma_floor=-7.0f, float temperature=1.0f);
+    GaussianDensity(float log_sigma_floor=-14.0f, float temperature=1.0f);
     void sample(const float * params, float * output, size_t timesteps);
-    void setTemperature(float t) {temperature = t;}; 
+    void setTemperature(float t) {temperature = t;};
+    void setVarianceShape(float shape);
 
 private:
-    const float log_sigma_floor = -7.0f;
+    const float log_sigma_floor = -14.0f;
     float temperature = 1.0f;
+    float variance_shape = 0.0f;
+    float one_per_log_one_plus_mu = 0.0f;
     std::default_random_engine generator;
     std::normal_distribution<float> distribution;
+
+    float shapeVariance(float sigma);
 
 };
 

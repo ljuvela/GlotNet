@@ -1,7 +1,11 @@
 import torch
 from glotnet.model.feedforward.wavenet import WaveNet
+from glotnet.losses.distributions import GaussianDensity
+
 from glotnet.sigproc.levinson import spectrum_to_allpole
 from glotnet.sigproc.lfilter import LFilter
+
+from glotnet.model.autoregressive.glotnet import GlotNetAR
 
 def test_glotnet_shapes():
 
@@ -53,3 +57,29 @@ def test_glotnet_shapes():
     input = torch.cat((x_prev, e_prev), dim=1)
 
     params = wavenet.forward(input)
+
+
+def test_glotnet_ar_minimal():
+
+    dist = GaussianDensity(temperature=0.0)
+    model = GlotNetAR(input_channels=1, output_channels=2,
+                      residual_channels=8, skip_channels=8,
+                      kernel_size=2, dilations=[1, 2, 4], distribution=dist)
+    receptive_field = model.receptive_field
+
+    batch = 1
+    channels = 1
+    timesteps = 10
+    x = torch.zeros(batch, channels, receptive_field + timesteps)
+
+    y_ref = model.forward(input=x)
+
+    y_ext = model.inference(input=x)
+
+    # remove padding
+    y_ref = y_ref[..., receptive_field:]
+    y_ext = y_ext[..., receptive_field:]
+
+    assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
+        f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"
+    

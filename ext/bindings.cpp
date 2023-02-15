@@ -8,6 +8,7 @@ void init_wavenet(py::module&);
 void init_wavenet_ar(py::module&);
 void init_distributions(py::module&);
 #include "bind/LFilter.h"
+#include "bind/GlotNetAR.h"
 
 PYBIND11_MODULE(cpp_extensions, m)
 {
@@ -19,4 +20,5 @@ PYBIND11_MODULE(cpp_extensions, m)
     init_wavenet_ar(m);
     init_distributions(m);
     init_lfilter(m);
+    init_glotnet_ar(m);
 }
