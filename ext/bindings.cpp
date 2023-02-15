@@ -7,7 +7,6 @@ void init_convolution_stack(py::module&);
 void init_wavenet(py::module&);
 void init_wavenet_ar(py::module&);
 void init_distributions(py::module&);
-// void init_lfilter(py::module&);
 #include "bind/LFilter.h"
 
 PYBIND11_MODULE(cpp_extensions, m)
