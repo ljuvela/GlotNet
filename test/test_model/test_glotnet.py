@@ -75,14 +75,11 @@ def test_glotnet_ar_minimal():
     x = torch.zeros(batch, channels, timesteps)
     a = torch.zeros(batch, order + 1, timesteps)
     a[:, 0, :] = 1.0
+    a[:, 1, :] = -0.9
 
     y_ref = model.forward(input=x, a=a)
     y_ext = model.inference(input=x, a=a)
 
-
-    # # remove padding
-    # y_ref = y_ref[..., receptive_field:]
-    # y_ext = y_ext[..., receptive_field:]
 
     assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
         f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"

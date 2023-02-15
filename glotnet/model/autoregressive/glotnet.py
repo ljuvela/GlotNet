@@ -77,7 +77,7 @@ class GlotNetAR(WaveNet):
         x = F.pad(x, (self.receptive_field, 0), mode='constant', value=0)
 
         # pad filter poly
-        a = F.pad(a, (self.receptive_field, 0), mode='constant', value=0)
+        a = F.pad(a, (self.receptive_field, 0), mode='replicate', value=0)
         a[:, 0, :self.receptive_field] = 1.0
 
         return x, a

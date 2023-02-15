@@ -57,7 +57,11 @@ void GlotNetAR::process(const float * input_data, const float * a_data, float * 
         float p_next = 0.0;
         for (size_t i = 0; i < lpc_order; i++)
         {
-            p_next -= a_data[t * (lpc_order+1) * (i+1)] * x_buffer[i];
+            float a = a_data[t * (lpc_order+1) + (i+1)];
+            std::cout << "a:" << a << std::endl;
+            std::cout << "x:" << x_buffer[i] << std::endl; 
+            p_next -=  a * x_buffer[i];
+           
         }
         // Roll signal buffer
         for (size_t i = lpc_order-1; i > 0; i--)
@@ -113,7 +117,7 @@ void GlotNetAR::processConditional(const float *input_data,
         float p_next = 0.0;
         for (size_t i = 0; i < lpc_order; i++)
         {
-            p_next -= a_data[t * (lpc_order+1) * (i+1)] * x_buffer[i];
+            p_next -= a_data[t * (lpc_order+1) + (i+1)] * x_buffer[i];
         }
         // Roll signal buffer
         for (size_t i = lpc_order-1; i > 0; i--)
