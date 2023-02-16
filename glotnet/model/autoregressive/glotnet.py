@@ -77,7 +77,10 @@ class GlotNetAR(WaveNet):
         x = F.pad(x, (self.receptive_field, 0), mode='constant', value=0)
 
         # pad filter poly
-        a = F.pad(a, (self.receptive_field, 0), mode='replicate', value=0)
+        # a = F.pad(a, (self.receptive_field, 0), mode='replicate')
+
+        # pad to impulse
+        a = F.pad(a, (self.receptive_field, 0), mode='constant', value=0)
         a[:, 0, :self.receptive_field] = 1.0
 
         return x, a
@@ -111,6 +114,11 @@ class GlotNetAR(WaveNet):
         if cond_input is None and self.use_conditioning:
             raise RuntimeError("Module has been initialized to use conditioning, but conditioning input was not provided at forward pass")
 
+        if a.size(1) != self.lpc_order+1:
+            raise RuntimeError(f"AR poly order must be {self.lpc_order+1}, got {a.size(1)}")
+
+        a = F.interpolate(a, size=(input.size(2)), mode='linear', align_corners=False)
+
         if padding:
             input, a = self._pad(input, a)
 
@@ -118,6 +126,7 @@ class GlotNetAR(WaveNet):
             raise RuntimeError(f"Input tensor device must be cpu, got {input.device}")
         if cond_input is not None and cond_input.device != torch.device('cpu'):
             raise RuntimeError(f"Cond input device must be cpu, got {cond_input.device}")
+
         output = GlotNetARFunction.apply(
             self._impl, input, a,
             self.stack.weights_conv, self.stack.biases_conv,
@@ -127,7 +136,7 @@ class GlotNetAR(WaveNet):
             self.input.conv.weight, self.input.conv.bias,
             self.output_weights, self.output_biases,
             self.dilations, self.use_residual, self.activation,
-            cond_input, self.temperature
+            cond_input, self.temperature, self.receptive_field
         )
         if padding:
             output = output[:, :, self.receptive_field:]
@@ -163,6 +172,11 @@ class GlotNetAR(WaveNet):
         if cond_input is None and self.use_conditioning:
             raise RuntimeError("Module has been initialized to use conditioning, but conditioning input was not provided at forward pass")
 
+        if a.size(1) != self.lpc_order+1:
+            raise RuntimeError(f"AR poly order must be {self.lpc_order+1}, got {a.size(1)}")
+
+        a = F.interpolate(a, size=(input.size(2)), mode='linear', align_corners=False)
+
         if padding:
             input, a = self._pad(input, a)
 
@@ -174,11 +188,6 @@ class GlotNetAR(WaveNet):
 
         context = torch.zeros(batch_size, self.input_channels, self.receptive_field)
         output = torch.zeros(batch_size, 1, timesteps)
-
-        if a.size(1) != self.lpc_order+1:
-            raise RuntimeError(f"AR poly order must be {self.lpc_order+1}, got {a.size(1)}")
-
-        a = F.interpolate(a, size=(timesteps), mode='linear', align_corners=False)
 
         # zero pad conditioning input
         if cond_input is not None:
@@ -194,8 +203,6 @@ class GlotNetAR(WaveNet):
             e_t_params = super()._forward_native(input=context, cond_input=cond_context)
             e_t = self.distribution.sample(e_t_params)
             e_curr = e_t[:, :, -1]
-
-            # context channels are e_prev, p_curr, x_prev
 
             # external excitation
             # z_t = input[:, :, t] # TODO: use external excitation
@@ -251,7 +258,10 @@ class GlotNetARFunction(torch.autograd.Function):
                 output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
                 dilations: List[int], use_residual: bool, activation: str,
                 cond_input: torch.Tensor = None,
-                temperature: float = 1.0):
+                temperature: float = 1.0,
+                flush_samples: int = 0):
+
+        impl.flush(flush_samples)
 
 
         input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)

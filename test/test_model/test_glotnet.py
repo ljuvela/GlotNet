@@ -59,7 +59,33 @@ def test_glotnet_shapes():
     params = wavenet.forward(input)
 
 
-def test_glotnet_ar_minimal():
+def test_glotnet_ar_order_zero():
+
+    order = 1
+
+    dist = GaussianDensity(temperature=0.0)
+    model = GlotNetAR(input_channels=3, output_channels=2,
+                      residual_channels=2, skip_channels=2,
+                      kernel_size=2, dilations=[1], distribution=dist,
+                      hop_length=1, lpc_order=order)
+
+    batch = 1
+    channels = 1
+    timesteps = 3
+    x = torch.zeros(batch, channels, timesteps)
+    a = torch.zeros(batch, order + 1, timesteps)
+    a[:, 0, :] = 1.0
+    a[:, 1, :] = 0
+
+    y_ref = model.forward(input=x, a=a)
+    y_ext = model.inference(input=x, a=a)
+
+    assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
+        f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"
+    
+
+
+def test_glotnet_ar_order_one():
 
     order = 1
 
@@ -84,3 +110,60 @@ def test_glotnet_ar_minimal():
     assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
         f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"
     
+
+def test_glotnet_ar_order_two():
+
+    order = 2
+
+    dist = GaussianDensity(temperature=0.0)
+    model = GlotNetAR(input_channels=3, output_channels=2,
+                      residual_channels=2, skip_channels=2,
+                      kernel_size=2, dilations=[1], distribution=dist,
+                      hop_length=1, lpc_order=order)
+
+    batch = 1
+    channels = 1
+    timesteps = 3
+    x = torch.zeros(batch, channels, timesteps)
+    a = torch.zeros(batch, order + 1, timesteps)
+    a[:, 0, :] = 1.0
+    a[:, 1, :] = -0.5
+    a[:, 2, :] = 0.2
+
+    y_ref = model.forward(input=x, a=a)
+    y_ext = model.inference(input=x, a=a)
+
+
+    assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
+        f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"
+
+
+# test with frame-based a
+
+
+def test_glotnet_ar_framed():
+
+    order = 2
+    hop_length = 5
+
+    dist = GaussianDensity(temperature=0.0)
+    model = GlotNetAR(input_channels=3, output_channels=2,
+                      residual_channels=2, skip_channels=2,
+                      kernel_size=2, dilations=[1], distribution=dist,
+                      hop_length=hop_length, lpc_order=order)
+
+    batch = 1
+    channels = 1
+    timesteps = 10
+    x = torch.zeros(batch, channels, timesteps)
+    a = torch.zeros(batch, order + 1, timesteps//hop_length)
+    a[:, 0, :] = 1.0
+    a[:, 1, :] = -0.5
+    a[:, 2, :] = 0.2
+
+    y_ref = model.forward(input=x, a=a)
+    y_ext = model.inference(input=x, a=a)
+
+    assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
+        f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"
+

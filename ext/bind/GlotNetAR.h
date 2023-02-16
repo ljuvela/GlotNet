@@ -173,10 +173,11 @@ std::vector<at::Tensor> cond_forward(
     return {output};
 }
 
-void reset()
+void flush(int64_t timesteps)
 {
-    model.reset();
+    model.flush(timesteps);
 }
+
 
 
 private:
@@ -216,7 +217,7 @@ py::class_<glotnet::binding::GlotNetAR>(m, "GlotNetAR")
          >())
     .def("forward", &glotnet::binding::GlotNetAR::forward)
     .def("cond_forward", &glotnet::binding::GlotNetAR::cond_forward)
-    .def("reset", &glotnet::binding::GlotNetAR::reset)
+    .def("flush", &glotnet::binding::GlotNetAR::flush)
     .def("set_parameters", &glotnet::binding::GlotNetAR::setParameters)
     .def("set_parameters_conditional", &glotnet::binding::GlotNetAR::setParametersConditional);
 }

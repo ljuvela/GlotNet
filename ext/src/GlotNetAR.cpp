@@ -25,6 +25,21 @@ void GlotNetAR::prepare()
     this->reset();
 }
 
+void GlotNetAR::flush(int64_t num_samples)
+{
+    this->prepare();
+    float * const input_buffer_data = input_buffer.data();
+    float * const x_dist_data = x_dist.data();
+    std::fill(input_buffer.begin(), input_buffer.end(), 0.0f);
+    for (int64_t t = 0; t < num_samples; t++)
+    {
+        WaveNet::process(input_buffer_data, x_dist_data, 1u);
+    }
+
+}
+
+
+
 void GlotNetAR::process(const float * input_data, const float * a_data, float * const output_data, int total_samples)
 {
     // a_data is the LPC coefficients, shape (total_samples, lpc_order+1)
