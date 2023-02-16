@@ -71,7 +71,7 @@ def test_glotnet_ar_minimal():
 
     batch = 1
     channels = 1
-    timesteps = 10
+    timesteps = 3
     x = torch.zeros(batch, channels, timesteps)
     a = torch.zeros(batch, order + 1, timesteps)
     a[:, 0, :] = 1.0

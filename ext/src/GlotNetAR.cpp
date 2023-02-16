@@ -53,22 +53,30 @@ void GlotNetAR::process(const float * input_data, const float * a_data, float * 
         // compute current sample
         float x_curr = e_curr + p_curr;
 
+        std::cout << "t:" << t << std::endl;
+        std::cout << "e_curr:" << e_curr << std::endl;
+        std::cout << "p_curr:" << p_curr << std::endl;
+        std::cout << "x_curr:" << x_curr << std::endl;
+
+        // Update signal buffer
+        for (size_t i = lpc_order-1; i > 0; i--)
+        {
+            x_buffer[i] = x_buffer[i-1];
+        }
+        x_buffer[0] = x_curr;
+
         // Update prediction
         float p_next = 0.0;
         for (size_t i = 0; i < lpc_order; i++)
         {
             float a = a_data[t * (lpc_order+1) + (i+1)];
             std::cout << "a:" << a << std::endl;
-            std::cout << "x:" << x_buffer[i] << std::endl; 
+            std::cout << "delay: " << i <<  "; x: "  << x_buffer[i] << std::endl;
             p_next -=  a * x_buffer[i];
-           
+
         }
-        // Roll signal buffer
-        for (size_t i = lpc_order-1; i > 0; i--)
-        {
-            x_buffer[i] = x_buffer[i-1];
-        }
-        x_buffer[0] = x_curr;
+
+        std::cerr << "p_next: " << p_next << std::endl;
 
         // Update input buffer
         input_buffer[0] = e_curr;

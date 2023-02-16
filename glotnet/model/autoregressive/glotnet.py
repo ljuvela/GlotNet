@@ -193,6 +193,7 @@ class GlotNetAR(WaveNet):
 
             e_t_params = super()._forward_native(input=context, cond_input=cond_context)
             e_t = self.distribution.sample(e_t_params)
+            e_curr = e_t[:, :, -1]
 
             # context channels are e_prev, p_curr, x_prev
 
@@ -201,23 +202,30 @@ class GlotNetAR(WaveNet):
 
             # update current sample based on excitation and prediction
             p_curr = context[:, 1:2, -1]
-            x_curr = p_curr + e_t # TODO + z_t
+            # x_curr = p_curr + e_t # TODO + z_t
+            x_curr = p_curr + e_curr
 
             # update output 
-            output[:, :, t] = x_curr[:, :, -1]
+            output[:, :, t] = x_curr
 
             # advance context
             context = torch.roll(context, -1, dims=-1)
 
             # excitation
-            context[:, 0:1, -1] = e_t[:,:, -1]
+            context[:, 0:1, -1] = e_curr
             # sample
-            context[:, 2:3, -1] = x_curr[:,:, -1]
+            context[:, 2:3, -1] = x_curr
             # prediction for next time step
             x_curr = context[:, 2:3, -self.lpc_order:]
             a1 = torch.flip(-a[:, 1:, t], [1]) # TODO: no flip?
-            p_next = torch.sum(a1 * x_curr, dim=-1, keepdim=True)
-            context[:, 1:2, -1] = p_next[:,:, -1]
+            p_next = torch.sum(a1 * x_curr, dim=-1)
+            context[:, 1:2, -1] = p_next
+
+            print(f"t: {t}")
+            print(f"p_curr: {p_curr}")
+            print(f"e_curr: {e_curr}")
+            print(f"x_curr: {x_curr}")
+            print(f"p_next: {p_next}")
 
 
         # remove padding
