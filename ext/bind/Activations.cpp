@@ -32,8 +32,6 @@ std::vector<at::Tensor> forward(torch::Tensor & input, std::string & activation_
     int64_t timesteps = input.size(1);
     int64_t channels = input.size(2);
 
-    // std::cout << "Channels " << channels << std::endl;
-
     const bool is_gated = Activations::isGated(activation_type);
 
     auto output = input * 1.0f; // copy

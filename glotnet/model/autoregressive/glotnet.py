@@ -232,13 +232,6 @@ class GlotNetAR(WaveNet):
             p_next = torch.sum(a1 * x_curr, dim=-1)
             context[:, 1:2, -1] = p_next
 
-            print(f"t: {t}")
-            print(f"p_curr: {p_curr}")
-            print(f"e_curr: {e_curr}")
-            print(f"x_curr: {x_curr}")
-            print(f"p_next: {p_next}")
-
-
         # remove padding
         if padding:
             output = output[:, :, self.receptive_field:]
