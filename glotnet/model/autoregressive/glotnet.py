@@ -72,7 +72,7 @@ class GlotNetAR(WaveNet):
     def temperature(self):
         return self.distribution.temperature
 
-    def _pad(self, x, a):
+    def _pad(self, x, a, c):
         # pad input
         x = F.pad(x, (self.receptive_field, 0), mode='constant', value=0)
 
@@ -83,7 +83,10 @@ class GlotNetAR(WaveNet):
         a = F.pad(a, (self.receptive_field, 0), mode='constant', value=0)
         a[:, 0, :self.receptive_field] = 1.0
 
-        return x, a
+        if c is not None:
+            c = F.pad(c, (self.receptive_field, 0), mode='constant', value=0)
+
+        return x, a, c
 
     def inference(self, 
                   input: torch.Tensor,
@@ -120,7 +123,7 @@ class GlotNetAR(WaveNet):
         a = F.interpolate(a, size=(input.size(2)), mode='linear', align_corners=False)
 
         if padding:
-            input, a = self._pad(input, a)
+            input, a, cond_input = self._pad(input, a, cond_input)
 
         if input.device != torch.device('cpu'):
             raise RuntimeError(f"Input tensor device must be cpu, got {input.device}")
@@ -178,7 +181,7 @@ class GlotNetAR(WaveNet):
         a = F.interpolate(a, size=(input.size(2)), mode='linear', align_corners=False)
 
         if padding:
-            input, a = self._pad(input, a)
+            input, a, cond_input = self._pad(input, a, cond_input)
 
         num_frames = a.size(2)
 
@@ -198,6 +201,7 @@ class GlotNetAR(WaveNet):
             if cond_input is None:
                 cond_context = None
             else:
+                # import ipdb; ipdb.set_trace()
                 cond_context = cond_input[:, :, t:t + self.receptive_field]
 
             e_t_params = super()._forward_native(input=context, cond_input=cond_context)
@@ -243,7 +247,6 @@ class GlotNetAR(WaveNet):
 
 
 
-
 class GlotNetARFunction(torch.autograd.Function):
 
     @staticmethod
@@ -263,7 +266,6 @@ class GlotNetARFunction(torch.autograd.Function):
 
         impl.flush(flush_samples)
 
-
         input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
         input = input.contiguous()
 
@@ -275,21 +277,24 @@ class GlotNetARFunction(torch.autograd.Function):
             cond_input = cond_input.contiguous()
 
         if cond_input is None:
-            impl.set_parameters(stack_weights_conv, stack_biases_conv,
+            impl.set_parameters(
+                stack_weights_conv, stack_biases_conv,
                 stack_weights_out, stack_biases_out,
                 stack_weights_skip, stack_biases_skip,
                 input_weight, input_bias,
-                output_weights, output_biases,)
+                output_weights, output_biases)
 
             output, = impl.forward(
                 input, a, use_residual, temperature)
         else:
-            impl.set_parameters_conditional(stack_weights_conv, stack_biases_conv,
-                                            stack_weights_out, stack_biases_out,
-                                            stack_weights_skip, stack_biases_skip,
-                                            stack_weights_cond, stack_biases_cond,
-                                            input_weight, input_bias,
-                                            output_weights, output_biases)
+            impl.set_parameters_conditional(
+                stack_weights_conv, stack_biases_conv,
+                stack_weights_out, stack_biases_out,
+                stack_weights_skip, stack_biases_skip,
+                stack_weights_cond, stack_biases_cond,
+                input_weight, input_bias,
+                output_weights, output_biases)
+
             output, = impl.cond_forward(
                 input, a, cond_input,
                 use_residual, temperature)
