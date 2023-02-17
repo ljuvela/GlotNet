@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from glotnet.config import Config
 from glotnet.model.feedforward.wavenet import WaveNet
-from glotnet.model.autoregressive.wavenet import WaveNetAR
+from glotnet.model.autoregressive.glotnet import GlotNetAR
 from glotnet.losses.distributions import Distribution, GaussianDensity
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
@@ -29,7 +29,6 @@ class Trainer(torch.nn.Module):
         super().__init__()
         self.device = device
         self.config = config
-        self.config.input_channels = 3 * self.config.input_channels
 
         criterion= self._create_criterion()
         self.criterion = criterion.to(device)
@@ -65,7 +64,7 @@ class Trainer(torch.nn.Module):
         self.lpc = LinearPredictor(n_fft=config.n_fft,
                                    hop_length=config.hop_length,
                                    win_length=config.win_length,
-                                   order=10).to(device)
+                                   order=config.lpc_order).to(device)
 
         self.data_loader = DataLoader(
             self.dataset,
@@ -124,14 +123,17 @@ class Trainer(torch.nn.Module):
         x = x.to('cpu')
         if c is not None:
             c = torch.nn.functional.interpolate(
-                        input=c, size= x.size(-1), mode='linear')
+                        input=c, size=x.size(-1), mode='linear')
             c = c.to('cpu')
+        
+        x = x[..., :self.config.sample_rate * 2]
+        c = c[..., :self.config.sample_rate * 2]
 
         cfg = self.config
         distribution = self.criterion
         # TODO: teacher forcing and AR inference should be in the same model!
         if not hasattr(self, 'model_ar'):
-            self.model_ar = WaveNetAR(
+            self.model_ar = GlotNetAR(
                 input_channels=cfg.input_channels,
                 output_channels=distribution.params_dim,
                 residual_channels=cfg.residual_channels,
@@ -141,14 +143,19 @@ class Trainer(torch.nn.Module):
                 causal=True,
                 activation=cfg.activation,
                 use_residual=cfg.use_residual,
-                cond_channels=cfg.cond_channels)
+                cond_channels=cfg.cond_channels,
+                lpc_order=cfg.lpc_order,
+                hop_length=cfg.hop_length)
             self.model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
         model_ar = self.model_ar
 
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(temperature)
 
-        output = model_ar.forward(input=torch.zeros_like(x), cond_input=c)
+        a = self.lpc.estimate(x[:, 0, :])
+
+
+        output = model_ar.inference(input=torch.zeros_like(x), a=a, cond_input=c)
         output = self.model_ar.pre_emphasis.deemphasis(output)
         return output.clamp(min=-0.99, max=0.99)
 

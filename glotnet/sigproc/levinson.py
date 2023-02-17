@@ -8,7 +8,7 @@ def toeplitz(r: torch.Tensor):
     T = [torch.roll(rr, i, dims=(-1,))[...,:p] for i in range(p)]
     return torch.stack(T, dim=-1)
 
-def levinson(R, M):
+def levinson(R, M, eps=1e-3):
     """ Levinson-Durbin method for converting autocorrelation to predictor polynomial
     Args:
         R: autocorrelation tensor, shape=(..., M) 
@@ -18,6 +18,11 @@ def levinson(R, M):
     Note:
         R can contain more lags than M, but R[..., 0:M] are required 
     """
+    # normalize R
+    R = R / R[..., 0:1]
+    # white noise correction
+    R[..., 0] = R[..., 0] + eps
+
     E = R[..., 0:1]
     L = torch.cat([torch.ones_like(R[..., 0:1]),
                    torch.zeros_like(R[..., 0:M])], dim=-1)

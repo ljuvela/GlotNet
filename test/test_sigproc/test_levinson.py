@@ -15,7 +15,7 @@ def test_levinson():
     a_ref = torch.cat([torch.ones(1,), -1.0 * a_ref])
 
     # solution by Levinson-Durbin
-    a = levinson(r, p)
+    a = levinson(r, p, eps=1e-9)
  
     assert torch.allclose(a, a_ref, atol=1e-5, rtol=1e-4), \
         f'Results should match \n lev: {a} \n ref: {a_ref} '

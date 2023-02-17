@@ -1,10 +1,10 @@
 import argparse
 import os
 import torch
-from glotnet.trainer.trainer import Trainer
+from glotnet.trainer.trainer import Trainer as TrainerWaveNet
+from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
 from glotnet.config import Config
 
-from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
 
 from glotnet.data.config import DataConfig
 from glotnet.data.audio_dataset import AudioDataset
@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument('--device', type=str, default='cpu', help="Torch device string")
     parser.add_argument('--model_pt', type=str, default=None, help="Pre-trained model .pt file")
     parser.add_argument('--optim_pt', type=str, default=None, help="Optimizer state dictionary .pt file (use to continue training)")
-    parser.add_argument('--use_glotnet', type=bool, default=False, help="Use GlotNet model")
+    parser.add_argument('--model_type', type=str, default='wavenet', help="Model type: wavenet or glotnet", choices=['wavenet', 'glotnet'])
     return parser.parse_args()
 
 def main(args):
@@ -36,10 +36,12 @@ def main(args):
         config.dataset_compute_mel = True
 
     config.dataset_audio_dir = args.data_dir
-    if args.use_glotnet:
+    if args.model_type == 'glotnet':
         trainer = TrainerGlotNet(config=config, device=args.device)
+    elif args.model_type == 'wavenet':
+        trainer = TrainerWaveNet(config=config, device=args.device)
     else:
-        trainer = Trainer(config=config, device=args.device)
+        raise NotImplementedError(f"Model type {args.model_type} not implemented")
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
     if args.model_pt is not None:

@@ -60,6 +60,10 @@ void GlotNetAR::process(const float * input_data, const float * a_data, float * 
     {
         float e_curr;
         WaveNet::process(input_buffer_data, x_dist_data, 1u);
+
+        x_dist[0] = 0.0f;
+        x_dist[1] = 1.0f;
+
         dist->sample(x_dist_data, &e_curr, 1u);
 
         // get current prediction from input

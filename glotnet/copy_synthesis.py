@@ -1,7 +1,8 @@
 import argparse
 import os
 import torch
-from glotnet.trainer.trainer import Trainer
+from glotnet.trainer.trainer import Trainer as TrainerWaveNet
+from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
 from glotnet.config import Config
 
 from glotnet.data.config import DataConfig
@@ -54,9 +55,17 @@ def main(args):
                                transforms=melspec,
                                file_list=[f])
     
-        trainer = Trainer(config=config,
+
+        if config.model_type == 'wavenet':
+            trainer = TrainerWaveNet(config=config,
                           dataset=dataset,
                           device='cpu')
+        elif config.model_type == 'glotnet':
+            trainer = TrainerGlotNet(config=config,
+                          dataset=dataset,
+                          device='cpu')
+        else:
+            raise ValueError(f"Unknown model type {config.model_type}")
                         
 
         # TODO: only load once

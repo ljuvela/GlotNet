@@ -49,8 +49,6 @@ def test_peak_biquad_bank():
     y = biquad.forward(x)
 
     for i, _ in enumerate(freq):
-        print(10 ** (0.05 * gain[i]))
-        print(y[:, :, i].max() )
         assert (y[:, :, i].max() - 10 ** (0.05 * gain[i])).abs() < 0.01
 
 

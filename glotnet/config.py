@@ -50,6 +50,10 @@ class Config:
     mel_fmax: float = 8000
     pre_emphasis: float = 0.0
 
+    lpc_order: int = 10
+
+    model_type: str = 'wavenet'
+
     # Dataset properties
     dataset_audio_dir: str = None
     dataset_compute_mel: bool = False
