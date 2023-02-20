@@ -7,7 +7,8 @@ def test_levinson():
 
     # autocorrelation 
     p = 10
-    r = torch.randn(p+1,)
+    r = 0.1 * torch.randn(p+1,)
+    r[0] = 1.0
 
     # solution by Toeplitz inverse
     R = toeplitz(r[:p])

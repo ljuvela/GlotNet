@@ -26,6 +26,8 @@ def parse_args():
                         help="Output audio file directory")
     parser.add_argument('--max_files', default=None, type=int,
                         help="Maximum number of files to process")
+    parser.add_argument('--temperature', default=1.0, type=float,
+                        help="Temperature for sampling")
     return parser.parse_args()
 
 def main(args):
@@ -66,22 +68,18 @@ def main(args):
                           device='cpu')
         else:
             raise ValueError(f"Unknown model type {config.model_type}")
-                        
+
 
         # TODO: only load once
         trainer.load(model_path=args.model)
 
-        x = trainer.generate(temperature=0.9)
-        # trainer.writer.add_audio("generated audio_temp_1.0",
-        #                          x[:, 0, :],
-        #                          global_step=trainer.iter_global,
-        #                          sample_rate=config.sample_rate)
+        x = trainer.generate(temperature=args.temperature)
 
         bname = os.path.basename(f)
         outfile = os.path.join(args.output_dir, bname)
         print(f"saving to {outfile}")
         torchaudio.save(outfile, x[0], sample_rate=config.sample_rate,
-         bits_per_sample=16 ,encoding='PCM_S')
+                        bits_per_sample=16 ,encoding='PCM_S')
 
         # TODO: validation
 

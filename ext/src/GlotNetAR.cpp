@@ -20,7 +20,7 @@ void GlotNetAR::prepare()
     // prepare wavenet for single timestep prediction
     WaveNet::prepare(1u);
     x_dist.resize(output_channels);
-    x_buffer.resize( lpc_order);
+    x_buffer.resize(lpc_order);
     input_buffer.resize(input_channels);
     this->reset();
 }
@@ -44,6 +44,8 @@ void GlotNetAR::process(const float * input_data, const float * a_data, float * 
 {
     // a_data is the LPC coefficients, shape (total_samples, lpc_order+1)
 
+    std::cerr << "Processing Glotnet AR unconditional" << std::endl;
+
 
     this->prepare();
     const int dist_channels = WaveNet::getOutputChannels();
@@ -59,10 +61,18 @@ void GlotNetAR::process(const float * input_data, const float * a_data, float * 
     for (int64_t t = 0; t < total_samples; t++)
     {
         float e_curr;
-        WaveNet::process(input_buffer_data, x_dist_data, 1u);
 
-        x_dist[0] = 0.0f;
-        x_dist[1] = 1.0f;
+        if (false)
+        {
+            // set distribution to white noise
+            x_dist[0] = 0.0f; // mean
+            x_dist[1] = 0.0f; // log variance
+        }
+        else
+        {
+            // get distribution from wavenet
+            WaveNet::process(input_buffer_data, x_dist_data, 1u);
+        }
 
         dist->sample(x_dist_data, &e_curr, 1u);
 
@@ -104,6 +114,9 @@ void GlotNetAR::processConditional(const float *input_data,
                                    float *const output_data,
                                    int total_samples)
 {
+
+    std::cerr << "Processing Glotnet AR conditional" << std::endl;
+
     this->prepare();
     const int dist_channels = WaveNet::getOutputChannels();
     const int channels = WaveNet::getInputChannels();
@@ -122,7 +135,22 @@ void GlotNetAR::processConditional(const float *input_data,
     for (int64_t t = 0; t < total_samples; t++)
     {
         float e_curr;
-        WaveNet::processConditional(input_buffer_data, cond.data(), x_dist_data, 1u);
+
+        if (false)
+        {
+            // set distribution to white noise
+            x_dist[0] = 0.0f; // mean
+            x_dist[1] = -6.0f; // log variance
+
+            // x_dist[0] = input_data[t];
+            // x_dist[1] = -14.0f;
+        }
+        else
+        {
+            // get distribution from wavenet
+            WaveNet::processConditional(input_buffer_data, cond.data(), x_dist_data, 1u);
+        }
+
         dist->sample(x_dist_data, &e_curr, 1u);
 
         // get current prediction from input

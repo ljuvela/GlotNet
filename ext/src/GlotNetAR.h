@@ -18,10 +18,10 @@ class GlotNetAR: public WaveNet
 {
 public:
     GlotNetAR(size_t input_channels, size_t output_channels,
-            size_t convolution_channels, size_t skip_channels, 
-            size_t cond_channels, size_t filter_width,
-            std::string activation, std::vector<int> dilations,
-            size_t lpc_order);
+              size_t convolution_channels, size_t skip_channels,
+              size_t cond_channels, size_t filter_width,
+              std::string activation, std::vector<int> dilations,
+              size_t lpc_order);
     void prepare();
     void flush(int64_t num_samples);
     void process(const float *input_data, const float *a_data, float *const output_data, int total_samples);

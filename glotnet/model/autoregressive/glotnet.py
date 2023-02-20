@@ -7,7 +7,7 @@ import glotnet.cpp_extensions as ext
 import torch.nn.functional as F
 
 class GlotNetAR(WaveNet):
-    """ Autoregressive WaveNet """
+    """ Autoregressive GlotNet """
 
     def __init__(
             self,
@@ -120,7 +120,8 @@ class GlotNetAR(WaveNet):
         if a.size(1) != self.lpc_order+1:
             raise RuntimeError(f"AR poly order must be {self.lpc_order+1}, got {a.size(1)}")
 
-        a = F.interpolate(a, size=(input.size(2)), mode='linear', align_corners=False)
+        # a = F.interpolate(a, size=(input.size(2)), mode='linear', align_corners=False)
+        a = F.interpolate(a, size=(input.size(2)), mode='nearest')
 
         if padding:
             input, a, cond_input = self._pad(input, a, cond_input)

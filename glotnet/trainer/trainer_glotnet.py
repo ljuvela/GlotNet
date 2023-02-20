@@ -126,8 +126,8 @@ class Trainer(torch.nn.Module):
                         input=c, size=x.size(-1), mode='linear')
             c = c.to('cpu')
         
-        x = x[..., :self.config.sample_rate * 2]
-        c = c[..., :self.config.sample_rate * 2]
+        # x = x[..., :self.config.sample_rate * 2]
+        # c = c[..., :self.config.sample_rate * 2]
 
         cfg = self.config
         distribution = self.criterion
@@ -152,11 +152,19 @@ class Trainer(torch.nn.Module):
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(temperature)
 
+        x = self.model_ar.pre_emphasis.emphasis(x)
         a = self.lpc.estimate(x[:, 0, :])
-
+        # e = self.lpc.inverse_filter(x, a)
 
         output = model_ar.inference(input=torch.zeros_like(x), a=a, cond_input=c)
+        # output = model_ar.inference(input=e, a=a, cond_input=c)
         output = self.model_ar.pre_emphasis.deemphasis(output)
+
+        norm = output.abs().max()
+        if norm > 1.0:
+            print(f"output abs max was {norm}")
+            output = output / norm
+
         return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
@@ -217,13 +225,19 @@ class Trainer(torch.nn.Module):
                 a = self.lpc.estimate(x[:, 0, :])
                 
                 # add noise to signal
-                x = x + 1e-3 * torch.randn_like(x)
+                # x = x + 1e-3 * torch.randn_like(x)
 
                 # get prediction signal
-                p = self.lpc.prediction(x, a)
+                # p = self.lpc.prediction(x, a)
 
                 # error signal (residual)
-                e = x - p
+                # e = x - p
+
+                # excitation
+                e = self.lpc.inverse_filter(x, a)
+
+                # prediction signal
+                p = x - e
 
                 e_curr = e[:, :, 1:]
                 e_prev = e[:, :, :-1]

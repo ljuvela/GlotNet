@@ -29,6 +29,8 @@ def levinson(R, M, eps=1e-3):
     L_prev = L
     for p in torch.arange(0, M):
         K = torch.sum(L_prev[..., 0:p+1] * R[..., 1:p+2], dim=-1, keepdim=True) / E
+        if K.abs().max() > 1.0:
+            raise ValueError(f"Unstable filter, |K| was {K.abs().max()}")
         pad = torch.clamp(M-p-1, min=0)
         if p == 0:
             L = torch.cat([-1.0*K,
