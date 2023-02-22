@@ -18,8 +18,8 @@ def test_wavenet_minimal():
     wavenet = WaveNet(input_channels=input_channels, output_channels=output_channels,
                       residual_channels=residual_channels, skip_channels=skip_channels,
                       kernel_size=kernel_size, dilations=dilations)
-    y1 = wavenet(x, sequential=False)
-    y2 = wavenet(x, sequential=True)
+    y1 = wavenet.forward(x)
+    y2 = wavenet.inference(x)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
         f"Outputs must match \n ref: {y1} \n ext: {y2}"
     print("   ok!")
@@ -44,8 +44,8 @@ def test_wavenet_cond_minimal():
                       residual_channels=residual_channels, skip_channels=skip_channels,
                       kernel_size=kernel_size, dilations=dilations,
                       cond_channels=cond_channels)
-    y1 = wavenet(x, cond_input=c, sequential=False)
-    y2 = wavenet(x, cond_input=c, sequential=True)
+    y1 = wavenet.forward(x, cond_input=c)
+    y2 = wavenet.inference(x, cond_input=c)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
         f"Outputs must match \n ref: {y1} \n ext: {y2}"
     print("   ok!")
@@ -67,8 +67,8 @@ def test_wavenet_multichan():
     wavenet = WaveNet(input_channels=input_channels, output_channels=output_channels,
                       residual_channels=residual_channels, skip_channels=skip_channels,
                       kernel_size=kernel_size, dilations=dilations)
-    y1 = wavenet(x, sequential=True)
-    y2 = wavenet(x, sequential=False)
+    y1 = wavenet.forward(x)
+    y2 = wavenet.inference(x)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
         f"Main outputs must match \n ext: {y1} \n ref {y2}"
     print("   ok!")
@@ -91,8 +91,8 @@ def test_wavenet_multilayer():
     wavenet = WaveNet(input_channels=input_channels, output_channels=output_channels,
                       residual_channels=residual_channels, skip_channels=skip_channels,
                       kernel_size=kernel_size, dilations=dilations)
-    y1 = wavenet(x, sequential=True)
-    y2 = wavenet(x, sequential=False)
+    y1 = wavenet.forward(x)
+    y2 = wavenet.inference(x)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
         f"Main outputs must match \n ext: {y1} \n ref {y2}"
     print("   ok!")
@@ -114,8 +114,8 @@ def test_wavenet_multibatch():
     wavenet = WaveNet(input_channels=input_channels, output_channels=output_channels,
                       residual_channels=residual_channels, skip_channels=skip_channels,
                       kernel_size=kernel_size, dilations=dilations)
-    y1 = wavenet(x, sequential=True)
-    y2 = wavenet(x, sequential=False)
+    y1 = wavenet.forward(x)
+    y2 = wavenet.inference(x)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
         f"Main outputs must match \n ext: {y1} \n ref {y2}"
     print("   ok!")
@@ -140,20 +140,11 @@ def test_wavenet_cond_multibatch():
                       residual_channels=residual_channels, skip_channels=skip_channels,
                       kernel_size=kernel_size, dilations=dilations,
                       cond_channels=cond_channels)
-    y1 = wavenet(x, cond_input=c, sequential=False)
-    y2 = wavenet(x, cond_input=c, sequential=True)
+    y1 = wavenet.forward(x, cond_input=c)
+    y2 = wavenet.inference(x, cond_input=c)
     assert torch.allclose(y1, y2, atol=1e-6, rtol=1e-5), \
         f"Outputs must match \n ref: {y1} \n ext: {y2}"
     print("   ok!")
-
-
-if __name__ == "__main__":
-    test_wavenet_minimal()
-    test_wavenet_cond_minimal()
-    test_wavenet_multichan()
-    test_wavenet_multilayer()
-    test_wavenet_multibatch()
-    test_wavenet_cond_multibatch()
 
 
 

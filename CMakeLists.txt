@@ -32,6 +32,7 @@ pybind11_add_module(${python_module_name} MODULE
     ext/src/ConvolutionLayer.cpp
     ext/src/WaveNetAR.cpp
     ext/src/ConvolutionStack.cpp
+    ext/src/GlotNetAR.cpp
 )
 
 

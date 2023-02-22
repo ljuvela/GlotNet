@@ -18,6 +18,7 @@ class WaveNet(torch.nn.Module):
                  activation: str = "gated",
                  use_residual: bool = True,
                  cond_channels: int = None,
+                 cond_net: torch.nn.Module = None,
                  ):
         super().__init__()
 
@@ -58,6 +59,8 @@ class WaveNet(torch.nn.Module):
             out_channels=self.output_channels,
             kernel_size=1, activation="linear", use_output_transform=False)
 
+        self.cond_net = cond_net
+
     @property
     def output_weights(self):
         return [self.output1.conv.weight, self.output2.conv.weight]
@@ -71,15 +74,13 @@ class WaveNet(torch.nn.Module):
         return self.input.receptive_field + self.stack.receptive_field \
             + self.output1.receptive_field + self.output2.receptive_field
 
-    def forward(self, input, cond_input=None, sequential=False):
+
+    def forward(self, input, cond_input=None):
         """ 
         Args:
             input, torch.Tensor of shape (batch_size, input_channels, timesteps)
             cond_input (optional),
                 torch.Tensor of shape (batch_size, cond_channels, timesteps)
-            sequential (optional), 
-                if True, use CUDA compatible parallel implementation
-                if False, use custom C++ sequential implementation 
 
         Returns:
             output, torch.Tensor of shape (batch_size, output_channels, timesteps)
@@ -89,23 +90,6 @@ class WaveNet(torch.nn.Module):
         if cond_input is not None and not self.use_conditioning:
             raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
 
-        if sequential:
-            output = WaveNetFunction.apply(
-                input,
-                self.stack.weights_conv, self.stack.biases_conv,
-                self.stack.weights_out, self.stack.biases_out,
-                self.stack.weights_skip, self.stack.biases_skip,
-                self.stack.weights_cond, self.stack.biases_cond,
-                self.input.conv.weight, self.input.conv.bias,
-                self.output_weights, self.output_biases,
-                self.dilations, self.use_residual, self.activation,
-                cond_input
-            )
-            return output
-        else:
-            return self._forward_native(input, cond_input)
-
-    def _forward_native(self, input, cond_input):
         x = input
         x = self.input(x)
         _, skips = self.stack(x, cond_input) # TODO self.stack must be called something different, torch.stack is different
@@ -113,6 +97,35 @@ class WaveNet(torch.nn.Module):
         x = self.output1(x)
         x = self.output2(x)
         return x
+
+
+    def inference(self, input, cond_input=None):
+        """ 
+        Args:
+            input, torch.Tensor of shape (batch_size, input_channels, timesteps)
+            cond_input (optional),
+                torch.Tensor of shape (batch_size, cond_channels, timesteps)
+
+        Returns:
+            output, torch.Tensor of shape (batch_size, output_channels, timesteps)
+
+        """
+
+        if cond_input is not None and not self.use_conditioning:
+            raise RuntimeError("Module has not been initialized to use conditioning, but conditioning input was provided at forward pass")
+
+        output = WaveNetFunction.apply(
+            input,
+            self.stack.weights_conv, self.stack.biases_conv,
+            self.stack.weights_out, self.stack.biases_out,
+            self.stack.weights_skip, self.stack.biases_skip,
+            self.stack.weights_cond, self.stack.biases_cond,
+            self.input.conv.weight, self.input.conv.bias,
+            self.output_weights, self.output_biases,
+            self.dilations, self.use_residual, self.activation,
+            cond_input
+        )
+        return output
 
 class WaveNetFunction(torch.autograd.Function):
 

@@ -1,7 +1,8 @@
 import argparse
 import os
 import torch
-from glotnet.trainer.trainer import Trainer
+from glotnet.trainer.trainer import Trainer as TrainerWaveNet
+from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
 from glotnet.config import Config
 
 from glotnet.data.config import DataConfig
@@ -23,6 +24,10 @@ def parse_args():
                         help="Audio file directory")
     parser.add_argument('--output_dir', required=True, type=str,
                         help="Output audio file directory")
+    parser.add_argument('--max_files', default=None, type=int,
+                        help="Maximum number of files to process")
+    parser.add_argument('--temperature', default=1.0, type=float,
+                        help="Temperature for sampling")
     return parser.parse_args()
 
 def main(args):
@@ -43,7 +48,8 @@ def main(args):
 
     input_dir = args.input_dir
     files = glob(os.path.join(input_dir, '*.wav'))
-    files = files[:10]
+    if args.max_files is not None:
+        files = files[:args.max_files]
     for f in files:
         config.segment_len = torchaudio.info(f).num_frames
         dataset = AudioDataset(config,
@@ -51,25 +57,29 @@ def main(args):
                                transforms=melspec,
                                file_list=[f])
     
-        trainer = Trainer(config=config,
+
+        if config.model_type == 'wavenet':
+            trainer = TrainerWaveNet(config=config,
                           dataset=dataset,
                           device='cpu')
-                        
+        elif config.model_type == 'glotnet':
+            trainer = TrainerGlotNet(config=config,
+                          dataset=dataset,
+                          device='cpu')
+        else:
+            raise ValueError(f"Unknown model type {config.model_type}")
+
 
         # TODO: only load once
         trainer.load(model_path=args.model)
 
-        x = trainer.generate(temperature=0.9)
-        # trainer.writer.add_audio("generated audio_temp_1.0",
-        #                          x[:, 0, :],
-        #                          global_step=trainer.iter_global,
-        #                          sample_rate=config.sample_rate)
+        x = trainer.generate(temperature=args.temperature)
 
         bname = os.path.basename(f)
         outfile = os.path.join(args.output_dir, bname)
         print(f"saving to {outfile}")
         torchaudio.save(outfile, x[0], sample_rate=config.sample_rate,
-         bits_per_sample=16 ,encoding='PCM_S')
+                        bits_per_sample=16 ,encoding='PCM_S')
 
         # TODO: validation
 
