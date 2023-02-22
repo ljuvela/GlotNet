@@ -21,7 +21,6 @@ def parse_args():
     parser.add_argument('--device', type=str, default='cpu', help="Torch device string")
     parser.add_argument('--model_pt', type=str, default=None, help="Pre-trained model .pt file")
     parser.add_argument('--optim_pt', type=str, default=None, help="Optimizer state dictionary .pt file (use to continue training)")
-    parser.add_argument('--model_type', type=str, default='wavenet', help="Model type: wavenet or glotnet", choices=['wavenet', 'glotnet'])
     return parser.parse_args()
 
 def main(args):
@@ -36,12 +35,12 @@ def main(args):
         config.dataset_compute_mel = True
 
     config.dataset_audio_dir = args.data_dir
-    if args.model_type == 'glotnet':
+    if config.model_type == 'glotnet':
         trainer = TrainerGlotNet(config=config, device=args.device)
-    elif args.model_type == 'wavenet':
+    elif config.model_type == 'wavenet':
         trainer = TrainerWaveNet(config=config, device=args.device)
     else:
-        raise NotImplementedError(f"Model type {args.model_type} not implemented")
+        raise NotImplementedError(f"Model type {config.model_type} not implemented")
     trainer.config.to_json(os.path.join(trainer.writer.log_dir, 'config.json'))
 
     if args.model_pt is not None:
