@@ -18,6 +18,13 @@ class Config:
     use_residual: bool = True
     cond_channels: int = None
 
+    # Cond net
+    use_condnet: bool = False
+    condnet_skip_channels: int = None
+    condnet_residual_channels: int = None
+    condnet_filter_width: int = None
+    condnet_causal: bool = False
+
     # Distribution
     distribution: str = 'gaussian'
     loss_weight_nll: float = 1.0
@@ -26,7 +33,7 @@ class Config:
 
     # Optimizer
     optimizer: str = 'adam'
-    learning_rate: float = 1e-3
+    learning_rate: float = 1e-4
     batch_size: int = 4
     dataloader_workers: int = 0
     shuffle: bool = True

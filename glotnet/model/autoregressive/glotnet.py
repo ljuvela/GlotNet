@@ -212,7 +212,7 @@ class GlotNetAR(WaveNet):
                 # import ipdb; ipdb.set_trace()
                 cond_context = cond_input[:, :, t:t + self.receptive_field]
 
-            e_t_params = super()._forward_native(input=context, cond_input=cond_context)
+            e_t_params = super().forward(input=context, cond_input=cond_context)
             e_t = self.distribution.sample(e_t_params)
             e_curr = e_t[:, :, -1]
 

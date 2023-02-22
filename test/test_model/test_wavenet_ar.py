@@ -23,8 +23,8 @@ def test_wavenet_ar_minimal():
     receptive_field = wavenet.receptive_field
 
     x = torch.zeros(batch, channels, timesteps + receptive_field)
-    y_ref = wavenet(input=x, use_extension=False)
-    y_ext = wavenet(input=x, use_extension=True)
+    y_ref = wavenet.forward(input=x)
+    y_ext = wavenet.inference(input=x)
 
     y_ref = y_ref[..., receptive_field:]
     y_ext = y_ext[..., receptive_field:]
@@ -59,8 +59,8 @@ def test_wavenet_ar_cond_minimal():
     c = torch.cat([torch.zeros(batch, cond_channels, receptive_field),
                    0.1 * torch.randn(batch, cond_channels, timesteps)], dim=-1)
 
-    y_ref = wavenet(input=x, cond_input=c, use_extension=False)
-    y_ext = wavenet(input=x, cond_input=c, use_extension=True)
+    y_ref = wavenet.forward(input=x, cond_input=c)
+    y_ext = wavenet.inference(input=x, cond_input=c)
 
     y_ref = y_ref[..., receptive_field:]
     y_ext = y_ext[..., receptive_field:]
@@ -89,8 +89,8 @@ def test_wavenet_ar():
     receptive_field = wavenet.receptive_field
 
     x = torch.zeros(batch, channels, timesteps + receptive_field)
-    y_ref = wavenet(input=x, use_extension=False)
-    y_ext = wavenet(input=x, use_extension=True)
+    y_ref = wavenet.forward(input=x)
+    y_ext = wavenet.inference(input=x)
     
     y_ref = y_ref[..., receptive_field:]
     y_ext = y_ext[..., receptive_field:]
@@ -125,8 +125,8 @@ def test_wavenet_ar_cond():
     c = torch.cat([torch.zeros(batch, cond_channels, receptive_field),
                    0.1 * torch.randn(batch, cond_channels, timesteps)], dim=-1)
 
-    y_ref = wavenet(input=x, cond_input=c, use_extension=False)
-    y_ext = wavenet(input=x, cond_input=c, use_extension=True)
+    y_ref = wavenet.forward(input=x, cond_input=c)
+    y_ext = wavenet.inference(input=x, cond_input=c)
 
     y_ref = y_ref[..., receptive_field:]
     y_ext = y_ext[..., receptive_field:]

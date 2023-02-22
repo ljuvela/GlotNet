@@ -97,6 +97,8 @@ class Trainer(torch.nn.Module):
     def _create_model(self, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
         cfg = self.config
+
+        cond_net = WaveNet(input_channels=cfg.cond_channels,)
         # TODO: distribution should be a part of the model
         model = WaveNet(input_channels=cfg.input_channels,
                         output_channels=distribution.params_dim,
@@ -107,7 +109,8 @@ class Trainer(torch.nn.Module):
                         causal=True,
                         activation=cfg.activation,
                         use_residual=cfg.use_residual,
-                        cond_channels=cfg.cond_channels)
+                        cond_channels=cfg.cond_channels,
+                        cond_net=cond_net)
         return model
 
     def generate(self, temperature: float = 1.0):
@@ -251,7 +254,7 @@ class Trainer(torch.nn.Module):
                     c = torch.nn.functional.interpolate(
                         input=c, size= x.size(-1), mode='linear')
                     # trim last sample to match x_prev size
-                    c = c[..., :-1] 
+                    c = c[..., :-1]
 
                 params = self.model(input, c)
 
