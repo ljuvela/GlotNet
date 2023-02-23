@@ -247,23 +247,20 @@ class Trainer(torch.nn.Module):
                 # estimate lpc coefficients
                 a = self.lpc.estimate(x[:, 0, :])
                 
+                # clean excitation for target
+                e_clean = self.lpc.inverse_filter(x, a)
+
                 # add noise to signal
-                # x = x + 1e-3 * torch.randn_like(x)
+                x = x + 1e-3 * torch.randn_like(x)
 
                 # get prediction signal
-                # p = self.lpc.prediction(x, a)
+                p = self.lpc.prediction(x, a)
 
-                # error signal (residual)
-                # e = x - p
+                # noisy error signal (residual)
+                e_noisy = x - p
 
-                # excitation
-                e = self.lpc.inverse_filter(x, a)
-
-                # prediction signal
-                p = x - e
-
-                e_curr = e[:, :, 1:]
-                e_prev = e[:, :, :-1]
+                e_curr = e_clean[:, :, 1:]
+                e_prev = e_noisy[:, :, :-1]
 
                 x_prev = x[:, :, :-1]
                 p_curr = p[:, :, 1:]
@@ -313,6 +310,10 @@ class Trainer(torch.nn.Module):
                 if self.iter % 100 == 0:
                     print(f"Iter {self.iter_global}: loss = {loss.item()}")
                     print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
+
+                if self.iter % self.config.validation_interval == 0:
+                    self.writer.add_audio("excitation_clean", e_clean[0, 0, :], self.iter_global, sample_rate=self.config.sample_rate)
+                    self.writer.add_audio("excitation_noisy", e_noisy[0, 0, :], self.iter_global, sample_rate=self.config.sample_rate)
 
                 self.iter += 1
                 self.iter_global += 1

@@ -80,6 +80,7 @@ class LinearPredictor(torch.nn.Module):
         x = self.lfilter.forward(x=e, b=None, a=a)
         return x
 
+
     def prediction(self,
             x: torch.Tensor,
             a: torch.Tensor) -> torch.Tensor:
@@ -95,6 +96,6 @@ class LinearPredictor(torch.nn.Module):
         a_pred[:, 0, :] = 0.0
 
         # predictor filter
-        p = self.lfilter.forward(x=x, b=a)
+        p = self.lfilter.forward(x=x, b=a_pred, a=None)
 
         return p
