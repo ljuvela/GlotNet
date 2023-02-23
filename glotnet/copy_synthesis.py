@@ -46,6 +46,8 @@ def main(args):
         n_mels=config.n_mels,
     )
 
+    # TODO: instantiate trainer here, load weights
+
     input_dir = args.input_dir
     files = glob(os.path.join(input_dir, '*.wav'))
     if args.max_files is not None:

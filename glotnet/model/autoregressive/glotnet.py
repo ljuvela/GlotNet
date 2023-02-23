@@ -209,7 +209,6 @@ class GlotNetAR(WaveNet):
             if cond_input is None:
                 cond_context = None
             else:
-                # import ipdb; ipdb.set_trace()
                 cond_context = cond_input[:, :, t:t + self.receptive_field]
 
             e_t_params = super().forward(input=context, cond_input=cond_context)

@@ -143,7 +143,8 @@ class Trainer(torch.nn.Module):
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(temperature)
 
-        output = model_ar.forward(input=torch.zeros_like(x), cond_input=c)
+        output = model_ar.inference(input=torch.zeros_like(x), cond_input=c)
+        output = output[:, :, model_ar.receptive_field:] # remove padding
         output = self.model_ar.pre_emphasis.deemphasis(output)
         return output.clamp(min=-0.99, max=0.99)
 

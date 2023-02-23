@@ -3,10 +3,10 @@ import tempfile
 import pytest
 import torch
 import torchaudio
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset
 from glotnet.data.audio_dataset import AudioDataset
 
-from glotnet.trainer.trainer import Trainer
+from glotnet.trainer.trainer import Trainer as TrainerWaveNet
 from glotnet.config import Config
 
 
@@ -39,7 +39,7 @@ def test_trainer(tempdir):
                     dataset_compute_mel=False,
                     log_dir=tempdir)
     
-    trainer = Trainer(config=config, dataset=dataset)
+    trainer = TrainerWaveNet(config=config, dataset=dataset)
 
     trainer.fit(num_iters=1)
     loss_1 = trainer.batch_loss
@@ -71,7 +71,7 @@ def test_trainer_conditional(tempdir):
     config.n_mels = 20
     config.dataset_compute_mel = True
 
-    trainer = Trainer(config=config)
+    trainer = TrainerWaveNet(config=config)
 
     trainer.fit(num_iters=1)
     loss_1 = trainer.batch_loss
@@ -83,10 +83,18 @@ def test_trainer_conditional(tempdir):
 
 def test_trainer_generate(tempdir):
 
-    config = Config(batch_size=4, learning_rate=1e-5, pre_emphasis=0.85)
+    config = Config(
+        batch_size=4, 
+        learning_rate=1e-5,
+        pre_emphasis=0.85,
+        dilations=[1],
+        residual_channels=4,
+        skip_channels=4)
+
     # data
     f0 = 200
     fs =  config.sample_rate
+    config.segment_len = 1000
     seg_len = config.batch_size * config.segment_len
     t = torch.linspace(0, seg_len, seg_len) / fs
     x = torch.sin(2 * torch.pi * f0 * t)
@@ -101,8 +109,11 @@ def test_trainer_generate(tempdir):
     config.n_mels = 20
     config.dataset_compute_mel = True
 
-    trainer = Trainer(config=config)
+    trainer = TrainerWaveNet(config=config)
     x = trainer.generate()
+    
+    assert x.shape == (1, 1, config.segment_len), \
+        f"Generated audio expected to have shape (1, 1, {config.segment_len}), got {x.shape}"
 
 
 def test_resume_training(tempdir):
@@ -118,15 +129,16 @@ def test_resume_training(tempdir):
     torchaudio.save(os.path.join(tempdir, f"data.wav"),
                     x, sample_rate=config.sample_rate)
 
-    trainer1 = Trainer(config=config)
+    trainer1 = TrainerWaveNet(config=config)
     trainer1.fit(num_iters=1)
 
     model_pt = os.path.join(tempdir, 'model.pt')
     optim_pt = os.path.join(tempdir, "optim.pt")
     trainer1.save(model_path=model_pt, optim_path=optim_pt)
 
-    trainer2 = Trainer(config=config)
+    trainer2 = TrainerWaveNet(config=config)
     trainer2.load(model_path=model_pt, optim_path=optim_pt)
 
     for p1, p2 in zip(trainer1.model.parameters(), trainer2.model.parameters()):
         assert torch.allclose(p1, p2)
+

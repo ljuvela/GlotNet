@@ -12,6 +12,7 @@ class Config:
     input_channels: int = 1
     skip_channels: int = 32
     residual_channels: int = 32
+    postnet_channels: int = 64
     filter_width: int = 3
     dilations: Tuple[int] = (1, 2, 4, 8, 16)
     activation: str = "gated"
@@ -20,10 +21,11 @@ class Config:
 
     # Cond net
     use_condnet: bool = False
-    condnet_skip_channels: int = None
-    condnet_residual_channels: int = None
-    condnet_filter_width: int = None
+    condnet_skip_channels: int = 32
+    condnet_residual_channels: int = 32
+    condnet_filter_width: int = 5
     condnet_causal: bool = False
+    condnet_dilations: Tuple[int] = (1,)
 
     # Distribution
     distribution: str = 'gaussian'
