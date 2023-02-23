@@ -98,19 +98,36 @@ class Trainer(torch.nn.Module):
         """ Create model instance from config """
         cfg = self.config
 
-        cond_net = WaveNet(input_channels=cfg.cond_channels,)
+        if cfg.use_condnet:
+            cond_net = WaveNet(
+                input_channels=cfg.cond_channels,
+                output_channels=cfg.residual_channels,
+                residual_channels=cfg.condnet_residual_channels,
+                skip_channels=cfg.condnet_skip_channels,
+                kernel_size=cfg.condnet_filter_width,
+                causal=cfg.condnet_causal,
+                dilations=cfg.condnet_dilations)
+        else:
+            cond_net = None
+
+        wavenet_cond_channels = cfg.cond_channels if cond_net is None else cond_net.output_channels
+
+        if cfg.input_channels % 3 != 0:
+            raise ValueError("Input channels must be divisible by 3")
+
         # TODO: distribution should be a part of the model
-        model = WaveNet(input_channels=cfg.input_channels,
-                        output_channels=distribution.params_dim,
-                        residual_channels=cfg.residual_channels,
-                        skip_channels=cfg.skip_channels,
-                        kernel_size=cfg.filter_width,
-                        dilations=cfg.dilations,
-                        causal=True,
-                        activation=cfg.activation,
-                        use_residual=cfg.use_residual,
-                        cond_channels=cfg.cond_channels,
-                        cond_net=cond_net)
+        model = WaveNet(
+            input_channels=cfg.input_channels,
+            output_channels=distribution.params_dim,
+            residual_channels=cfg.residual_channels,
+            skip_channels=cfg.skip_channels,
+            kernel_size=cfg.filter_width,
+            dilations=cfg.dilations,
+            causal=True,
+            activation=cfg.activation,
+            use_residual=cfg.use_residual,
+            cond_channels=wavenet_cond_channels,
+            cond_net=cond_net)
         return model
 
     def generate(self, temperature: float = 1.0):
@@ -122,6 +139,8 @@ class Trainer(torch.nn.Module):
         minibatch = self.dataset.__getitem__(0)
         x, c = self._unpack_minibatch(minibatch)
         c = c.unsqueeze(0)
+        if self.model.cond_net is not None:
+            c = self.model.cond_net(c)
         x = x.unsqueeze(0)
         x = x.to('cpu')
         if c is not None:
@@ -161,6 +180,7 @@ class Trainer(torch.nn.Module):
 
         output = model_ar.inference(input=torch.zeros_like(x), a=a, cond_input=c)
         # output = model_ar.inference(input=e, a=a, cond_input=c)
+        output = output[:, :, model_ar.receptive_field:] # remove padding
         output = self.model_ar.pre_emphasis.deemphasis(output)
 
         norm = output.abs().max()
@@ -249,6 +269,9 @@ class Trainer(torch.nn.Module):
                 p_curr = p[:, :, 1:]
 
                 input = torch.cat([e_prev, p_curr, x_prev], dim=1)
+
+                if self.model.cond_net is not None:
+                    c = self.model.cond_net(c)
 
                 if c is not None:
                     c = torch.nn.functional.interpolate(
