@@ -33,8 +33,6 @@ if __name__ == '__main__':
 
     plt.close('all')
 
-    # import ipdb; ipdb.set_trace()
-    # plt.plot(p[0,0,:].detach().numpy())
     plt.plot(e_diff[0,0,:].detach().numpy())
     plt.plot(e_inv[0,0,:].detach().numpy())
     plt.plot(x[0,0,:].detach().numpy())

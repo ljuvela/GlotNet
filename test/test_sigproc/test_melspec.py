@@ -13,13 +13,4 @@ def test_allpole_from_log_spectrogram():
 
     a = melspec.allpole(X)
 
-    # import matplotlib.pyplot as plt
-
-    # # import ipdb; ipdb.set_trace()
-    # A = torch.fft.rfft(a, 512)
-
-    # H = 20 * torch.log10(1/A[0,0, 5,:])
-    # plt.plot(H)
-    # plt.show()
-
 

@@ -149,6 +149,8 @@ class Trainer(torch.nn.Module):
             c = c.to('cpu')
 
         cfg = self.config
+        cond_net = self.model.cond_net
+        wavenet_cond_channels = cfg.cond_channels if cond_net is None else cond_net.output_channels
         distribution = self.criterion
         # TODO: teacher forcing and AR inference should be in the same model!
         if not hasattr(self, 'model_ar'):
@@ -162,9 +164,10 @@ class Trainer(torch.nn.Module):
                 causal=True,
                 activation=cfg.activation,
                 use_residual=cfg.use_residual,
-                cond_channels=cfg.cond_channels,
+                cond_channels=wavenet_cond_channels,
                 lpc_order=cfg.lpc_order,
-                hop_length=cfg.hop_length)
+                hop_length=cfg.hop_length,
+                cond_net=cond_net,)
             self.model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
         model_ar = self.model_ar
 
@@ -261,6 +264,7 @@ class Trainer(torch.nn.Module):
 
                 input = torch.cat([e_prev, p_curr, x_prev], dim=1)
 
+                # TODO: move to model
                 if self.model.cond_net is not None:
                     c = self.model.cond_net(c)
 

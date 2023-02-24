@@ -20,7 +20,9 @@ class WaveNetAR(WaveNet):
             activation: str = "gated",
             use_residual: bool = True,
             cond_channels: int = None,
-            distribution: Distribution = GaussianDensity()):
+            distribution: Distribution = GaussianDensity(),
+            cond_net: torch.nn.Module = None,
+            ):
         """
            Args:
                 input_channels: input channels
@@ -33,7 +35,6 @@ class WaveNetAR(WaveNet):
                 activation: activation type for dilated conv, options ["gated", "tanh"]
                 use_residual:
                 cond_channels: number of conditioning channels
-                distribution: 
                  
         """
         super().__init__(
@@ -41,7 +42,8 @@ class WaveNetAR(WaveNet):
             residual_channels, skip_channels,
             kernel_size, dilations,
             causal, activation,
-            use_residual, cond_channels)
+            use_residual, cond_channels,
+            cond_net=cond_net)
             
         self._validate_distribution(distribution)
 
@@ -85,6 +87,9 @@ class WaveNetAR(WaveNet):
             raise RuntimeError(f"Input tensor device must be cpu, got {input.device}")
         if cond_input is not None and cond_input.device != torch.device('cpu'):
             raise RuntimeError(f"Cond input device must be cpu, got {cond_input.device}")
+        
+        
+        
         output = WaveNetARFunction.apply(
             input,
             self.stack.weights_conv, self.stack.biases_conv,

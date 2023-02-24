@@ -92,7 +92,22 @@ class Trainer(torch.nn.Module):
 
     def _create_model(self, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
+
         cfg = self.config
+        if cfg.use_condnet:
+            cond_net = WaveNet(
+                input_channels=cfg.cond_channels,
+                output_channels=cfg.residual_channels,
+                residual_channels=cfg.condnet_residual_channels,
+                skip_channels=cfg.condnet_skip_channels,
+                kernel_size=cfg.condnet_filter_width,
+                causal=cfg.condnet_causal,
+                dilations=cfg.condnet_dilations)
+        else:
+            cond_net = None
+
+        wavenet_cond_channels = cfg.cond_channels if cond_net is None else cond_net.output_channels
+
         # TODO: distribution should be a part of the model
         model = WaveNet(input_channels=cfg.input_channels,
                         output_channels=distribution.params_dim,
@@ -103,7 +118,8 @@ class Trainer(torch.nn.Module):
                         causal=True,
                         activation=cfg.activation,
                         use_residual=cfg.use_residual,
-                        cond_channels=cfg.cond_channels)
+                        cond_channels=wavenet_cond_channels,
+                        cond_net=cond_net)
         return model
 
     def generate(self, temperature: float = 1.0):
@@ -115,6 +131,8 @@ class Trainer(torch.nn.Module):
         minibatch = self.dataset.__getitem__(0)
         x, c = self._unpack_minibatch(minibatch)
         c = c.unsqueeze(0)
+        if self.model.cond_net is not None:
+            c = self.model.cond_net(c)
         x = x.unsqueeze(0)
         x = x.to('cpu')
         if c is not None:
@@ -123,6 +141,8 @@ class Trainer(torch.nn.Module):
             c = c.to('cpu')
 
         cfg = self.config
+        cond_net = self.model.cond_net
+        wavenet_cond_channels = cfg.cond_channels if cond_net is None else cond_net.output_channels
         distribution = self.criterion
         # TODO: teacher forcing and AR inference should be in the same model!
         if not hasattr(self, 'model_ar'):
@@ -136,7 +156,8 @@ class Trainer(torch.nn.Module):
                 causal=True,
                 activation=cfg.activation,
                 use_residual=cfg.use_residual,
-                cond_channels=cfg.cond_channels)
+                cond_channels=wavenet_cond_channels,
+                cond_net=cond_net,)
             self.model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
         model_ar = self.model_ar
 
@@ -203,6 +224,9 @@ class Trainer(torch.nn.Module):
                 x = self.pre_emphasis.emphasis(x)
                 x_curr = x[:, :, 1:]
                 x_prev = x[:, :, :-1]
+
+                if self.model.cond_net is not None:
+                    c = self.model.cond_net(c)
 
                 if c is not None:
                     c = torch.nn.functional.interpolate(

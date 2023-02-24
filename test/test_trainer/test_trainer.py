@@ -142,3 +142,69 @@ def test_resume_training(tempdir):
     for p1, p2 in zip(trainer1.model.parameters(), trainer2.model.parameters()):
         assert torch.allclose(p1, p2)
 
+
+
+def test_trainer_condnet(tempdir):
+
+    config = Config(batch_size=4,
+                    learning_rate=1e-5,
+                    pre_emphasis=0.85,
+                    input_channels=1,
+                    use_condnet=True)
+
+    # data
+    f0 = 200
+    fs =  config.sample_rate
+    seg_len = config.batch_size * config.segment_len
+    t = torch.linspace(0, seg_len, seg_len) / fs
+    x = torch.sin(2 * torch.pi * f0 * t)
+    x = x.unsqueeze(0)
+
+    config.log_dir = tempdir
+    config.dataset_audio_dir = tempdir
+    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+                    x, sample_rate=config.sample_rate)
+
+    config.cond_channels = 20
+    config.n_mels = 20
+    config.dataset_compute_mel = True
+
+    trainer = TrainerWaveNet(config=config)
+
+    trainer.fit(num_iters=1)
+    loss_1 = trainer.batch_loss
+    trainer.fit(num_iters=1)
+    loss_2 = trainer.batch_loss
+
+    assert loss_2 < loss_1, \
+        "Training must decrease loss function value"
+
+
+def test_trainer_generate_condnet(tempdir):
+
+    config = Config(batch_size=4,
+                    learning_rate=1e-5,
+                    pre_emphasis=0.85,
+                    use_condnet=True)
+
+    # data
+    f0 = 200
+    fs =  config.sample_rate
+    seg_len = config.batch_size * config.segment_len
+    t = torch.linspace(0, seg_len, seg_len) / fs
+    x = torch.sin(2 * torch.pi * f0 * t)
+    x = x.unsqueeze(0)
+
+    config.log_dir = tempdir
+    config.dataset_audio_dir = tempdir
+    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+                    x, sample_rate=config.sample_rate)
+
+    config.cond_channels = 20
+    config.n_mels = 20
+    config.dataset_compute_mel = True
+
+    trainer = TrainerWaveNet(config=config)
+
+    x = trainer.generate()
+
