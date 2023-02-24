@@ -22,7 +22,10 @@ class GlotNetAR(WaveNet):
             use_residual: bool = True,
             cond_channels: int = None,
             distribution: Distribution = GaussianDensity(), 
-            hop_length:int=256, lpc_order:int=10):
+            hop_length:int=256,
+            lpc_order:int=10,
+            cond_net: torch.nn.Module = None,
+            ):
         """
            Args:
                 input_channels: input channels
@@ -44,7 +47,8 @@ class GlotNetAR(WaveNet):
             residual_channels, skip_channels,
             kernel_size, dilations,
             causal, activation,
-            use_residual, cond_channels)
+            use_residual, cond_channels,
+            cond_net=cond_net)
 
         self.hop_length = hop_length
         self.lpc_order = lpc_order
