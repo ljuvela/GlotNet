@@ -76,12 +76,8 @@ def test_circular_consistency():
     # allpole order
     order = 10
 
-    # osc = Oscillator(audio_rate=fs, control_rate=fs//hop_length, shape='saw')
-    # x = osc.forward(f0=100 * torch.ones(batch, 1, num_frames))
-
-    import soundfile as sf
-    x_np, fs = sf.read('/Users/ljuvela/DATA/ARCTIC/cmu_us_slt_arctic/wav/arctic_a0001.wav')
-    x = torch.from_numpy(x_np).unsqueeze(0).unsqueeze(0).float()
+    osc = Oscillator(audio_rate=fs, control_rate=fs//hop_length, shape='saw')
+    x = osc.forward(f0=100 * torch.ones(batch, 1, num_frames))
 
     lpc = LinearPredictor(n_fft=n_fft, hop_length=hop_length, win_length=win_length, order=order)
     a = lpc.estimate(x=x[:, 0, :])

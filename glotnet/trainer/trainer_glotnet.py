@@ -270,6 +270,7 @@ class Trainer(torch.nn.Module):
 
                 input = torch.cat([e_prev, p_curr, x_prev], dim=1)
 
+                # TODO: move to model
                 if self.model.cond_net is not None:
                     c = self.model.cond_net(c)
 

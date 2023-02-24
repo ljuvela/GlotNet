@@ -80,11 +80,6 @@ class LogMelSpectrogram(torch.nn.Module):
         # pseudoinvert mel filterbank
         X = torch.matmul(X, self.fb_pinv).clamp(min=1e-9)
         
-        # import matplotlib.pyplot as plt
-        # plt.plot(X[0,0,0])
-        # plt.show()
-        # import ipdb; ipdb.set_trace()
-        
         # power spectrum (squared magnitude) spectrum
         X = torch.pow(X, 2.0 / self.mel_spectrogram.power)
         X = X.clamp(min=1e-9)
