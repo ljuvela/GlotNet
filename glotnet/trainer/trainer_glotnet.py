@@ -147,9 +147,6 @@ class Trainer(torch.nn.Module):
             c = torch.nn.functional.interpolate(
                         input=c, size=x.size(-1), mode='linear')
             c = c.to('cpu')
-        
-        # x = x[..., :self.config.sample_rate * 2]
-        # c = c[..., :self.config.sample_rate * 2]
 
         cfg = self.config
         distribution = self.criterion
@@ -174,14 +171,11 @@ class Trainer(torch.nn.Module):
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
         model_ar.distribution.set_temperature(temperature)
 
-        x = self.model_ar.pre_emphasis.emphasis(x)
-        a = self.lpc.estimate(x[:, 0, :])
-        # e = self.lpc.inverse_filter(x, a)
+        x_emph = self.model_ar.pre_emphasis.emphasis(x)
+        a = self.lpc.estimate(x_emph[:, 0, :])
 
         output = model_ar.inference(input=torch.zeros_like(x), a=a, cond_input=c)
-        # output = model_ar.inference(input=e, a=a, cond_input=c)
         output = output[:, :, model_ar.receptive_field:] # remove padding
-        output = self.model_ar.pre_emphasis.deemphasis(output)
 
         norm = output.abs().max()
         if norm > 1.0:
@@ -242,10 +236,10 @@ class Trainer(torch.nn.Module):
         while not stop:
             for minibatch in self.data_loader:
                 x, c = self._unpack_minibatch(minibatch)
-                x = self.pre_emphasis.emphasis(x)
+                x_emph = self.pre_emphasis.emphasis(x)
 
                 # estimate lpc coefficients
-                a = self.lpc.estimate(x[:, 0, :])
+                a = self.lpc.estimate(x_emph[:, 0, :])
                 
                 # clean excitation for target
                 e_clean = self.lpc.inverse_filter(x, a)

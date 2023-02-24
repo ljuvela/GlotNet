@@ -23,8 +23,8 @@ void GaussianDensity::sample(const float * params, float * output, size_t timest
     {
         const float m = params[2*t + 0u];
         const float log_s = params[2*t + 1u];
-        unsigned int clamp = log_s < log_sigma_floor;
-        float s = exp((1u-clamp) * log_s + clamp * log_sigma_floor);
+        const unsigned int clamp = log_s < log_sigma_floor;
+        const float s = exp((1u-clamp) * log_s + clamp * log_sigma_floor);
         const float z = distribution(generator);
         output[t] = m + s * z * temperature;
     }
