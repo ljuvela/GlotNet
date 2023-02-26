@@ -66,6 +66,8 @@ class Config:
     # Dataset properties
     dataset_audio_dir: str = None
     dataset_compute_mel: bool = False
+    dataset_scaler_file: str = None
+    dataset_train_filelist: str = None
 
     # from https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L180
     # audio = parser.add_argument_group("audio parameters")

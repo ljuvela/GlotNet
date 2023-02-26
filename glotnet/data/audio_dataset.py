@@ -6,6 +6,8 @@ from typing import List, Tuple, Union
 import torch
 from torch.utils.data import Dataset
 
+import numpy as np
+
 from glotnet.config import Config
 
 from glotnet.sigproc.melspec import SpectralNormalization, InverseSpectralNormalization
@@ -36,6 +38,21 @@ class AudioDataset(Dataset):
         self.audio_ext = audio_ext
         self.dtype = dtype
         self.transforms = transforms
+
+        self.use_scaler = False
+
+        if config.dataset_scaler_file is not None:
+            data = np.load(config.dataset_scaler_file)
+            self.scaler_m = torch.tensor(data['mean'], dtype=torch.float32).reshape(1, -1, 1)
+            self.scaler_s = torch.tensor(data['scale'], dtype=torch.float32).reshape(1, -1, 1)
+            self.use_scaler = True
+        if config.dataset_train_filelist is not None:
+            file_list = []
+            with open( config.dataset_train_filelist, 'r') as f:
+                for line in f.readlines():
+                   file_list.append(os.path.join(self.audio_dir, line.strip()))
+
+        # file_list = file_list[:10]
 
         if file_list is None:
             self.audio_files = glob(os.path.join(
@@ -90,6 +107,8 @@ class AudioDataset(Dataset):
         
         if self.transforms is not None:
             c = self.transforms(x)
+            if self.use_scaler:
+                c = (c - self.scaler_m) / self.scaler_s
             c = c[0] # drop batch dimension, DataLoader will put it back
             return (x, c)
         else:
