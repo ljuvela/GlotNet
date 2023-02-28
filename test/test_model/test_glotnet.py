@@ -63,7 +63,7 @@ def test_glotnet_ar_order_zero():
 
     order = 1
 
-    dist = GaussianDensity(temperature=0.0)
+    dist = GaussianDensity()
     model = GlotNetAR(input_channels=3, output_channels=2,
                       residual_channels=2, skip_channels=2,
                       kernel_size=2, dilations=[1], distribution=dist,
@@ -77,8 +77,9 @@ def test_glotnet_ar_order_zero():
     a[:, 0, :] = 1.0
     a[:, 1, :] = 0
 
-    y_ref = model.forward(input=x, a=a)
-    y_ext = model.inference(input=x, a=a)
+    temp = torch.zeros(batch, channels, timesteps)
+    y_ref = model.forward(input=x, a=a, temperature=temp)
+    y_ext = model.inference(input=x, a=a, temperature=temp)
 
     assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
         f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"
@@ -103,8 +104,9 @@ def test_glotnet_ar_order_one():
     a[:, 0, :] = 1.0
     a[:, 1, :] = -0.9
 
-    y_ref = model.forward(input=x, a=a)
-    y_ext = model.inference(input=x, a=a)
+    temp = torch.zeros(batch, channels, timesteps)
+    y_ref = model.forward(input=x, a=a, temperature=temp)
+    y_ext = model.inference(input=x, a=a, temperature=temp)
 
 
     assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
@@ -130,8 +132,9 @@ def test_glotnet_ar_order_two():
     a[:, 1, :] = -0.5
     a[:, 2, :] = 0.2
 
-    y_ref = model.forward(input=x, a=a)
-    y_ext = model.inference(input=x, a=a)
+    temp = torch.zeros(batch, channels, timesteps)
+    y_ref = model.forward(input=x, a=a, temperature=temp)
+    y_ext = model.inference(input=x, a=a, temperature=temp)
 
 
     assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
@@ -161,8 +164,9 @@ def test_glotnet_ar_framed():
     a[:, 1, :] = -0.5
     a[:, 2, :] = 0.2
 
-    y_ref = model.forward(input=x, a=a)
-    y_ext = model.inference(input=x, a=a)
+    temp = torch.zeros(batch, channels, timesteps)
+    y_ref = model.forward(input=x, a=a, temperature=temp)
+    y_ext = model.inference(input=x, a=a, temperature=temp)
 
     assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
         f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"
@@ -194,8 +198,9 @@ def test_glotnet_cond():
     a[:, 2, :] = 0.2
     c = 0.1 * torch.randn(batch, cond_channels, timesteps)
 
-    y_ref = model.forward(input=x, a=a, cond_input=c)
-    y_ext = model.inference(input=x, a=a, cond_input=c)
+    temp = torch.zeros(batch, channels, timesteps)
+    y_ref = model.forward(input=x, a=a, cond_input=c, temperature=temp)
+    y_ext = model.inference(input=x, a=a, cond_input=c, temperature=temp)
 
     assert torch.allclose(y_ref, y_ext, atol=1e-5, rtol=1e-5), \
         f"Outputs must match \n ref: {y_ref} \n ext: {y_ext}"

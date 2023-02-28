@@ -32,6 +32,81 @@ public:
     {
     }
 
+
+std::vector<at::Tensor> forward(
+    const torch::Tensor &input,
+    const torch::Tensor &a,
+    const torch::Tensor &temperature
+    )
+{
+    const int64_t batch_size = input.size(0);
+    const int64_t timesteps = input.size(1);
+
+    auto temperature_a = temperature.accessor<float, 3>();  
+
+
+    auto output = torch::zeros({batch_size, timesteps, 1});
+
+    // Accessors
+    const auto input_a = input.accessor<float, 3>();
+    auto output_a = output.accessor<float, 3>();
+    auto a_a = a.accessor<float, 3>();
+
+    // Process
+    for (int64_t b = 0; b < batch_size; b++)
+    {
+        model.process(
+            &input_a[b][0][0],
+            &a_a[b][0][0],
+            &temperature_a[b][0][0],
+            &output_a[b][0][0],
+            timesteps);
+    }
+    return {output};
+}
+
+
+std::vector<at::Tensor> cond_forward(
+    const torch::Tensor &input,
+    const torch::Tensor &a,
+    const torch::Tensor &cond_input,
+    const torch::Tensor &temperature
+    )
+{
+    const int64_t batch_size = cond_input.size(0);
+    const int64_t timesteps = cond_input.size(1);
+
+
+    auto temperature_a = temperature.accessor<float, 3>();  
+
+    auto output =  torch::zeros({batch_size, timesteps, 1});
+
+    // Accessors
+    const auto input_a = input.accessor<float, 3>();
+    const auto cond_input_a = cond_input.accessor<float, 3>();
+    auto output_a = output.accessor<float, 3>();
+    auto a_a = a.accessor<float, 3>();
+
+    // Process
+    for (int64_t b = 0; b < batch_size; b++)
+    {
+        model.processConditional(
+            &input_a[b][0][0],
+            &a_a[b][0][0],
+            &cond_input_a[b][0][0],
+            &temperature_a[b][0][0],
+            &output_a[b][0][0],
+            timesteps);
+    }
+    return {output};
+}
+
+void flush(int64_t timesteps)
+{
+    model.flush(timesteps);
+}
+
+
 void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
                     const std::vector<torch::Tensor> &stack_biases_conv,
                     const std::vector<torch::Tensor> &stack_weights_out,
@@ -63,36 +138,6 @@ void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
     }
     model.prepare();
     model.setDistribution("gaussian");
-}
-
-std::vector<at::Tensor> forward(
-    const torch::Tensor &input,
-    const torch::Tensor &a,
-    float temperature=1.0
-    )
-{
-    const int64_t batch_size = input.size(0);
-    const int64_t timesteps = input.size(1);
-
-    model.setSamplingTemperature(temperature);
-
-    auto output = torch::zeros({batch_size, timesteps, 1});
-
-    // Accessors
-    const auto input_a = input.accessor<float, 3>();
-    auto output_a = output.accessor<float, 3>();
-    auto a_a = a.accessor<float, 3>();
-
-    // Process
-    for (int64_t b = 0; b < batch_size; b++)
-    {
-        model.process(
-            &input_a[b][0][0],
-            &a_a[b][0][0],
-            &output_a[b][0][0],
-            timesteps);
-    }
-    return {output};
 }
 
 void setParametersConditional(
@@ -134,46 +179,6 @@ void setParametersConditional(
     model.prepare();
     model.setDistribution("gaussian");
 }
-
-std::vector<at::Tensor> cond_forward(
-    const torch::Tensor &input,
-    const torch::Tensor &a,
-    const torch::Tensor &cond_input,
-    float temperature=1.0
-    )
-{
-    const int64_t batch_size = cond_input.size(0);
-    const int64_t timesteps = cond_input.size(1);
-
-    model.setSamplingTemperature(temperature);
-
-    auto output =  torch::zeros({batch_size, timesteps, 1});
-
-    // Accessors
-    const auto input_a = input.accessor<float, 3>();
-    const auto cond_input_a = cond_input.accessor<float, 3>();
-    auto output_a = output.accessor<float, 3>();
-    auto a_a = a.accessor<float, 3>();
-
-    // Process
-    for (int64_t b = 0; b < batch_size; b++)
-    {
-        model.processConditional(
-            &input_a[b][0][0],
-            &a_a[b][0][0],
-            &cond_input_a[b][0][0],
-            &output_a[b][0][0],
-            timesteps);
-    }
-    return {output};
-}
-
-void flush(int64_t timesteps)
-{
-    model.flush(timesteps);
-}
-
-
 
 private:
 

@@ -75,8 +75,11 @@ class GaussianDensity(Distribution):
         loss = loss + self.weight_entropy_penalty * self.batch_penalty.mean()
         return loss
 
-    def sample(self, params, use_extension=False):
+    def sample(self, params, use_extension=False, temperature=None):
         
+        if temperature is None:
+            temperature = self.temperature * torch.ones_like(params[:, 0:1, :])
+
         if params.size(1) != self.params_dim:
             raise ValueError(f'Expected params to have {self.params_dim} channels, got {params.size(1)}')
         if use_extension:
@@ -87,7 +90,7 @@ class GaussianDensity(Distribution):
             m = params[:, 0:1, :]
             log_s = params[:, 1:2, :]
             s = torch.exp(log_s)
-            x = m + s * torch.randn_like(m) * self.temperature 
+            x = m + s * torch.randn_like(m) * temperature 
 
         return x
 

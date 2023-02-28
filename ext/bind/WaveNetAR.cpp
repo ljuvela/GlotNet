@@ -24,9 +24,9 @@ std::vector<at::Tensor> forward(
     const std::vector<torch::Tensor> &output_weights,
     const std::vector<torch::Tensor> &output_biases,
     const std::vector<int> &dilations,
-    bool use_residual=true,
-    const std::string activation="gated",
-    float temperature=1.0
+    bool use_residual,
+    const std::string activation,
+    const torch::Tensor &temperature
     )
 {
     const int64_t batch_size = input.size(0);
@@ -39,13 +39,14 @@ std::vector<at::Tensor> forward(
     const int64_t output_channels = output_weights.back().size(0); 
     const int64_t cond_channels = 0;
 
+    auto temperature_a = temperature.accessor<float, 3>();
+
     // Instantiate model
     auto wavenet = WaveNetAR(input_channels, output_channels,
                              residual_channels, skip_channels, cond_channels,
                              filter_width, activation, dilations);
     wavenet.prepare();
     wavenet.setDistribution("gaussian");
-    wavenet.setSamplingTemperature(temperature);
 
     // Set parameters
     wavenet.setInputWeight(input_weight);
@@ -79,6 +80,7 @@ std::vector<at::Tensor> forward(
         wavenet.reset();
         wavenet.process(
             &input_a[b][0][0],
+            &temperature_a[b][0][0],
             &output_a[b][0][0],
             timesteps);
     }
@@ -100,9 +102,9 @@ std::vector<at::Tensor> cond_forward(
     const std::vector<torch::Tensor> &output_weights,
     const std::vector<torch::Tensor> &output_biases,
     const std::vector<int> &dilations,
-    bool use_residual=true,
-    const std::string activation="gated",
-    float temperature=1.0
+    bool use_residual,
+    const std::string activation,
+    const torch::Tensor &temperature
     )
 {
     const int64_t batch_size = cond_input.size(0);
@@ -123,7 +125,9 @@ std::vector<at::Tensor> cond_forward(
     // Set buffer size to match timesteps
     wavenet.prepare();
     wavenet.setDistribution("gaussian");
-    wavenet.setSamplingTemperature(temperature);
+    // wavenet.setSamplingTemperature(temperature);
+
+    auto temperature_a = temperature.accessor<float, 3>();
 
     // Set parameters
     wavenet.setInputWeight(input_weight);
@@ -161,6 +165,7 @@ std::vector<at::Tensor> cond_forward(
         wavenet.processConditional(
             &input_a[b][0][0],
             &cond_input_a[b][0][0],
+            &temperature_a[b][0][0],
             &output_a[b][0][0],
             timesteps);
     }

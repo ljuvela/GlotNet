@@ -8,16 +8,15 @@ namespace glotnet
 namespace distributions
 {
 
-GaussianDensity::GaussianDensity(float log_sigma_floor, float temperature)
+GaussianDensity::GaussianDensity(float log_sigma_floor)
     : log_sigma_floor(log_sigma_floor),
-    temperature(temperature),
     distribution(0.0f, 1.0f)
 {
 
 }
 
 
-void GaussianDensity::sample(const float * params, float * output, size_t timesteps)
+void GaussianDensity::sample(const float * params, float * output, size_t timesteps, const float * temperature)
 {
     for (size_t t = 0; t < timesteps; t++)
     {
@@ -26,7 +25,7 @@ void GaussianDensity::sample(const float * params, float * output, size_t timest
         const unsigned int clamp = log_s < log_sigma_floor;
         const float s = exp((1u-clamp) * log_s + clamp * log_sigma_floor);
         const float z = distribution(generator);
-        output[t] = m + s * z * temperature;
+        output[t] = m + s * z * temperature[t];
     }
 }
 

@@ -24,11 +24,19 @@ public:
               size_t lpc_order);
     void prepare();
     void flush(int64_t num_samples);
-    void process(const float *input_data, const float *a_data,
-                 float *const output_data, int total_samples);
-    void processConditional(const float *input_data, const float *a_data,
-                            const float *conditioning, float *const output_data,
-                            int total_samples);
+    void process(
+        const float *input_data,
+        const float *a_data,
+        const float *temperature,
+        float *const output_data,
+        int total_samples);
+    void processConditional(
+        const float *input_data,
+        const float *a_data,
+        const float *conditioning,
+        const float *temperature,
+        float *const output_data,
+        int total_samples);
 
     void setDistribution(std::string dist_name = "gaussian");
     void setSamplingTemperature(float temperature);

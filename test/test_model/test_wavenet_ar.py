@@ -23,8 +23,9 @@ def test_wavenet_ar_minimal():
     receptive_field = wavenet.receptive_field
 
     x = torch.zeros(batch, channels, timesteps + receptive_field)
-    y_ref = wavenet.forward(input=x)
-    y_ext = wavenet.inference(input=x)
+    temp = torch.randn(batch, 1, timesteps + receptive_field)
+    y_ref = wavenet.forward(input=x, temperature=temp)
+    y_ext = wavenet.inference(input=x, temperature=temp)
 
     y_ref = y_ref[..., receptive_field:]
     y_ext = y_ext[..., receptive_field:]
@@ -89,8 +90,9 @@ def test_wavenet_ar():
     receptive_field = wavenet.receptive_field
 
     x = torch.zeros(batch, channels, timesteps + receptive_field)
-    y_ref = wavenet.forward(input=x)
-    y_ext = wavenet.inference(input=x)
+    temp = torch.randn(batch, 1, timesteps + receptive_field)
+    y_ref = wavenet.forward(input=x, temperature=temp)
+    y_ext = wavenet.inference(input=x, temperature=temp)
     
     y_ref = y_ref[..., receptive_field:]
     y_ext = y_ext[..., receptive_field:]

@@ -20,7 +20,12 @@ void WaveNetAR::prepare()
     this->reset();
 }
 
-void WaveNetAR::process(const float * input_data, float * const output_data, int total_samples)
+void WaveNetAR::process(
+    const float *input_data,
+    const float *temperature,
+    float *const output_data,
+    int total_samples
+)
 {
     this->prepare();
     const int dist_channels = WaveNet::getOutputChannels();
@@ -37,7 +42,7 @@ void WaveNetAR::process(const float * input_data, float * const output_data, int
     for (int64_t t = 0; t < total_samples; t++)
     {
         WaveNet::process(x_prev_data, x_dist_data, 1u);
-        dist->sample(x_dist_data, x_curr_data, 1u);
+        dist->sample(x_dist_data, x_curr_data, 1u, &temperature[t]);
         for (size_t c = 0; c < channels; c++)
         {
             output_data[t * channels + c] = x_curr[c] + input_data[t * channels + c];
@@ -46,8 +51,12 @@ void WaveNetAR::process(const float * input_data, float * const output_data, int
     }
 }
 
-void WaveNetAR::processConditional(const float * input_data, const float *conditioning,
-                                   float *const output_data, int total_samples)
+void WaveNetAR::processConditional(
+    const float *input_data,
+    const float *conditioning,
+    const float *temperature,
+    float *const output_data,
+    int total_samples)
 {
     this->prepare();
     const int dist_channels = WaveNet::getOutputChannels();
@@ -67,9 +76,8 @@ void WaveNetAR::processConditional(const float * input_data, const float *condit
     // Timesteps 1:total_samples
     for (int64_t t = 0; t < total_samples; t++)
     {
-        // WaveNet::processConditional(x_prev_data, &conditioning[t * cond_channels], x_dist_data, 1u);
         WaveNet::processConditional(x_prev_data, cond.data(), x_dist_data, 1u);
-        dist->sample(x_dist_data, x_curr_data, 1u);
+        dist->sample(x_dist_data, x_curr_data, 1u, &temperature[t]);
         for (size_t c = 0; c < channels; c++)
         {
             output_data[t * channels + c] = x_curr[c] + input_data[t * channels + c];
@@ -83,14 +91,9 @@ void WaveNetAR::processConditional(const float * input_data, const float *condit
     }
 }
 
-
 void  WaveNetAR::setDistribution(std::string dist_name)
 {
     // TODO: implement other distributions
     dist = std::unique_ptr<Distribution>(new GaussianDensity());
 }
 
-void WaveNetAR::setSamplingTemperature(float temperature)
-{
-    dist->setTemperature(temperature);
-}

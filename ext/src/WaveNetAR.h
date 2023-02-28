@@ -21,8 +21,15 @@ public:
             size_t convolution_channels, size_t skip_channels, size_t cond_channels,
             size_t filter_width, std::string activation, std::vector<int> dilations);
     void prepare();
-    void process(const float *input_data, float *const output_data, int total_samples);
-    void processConditional(const float *input_data, const float *conditioning, float *const output_data, int total_samples);
+    void process(const float *input_data,
+                 const float *temperature,
+                 float *const output_data,
+                 int total_samples);
+    void processConditional(const float *input_data,
+                            const float *conditioning,
+                            const float *temperature,
+                            float *const output_data,
+                            int total_samples);
 
     void setDistribution(std::string dist_name = "gaussian");
     void setSamplingTemperature(float temperature);

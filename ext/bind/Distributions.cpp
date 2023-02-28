@@ -22,12 +22,13 @@ std::vector<at::Tensor> sample_gaussian(
     auto params_a  =  params.accessor<float, 3>();  // size (batch, time, 2)
     auto x_a = x.accessor<float, 3>(); // size (batch, time, 1)
 
-    auto dist = GaussianDensity(-7, temperature);
+    auto dist = GaussianDensity(-7.0);
+    float temp = 1.0f;
     for (int64_t b = 0; b < batch_size; b++)
     {
         dist.sample(&params_a[b][0][0],
                     &x_a[b][0][0],
-                    timesteps);
+                    timesteps, &temp);
     }
 
     return {x};

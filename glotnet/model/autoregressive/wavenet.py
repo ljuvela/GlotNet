@@ -4,6 +4,8 @@ from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity, Identity
 import glotnet.cpp_extensions as ext
 
+import torch.nn.functional as F
+
 
 class WaveNetAR(WaveNet):
     """ Autoregressive WaveNet """
@@ -53,16 +55,18 @@ class WaveNetAR(WaveNet):
             distribution = Identity()
         self.distribution = distribution
 
-    def set_temperature(self, temperature):
-        self.distribution.set_temperature(temperature)
+    def _pad(self, x: torch.Tensor = None):
 
-    @property
-    def temperature(self):
-        return self.distribution.temperature
+        if x is not None:
+            x = F.pad(x, (self.receptive_field, 0), mode='constant', value=0)
+        return x
 
 
-    def inference(self, input: torch.Tensor, cond_input: torch.Tensor = None,
-                timesteps: int = None):
+    def inference(self,
+                   input: torch.Tensor, 
+                   cond_input: torch.Tensor = None,
+                timesteps: int = None, 
+                temperature:torch.Tensor=None):
         """ 
         Args:
             input: shape (batch_size, channels, timesteps)
@@ -74,6 +78,9 @@ class WaveNetAR(WaveNet):
             output, torch.Tensor of shape (batch_size, output_channels, timesteps)
      
         """
+
+        batch_size, channels, timesteps = input.size()
+
         if cond_input is not None:
             assert cond_input.size(-1) == input.size(-1)
 
@@ -88,7 +95,8 @@ class WaveNetAR(WaveNet):
         if cond_input is not None and cond_input.device != torch.device('cpu'):
             raise RuntimeError(f"Cond input device must be cpu, got {cond_input.device}")
         
-        
+        if temperature is None:
+            temperature = torch.ones(batch_size, 1, timesteps, device=input.device)
         
         output = WaveNetARFunction.apply(
             input,
@@ -99,12 +107,16 @@ class WaveNetAR(WaveNet):
             self.input.conv.weight, self.input.conv.bias,
             self.output_weights, self.output_biases,
             self.dilations, self.use_residual, self.activation,
-            cond_input, self.temperature
+            temperature,
+            cond_input,
         )
         return output
 
-    def forward(self, input: torch.Tensor, cond_input: torch.Tensor = None,
-                timesteps: int = None):
+    def forward(self, 
+                input: torch.Tensor, 
+                cond_input: torch.Tensor = None,
+                timesteps: int = None, 
+                temperature=None):
         """ 
         Args:
             input: shape (batch_size, channels, timesteps)
@@ -132,6 +144,11 @@ class WaveNetAR(WaveNet):
         context = torch.zeros(batch_size, self.input_channels, self.receptive_field)
         output = torch.zeros(batch_size, self.input_channels, timesteps)
 
+        if temperature is None:
+            temperature = torch.ones(batch_size, 1, timesteps, device=input.device)
+        
+        temperature = self._pad(temperature)
+
         if cond_input is not None:
             cond_input = torch.cat([torch.zeros(batch_size, self.cond_channels, self.receptive_field), cond_input], dim=-1)
 
@@ -142,7 +159,7 @@ class WaveNetAR(WaveNet):
             else:
                 cond_context = cond_input[:, :, t:t + self.receptive_field]
             x = super().forward(input=context, cond_input=cond_context)
-            x = self.distribution.sample(x)
+            x = self.distribution.sample(x, temperature=temperature[:, :, t:t+self.receptive_field])
 
             e_t = input[:, :, t]
             x_t = x[:, :, -1] + e_t
@@ -164,8 +181,9 @@ class WaveNetARFunction(torch.autograd.Function):
                 input_weight: torch.Tensor, input_bias: torch.Tensor,
                 output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
                 dilations: List[int], use_residual: bool, activation: str,
+                temperature: torch.Tensor,
                 cond_input: torch.Tensor = None,
-                temperature: float = 1.0):
+           ):
 
         num_layers = len(dilations)
 
