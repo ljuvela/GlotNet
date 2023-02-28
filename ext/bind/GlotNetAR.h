@@ -61,20 +61,19 @@ void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
         model.setOutputWeight(output_weights[i], i);
         model.setOutputBias(output_biases[i], i);
     }
+    model.prepare();
+    model.setDistribution("gaussian");
 }
 
 std::vector<at::Tensor> forward(
     const torch::Tensor &input,
     const torch::Tensor &a,
-    bool use_residual=true,
     float temperature=1.0
     )
 {
     const int64_t batch_size = input.size(0);
     const int64_t timesteps = input.size(1);
 
-    model.prepare();
-    model.setDistribution("gaussian");
     model.setSamplingTemperature(temperature);
 
     auto output = torch::zeros({batch_size, timesteps, 1});
@@ -87,7 +86,6 @@ std::vector<at::Tensor> forward(
     // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
-        model.reset();
         model.process(
             &input_a[b][0][0],
             &a_a[b][0][0],
@@ -132,23 +130,21 @@ void setParametersConditional(
         model.setOutputWeight(output_weights[i], i);
         model.setOutputBias(output_biases[i], i);
     }
+
+    model.prepare();
+    model.setDistribution("gaussian");
 }
 
 std::vector<at::Tensor> cond_forward(
     const torch::Tensor &input,
     const torch::Tensor &a,
     const torch::Tensor &cond_input,
-    bool use_residual=true,
     float temperature=1.0
     )
 {
     const int64_t batch_size = cond_input.size(0);
     const int64_t timesteps = cond_input.size(1);
-    const int64_t cond_channels = cond_input.size(2);
 
-    // Set buffer size to match timesteps
-    model.prepare();
-    model.setDistribution("gaussian");
     model.setSamplingTemperature(temperature);
 
     auto output =  torch::zeros({batch_size, timesteps, 1});
@@ -162,7 +158,6 @@ std::vector<at::Tensor> cond_forward(
     // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
-        model.reset();
         model.processConditional(
             &input_a[b][0][0],
             &a_a[b][0][0],

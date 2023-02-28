@@ -143,7 +143,6 @@ class GlotNetAR(WaveNet):
             self.stack.weights_cond, self.stack.biases_cond,
             self.input.conv.weight, self.input.conv.bias,
             self.output_weights, self.output_biases,
-            self.dilations, self.use_residual, self.activation,
             cond_input, self.temperature, self.receptive_field
         )
         if padding:
@@ -263,12 +262,9 @@ class GlotNetARFunction(torch.autograd.Function):
                 stack_weights_cond: List[torch.Tensor], stack_biases_cond: List[torch.Tensor],
                 input_weight: torch.Tensor, input_bias: torch.Tensor,
                 output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
-                dilations: List[int], use_residual: bool, activation: str,
                 cond_input: torch.Tensor = None,
                 temperature: float = 1.0,
                 flush_samples: int = 0):
-
-        impl.flush(flush_samples)
 
         input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
         input = input.contiguous()
@@ -288,8 +284,9 @@ class GlotNetARFunction(torch.autograd.Function):
                 input_weight, input_bias,
                 output_weights, output_biases)
 
+            impl.flush(flush_samples)
             output, = impl.forward(
-                input, a, use_residual, temperature)
+                input, a, temperature)
         else:
             impl.set_parameters_conditional(
                 stack_weights_conv, stack_biases_conv,
@@ -299,9 +296,9 @@ class GlotNetARFunction(torch.autograd.Function):
                 input_weight, input_bias,
                 output_weights, output_biases)
 
+            impl.flush(flush_samples)
             output, = impl.cond_forward(
-                input, a, cond_input,
-                use_residual, temperature)
+                input, a, cond_input, temperature)
 
         output = output.permute(0, 2, 1) # (B, T, C) -> (B, C, T)
 
