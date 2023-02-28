@@ -52,6 +52,28 @@ def main(args):
     files = glob(os.path.join(input_dir, '*.wav'))
     if args.max_files is not None:
         files = files[:args.max_files]
+
+    #! Fix this later
+    config.dataset_train_filelist = None
+
+    dummy_dataset = AudioDataset(config,
+                        audio_dir="",
+                        file_list=[])
+
+    if config.model_type == 'wavenet':
+        trainer = TrainerWaveNet(config=config,
+                        dataset=dummy_dataset,
+                        device='cpu')
+    elif config.model_type == 'glotnet':
+        trainer = TrainerGlotNet(config=config,
+                        dataset=dummy_dataset,
+                        device='cpu')
+    else:
+        raise ValueError(f"Unknown model type {config.model_type}")
+    
+    # TODO: only load once
+    trainer.load(model_path=args.model)
+
     for f in files:
         config.segment_len = torchaudio.info(f).num_frames
         dataset = AudioDataset(config,
@@ -59,21 +81,7 @@ def main(args):
                                transforms=melspec,
                                file_list=[f])
     
-
-        if config.model_type == 'wavenet':
-            trainer = TrainerWaveNet(config=config,
-                          dataset=dataset,
-                          device='cpu')
-        elif config.model_type == 'glotnet':
-            trainer = TrainerGlotNet(config=config,
-                          dataset=dataset,
-                          device='cpu')
-        else:
-            raise ValueError(f"Unknown model type {config.model_type}")
-
-
-        # TODO: only load once
-        trainer.load(model_path=args.model)
+        trainer.set_dataset(dataset)
 
         x = trainer.generate(temperature=args.temperature)
 

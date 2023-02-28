@@ -62,12 +62,8 @@ class Trainer(torch.nn.Module):
 
         self.pre_emphasis = Emphasis(alpha=config.pre_emphasis).to(device)
 
-        self.data_loader = DataLoader(
-            self.dataset,
-            batch_size=config.batch_size,
-            shuffle=config.shuffle,
-            drop_last=True,
-            num_workers=config.dataloader_workers)
+        self.set_dataset(self.dataset)
+        
 
         self.writer = self.create_writer()
         self.iter_global = 0
@@ -279,7 +275,17 @@ class Trainer(torch.nn.Module):
                     stop = True
                     break
 
-
+    def set_dataset(self, dataset):
+        self.dataset = dataset
+        if len(self.dataset) == 0:
+            self.data_loader = None
+        else:
+            self.data_loader = DataLoader(
+                self.dataset,
+                batch_size=self.config.batch_size,
+                shuffle=self.config.shuffle,
+                drop_last=True,
+                num_workers=self.config.dataloader_workers)
 
     optimizers = {
         "adam": torch.optim.Adam
@@ -292,3 +298,4 @@ class Trainer(torch.nn.Module):
     schedulers = {
         "cyclic" : torch.optim.lr_scheduler.CyclicLR,
     }
+
