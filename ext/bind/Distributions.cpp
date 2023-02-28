@@ -23,12 +23,14 @@ std::vector<at::Tensor> sample_gaussian(
     auto x_a = x.accessor<float, 3>(); // size (batch, time, 1)
 
     auto dist = GaussianDensity(-7.0);
-    float temp = 1.0f;
+    auto temp_tensor = torch::ones({batch_size, timesteps, 1u}) * temperature;
+    auto temp_a = temp_tensor.accessor<float, 3>();
     for (int64_t b = 0; b < batch_size; b++)
     {
         dist.sample(&params_a[b][0][0],
                     &x_a[b][0][0],
-                    timesteps, &temp);
+                    timesteps, 
+                    &temp_a[b][0][0]);
     }
 
     return {x};

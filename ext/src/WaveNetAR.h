@@ -21,6 +21,7 @@ public:
             size_t convolution_channels, size_t skip_channels, size_t cond_channels,
             size_t filter_width, std::string activation, std::vector<int> dilations);
     void prepare();
+    void flush(int64_t num_samples);
     void process(const float *input_data,
                  const float *temperature,
                  float *const output_data,
@@ -38,7 +39,10 @@ private:
     std::vector<float> x_curr;
     std::vector<float> x_prev;
     std::vector<float> x_dist;
+    std::vector<float> input_buffer;
     std::unique_ptr<Distribution> dist;
+    const int64_t input_channels;
+    const int64_t output_channels;
 
 };
 

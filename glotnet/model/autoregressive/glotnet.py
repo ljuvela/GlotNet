@@ -54,12 +54,13 @@ class GlotNetAR(WaveNet):
         self.lpc_order = lpc_order
 
         cond_channels_int = 0 if cond_channels is None else cond_channels
-
-        self._impl = ext.GlotNetAR(input_channels, output_channels,
-                                   residual_channels, skip_channels,
-                                   cond_channels_int, kernel_size,
-                                   activation, dilations,
-                                   lpc_order)
+        self._impl = ext.GlotNetAR(
+            input_channels, output_channels,
+            residual_channels, skip_channels,
+            cond_channels_int, kernel_size,
+            activation, dilations,
+            lpc_order
+        )
             
         self._validate_distribution(distribution)
 
@@ -70,7 +71,6 @@ class GlotNetAR(WaveNet):
         self.distribution = distribution
 
     def _pad(self, x: torch.Tensor = None):
-
         if x is not None:
             x = F.pad(x, (self.receptive_field, 0), mode='constant', value=0)
         return x
@@ -199,9 +199,6 @@ class GlotNetAR(WaveNet):
             cond_input = self._pad(cond_input)
             temperature = self._pad(temperature)
 
-        # a = torch.zeros_like(a)
-        # a[:, 0, :] = 1.0
-
         num_frames = a.size(2)
 
         batch_size = input.size(0)
@@ -226,7 +223,8 @@ class GlotNetAR(WaveNet):
                 cond_context = cond_input[:, :, t:t + self.receptive_field]
 
             e_t_params = super().forward(input=context, cond_input=cond_context)
-            e_t = self.distribution.sample(e_t_params, temperature=temperature[..., t:t+1])
+            e_t = self.distribution.sample(
+                e_t_params[..., -1:], temperature=temperature[..., t:t+1])
             e_curr = e_t[:, :, -1]
 
             # external excitation
@@ -275,7 +273,8 @@ class GlotNetARFunction(torch.autograd.Function):
                 output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
                 temperature: torch.Tensor,
                 cond_input: torch.Tensor = None,
-                flush_samples: int = 0):
+                flush_samples: int = 0
+                ):
 
         input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
         input = input.contiguous()

@@ -7,6 +7,8 @@ WaveNetAR::WaveNetAR(size_t input_channels, size_t output_channels,
     : WaveNet(input_channels, output_channels,
               convolution_channels, skip_channels, cond_channels,
               filter_width, activation, dilations),
+      input_channels(input_channels),
+      output_channels(output_channels),
       dist(std::unique_ptr<Distribution>(new GaussianDensity()))
 {
 }
@@ -16,8 +18,22 @@ void WaveNetAR::prepare()
     WaveNet::prepare(1);
     x_curr.resize(1u * WaveNet::getInputChannels());
     x_prev.resize(1u * WaveNet::getInputChannels());
-    x_dist.resize(1u * WaveNet::getOutputChannels()); 
+    x_dist.resize(1u * WaveNet::getOutputChannels());
+    input_buffer.resize(input_channels);
     this->reset();
+}
+
+void WaveNetAR::flush(int64_t num_samples)
+{
+    std::cerr << "flushing " << num_samples << " samples" << std::endl;
+    this->prepare();
+    float * const input_buffer_data = input_buffer.data();
+    float * const x_dist_data = x_dist.data();
+    std::fill(input_buffer.begin(), input_buffer.end(), 0.0f);
+    for (int64_t t = 0; t < num_samples; t++)
+    {
+        WaveNet::process(input_buffer_data, x_dist_data, 1u);
+    }
 }
 
 void WaveNetAR::process(

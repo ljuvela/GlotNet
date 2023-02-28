@@ -22,9 +22,8 @@ pybind11_add_module(${python_module_name} MODULE
     ext/bind/ConvolutionLayer.cpp
     ext/bind/ConvolutionStack.cpp
     ext/bind/Distributions.cpp
-    # ext/bind/LFilter.cpp
     ext/bind/WaveNet.cpp
-    ext/bind/WaveNetAR.cpp
+    # ext/bind/WaveNetAR.cpp
     ext/src/Activations.cpp
     ext/src/Distributions.cpp
     ext/src/Convolution.cpp

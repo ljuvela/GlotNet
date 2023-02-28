@@ -35,7 +35,6 @@ void GlotNetAR::flush(int64_t num_samples)
     {
         WaveNet::process(input_buffer_data, x_dist_data, 1u);
     }
-
 }
 
 void GlotNetAR::process(const float *input_data,
