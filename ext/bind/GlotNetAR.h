@@ -16,7 +16,7 @@ public:
     GlotNetAR(size_t input_channels, size_t output_channels,
               size_t convolution_channels, size_t skip_channels, size_t cond_channels,
               size_t filter_width, std::string activation, std::vector<int> dilations, 
-              size_t lpc_order)
+              size_t lpc_order, bool sample_after_filtering)
         : input_channels(input_channels),
           output_channels(output_channels),
           convolution_channels(convolution_channels),
@@ -28,7 +28,7 @@ public:
           lpc_order(lpc_order),
           model(input_channels, output_channels,
                 convolution_channels, skip_channels, cond_channels,
-                filter_width, activation, dilations, lpc_order)
+                filter_width, activation, dilations, lpc_order, sample_after_filtering)
     {
     }
 
@@ -211,7 +211,8 @@ void init_glotnet_ar(py::module &m)
             int,              // filter_width
             std::string,      // activation
             std::vector<int>, // dilations
-            int               // lpc_order
+            int,              // lpc_order
+            bool              // sample_after_filtering
             >())
         .def("forward", &glotnet::binding::GlotNetAR::forward)
         .def("cond_forward", &glotnet::binding::GlotNetAR::cond_forward)

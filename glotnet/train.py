@@ -52,7 +52,7 @@ def main(args):
         trainer.save(
             model_path=os.path.join(trainer.writer.log_dir, 'model-latest.pt'),
             optim_path=os.path.join(trainer.writer.log_dir, 'optim-latest.pt'))
-        x = trainer.generate(temperature=1.0)
+        x = trainer.generate()
         trainer.writer.add_audio("generated audio_temp_1.0",
                                  x[:, 0, :],
                                  global_step=trainer.iter_global,

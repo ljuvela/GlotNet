@@ -7,10 +7,8 @@ import torchaudio
 from torch.utils.data import TensorDataset
 from glotnet.data.audio_dataset import AudioDataset
 
-
 from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
 from glotnet.config import Config
-
 
 # pytest fixture for temporary directory
 @pytest.fixture
@@ -97,6 +95,74 @@ def test_trainer_generate_condnet(tempdir):
                     pre_emphasis=0.85,
                     input_channels=3,
                     use_condnet=True)
+
+    # data
+    f0 = 200
+    fs =  config.sample_rate
+    seg_len = config.batch_size * config.segment_len
+    t = torch.linspace(0, seg_len, seg_len) / fs
+    x = torch.sin(2 * torch.pi * f0 * t)
+    x = x.unsqueeze(0)
+
+    config.log_dir = tempdir
+    config.dataset_audio_dir = tempdir
+    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+                    x, sample_rate=config.sample_rate)
+
+    config.cond_channels = 20
+    config.n_mels = 20
+    config.dataset_compute_mel = True
+
+    trainer = TrainerGlotNet(config=config)
+
+    x = trainer.generate()
+
+
+
+def test_trainer_condnet_sample_after_filtering(tempdir):
+
+    config = Config(batch_size=4,
+                    learning_rate=1e-5,
+                    pre_emphasis=0.85,
+                    input_channels=3,
+                    use_condnet=True,
+                    glotnet_sample_after_filtering=True)
+
+    # data
+    f0 = 200
+    fs =  config.sample_rate
+    seg_len = config.batch_size * config.segment_len
+    t = torch.linspace(0, seg_len, seg_len) / fs
+    x = torch.sin(2 * torch.pi * f0 * t)
+    x = x.unsqueeze(0)
+
+    config.log_dir = tempdir
+    config.dataset_audio_dir = tempdir
+    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+                    x, sample_rate=config.sample_rate)
+
+    config.cond_channels = 20
+    config.n_mels = 20
+    config.dataset_compute_mel = True
+
+    trainer = TrainerGlotNet(config=config)
+
+    trainer.fit(num_iters=1)
+    loss_1 = trainer.batch_loss
+    trainer.fit(num_iters=1)
+    loss_2 = trainer.batch_loss
+
+    assert loss_2 < loss_1, \
+        "Training must decrease loss function value"
+
+def test_trainer_generate_condnet_sample_after_filtering(tempdir):
+
+    config = Config(batch_size=4,
+                    learning_rate=1e-5,
+                    pre_emphasis=0.85,
+                    input_channels=3,
+                    use_condnet=True,
+                    glotnet_sample_after_filtering=True)
 
     # data
     f0 = 200

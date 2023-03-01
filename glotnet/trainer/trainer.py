@@ -121,6 +121,10 @@ class Trainer(torch.nn.Module):
     def _temperature_from_voicing(
             self, c, temperature_voiced:float=0.7, temperature_unvoiced:float=1.0):
         """ Simple voicing decision based on upper and lower band energies """
+
+        if temperature_voiced is None:
+            return None
+
         if self.dataset.use_scaler:
             c_denorm = c * self.dataset.scaler_s + self.dataset.scaler_m
         else:
