@@ -35,17 +35,16 @@ void GlotNetAR::flush(int64_t num_samples)
     {
         WaveNet::process(input_buffer_data, x_dist_data, 1u);
     }
-
 }
 
-
-
-void GlotNetAR::process(const float * input_data, const float * a_data, float * const output_data, int total_samples)
+void GlotNetAR::process(const float *input_data,
+                        const float *a_data,
+                        const float *temperature,
+                        float *const output_data,
+                        int total_samples
+                     )
 {
     // a_data is the LPC coefficients, shape (total_samples, lpc_order+1)
-
-    std::cerr << "Processing Glotnet AR unconditional" << std::endl;
-
 
     this->prepare();
     const int dist_channels = WaveNet::getOutputChannels();
@@ -74,7 +73,7 @@ void GlotNetAR::process(const float * input_data, const float * a_data, float * 
             WaveNet::process(input_buffer_data, x_dist_data, 1u);
         }
 
-        dist->sample(x_dist_data, &e_curr, 1u);
+        dist->sample(x_dist_data, &e_curr, 1u, &temperature[t]);
 
         // get current prediction from input
         float p_curr = input_buffer[1];
@@ -111,11 +110,10 @@ void GlotNetAR::process(const float * input_data, const float * a_data, float * 
 void GlotNetAR::processConditional(const float *input_data,
                                    const float *a_data,
                                    const float *conditioning,
+                                   const float *temperature,
                                    float *const output_data,
                                    int total_samples)
 {
-
-    std::cerr << "Processing Glotnet AR conditional" << std::endl;
 
     this->prepare();
     const int dist_channels = WaveNet::getOutputChannels();
@@ -151,7 +149,7 @@ void GlotNetAR::processConditional(const float *input_data,
             WaveNet::processConditional(input_buffer_data, cond.data(), x_dist_data, 1u);
         }
 
-        dist->sample(x_dist_data, &e_curr, 1u);
+        dist->sample(x_dist_data, &e_curr, 1u, &temperature[t]);
 
         // get current prediction from input
         float p_curr = input_buffer[1];
@@ -195,9 +193,4 @@ void  GlotNetAR::setDistribution(std::string dist_name)
 {
     // TODO: implement other distributions
     dist = std::unique_ptr<Distribution>(new GaussianDensity());
-}
-
-void GlotNetAR::setSamplingTemperature(float temperature)
-{
-    dist->setTemperature(temperature);
 }

@@ -54,12 +54,13 @@ class GlotNetAR(WaveNet):
         self.lpc_order = lpc_order
 
         cond_channels_int = 0 if cond_channels is None else cond_channels
-
-        self._impl = ext.GlotNetAR(input_channels, output_channels,
-                                   residual_channels, skip_channels,
-                                   cond_channels_int, kernel_size,
-                                   activation, dilations,
-                                   lpc_order)
+        self._impl = ext.GlotNetAR(
+            input_channels, output_channels,
+            residual_channels, skip_channels,
+            cond_channels_int, kernel_size,
+            activation, dilations,
+            lpc_order
+        )
             
         self._validate_distribution(distribution)
 
@@ -69,17 +70,12 @@ class GlotNetAR(WaveNet):
             distribution = Identity()
         self.distribution = distribution
 
-    def set_temperature(self, temperature):
-        self.distribution.set_temperature(temperature)
+    def _pad(self, x: torch.Tensor = None):
+        if x is not None:
+            x = F.pad(x, (self.receptive_field, 0), mode='constant', value=0)
+        return x
 
-    @property
-    def temperature(self):
-        return self.distribution.temperature
-
-    def _pad(self, x, a, c):
-        # pad input
-        x = F.pad(x, (self.receptive_field, 0), mode='constant', value=0)
-
+    def _pad_filter(self, a):
         # pad filter poly
         # a = F.pad(a, (self.receptive_field, 0), mode='replicate')
 
@@ -87,16 +83,15 @@ class GlotNetAR(WaveNet):
         a = F.pad(a, (self.receptive_field, 0), mode='constant', value=0)
         a[:, 0, :self.receptive_field] = 1.0
 
-        if c is not None:
-            c = F.pad(c, (self.receptive_field, 0), mode='constant', value=0)
+        return a
 
-        return x, a, c
 
     def inference(self, 
                   input: torch.Tensor,
                   a: torch.Tensor,
                   cond_input: torch.Tensor = None,
-                  padding = True
+                  padding = True,
+                  temperature: torch.Tensor = None
               ):
         """ GlotNet forward pass, fast inference implementation
         
@@ -111,6 +106,8 @@ class GlotNetAR(WaveNet):
             output, torch.Tensor of shape (batch_size, output_channels, timesteps)
      
         """
+
+        batch_size, channels, timesteps = input.size()
 
         if cond_input is not None:
             assert cond_input.size(-1) == input.size(-1)
@@ -127,8 +124,14 @@ class GlotNetAR(WaveNet):
         # a = F.interpolate(a, size=(input.size(2)), mode='linear', align_corners=False)
         a = F.interpolate(a, size=(input.size(2)), mode='nearest')
 
+        if temperature is None:
+            temperature = torch.ones(batch_size, 1, timesteps, device=input.device, dtype=input.dtype)
+
         if padding:
-            input, a, cond_input = self._pad(input, a, cond_input)
+            input = self._pad(input)
+            a = self._pad_filter(a)
+            cond_input = self._pad(cond_input)
+            temperature = self._pad(temperature)
 
         if input.device != torch.device('cpu'):
             raise RuntimeError(f"Input tensor device must be cpu, got {input.device}")
@@ -143,7 +146,8 @@ class GlotNetAR(WaveNet):
             self.stack.weights_cond, self.stack.biases_cond,
             self.input.conv.weight, self.input.conv.bias,
             self.output_weights, self.output_biases,
-            cond_input, self.temperature, self.receptive_field
+            temperature,
+            cond_input, self.receptive_field
         )
         if padding:
             output = output[:, :, self.receptive_field:]
@@ -153,7 +157,8 @@ class GlotNetAR(WaveNet):
                 input: torch.Tensor,
                 a: torch.Tensor,
                 cond_input: torch.Tensor = None,
-                padding: bool = True
+                padding: bool = True,
+                temperature: torch.Tensor = None
               ):
         """ GlotNet forward pass, slow reference implementation
 
@@ -189,10 +194,10 @@ class GlotNetAR(WaveNet):
         a = F.interpolate(a, size=(input.size(2)), mode='nearest')
 
         if padding:
-            input, a, cond_input = self._pad(input, a, cond_input)
-
-        # a = torch.zeros_like(a)
-        # a[:, 0, :] = 1.0
+            input = self._pad(input)
+            a = self._pad_filter(a)
+            cond_input = self._pad(cond_input)
+            temperature = self._pad(temperature)
 
         num_frames = a.size(2)
 
@@ -202,6 +207,9 @@ class GlotNetAR(WaveNet):
 
         context = torch.zeros(batch_size, self.input_channels, self.receptive_field)
         output = torch.zeros(batch_size, 1, timesteps)
+
+        if temperature is None:
+            temperature = torch.ones(batch_size, 1, timesteps, device=input.device, dtype=input.dtype)
 
         # zero pad conditioning input
         if cond_input is not None:
@@ -215,7 +223,8 @@ class GlotNetAR(WaveNet):
                 cond_context = cond_input[:, :, t:t + self.receptive_field]
 
             e_t_params = super().forward(input=context, cond_input=cond_context)
-            e_t = self.distribution.sample(e_t_params)
+            e_t = self.distribution.sample(
+                e_t_params[..., -1:], temperature=temperature[..., t:t+1])
             e_curr = e_t[:, :, -1]
 
             # external excitation
@@ -262,9 +271,10 @@ class GlotNetARFunction(torch.autograd.Function):
                 stack_weights_cond: List[torch.Tensor], stack_biases_cond: List[torch.Tensor],
                 input_weight: torch.Tensor, input_bias: torch.Tensor,
                 output_weights: List[torch.Tensor], output_biases: List[torch.Tensor],
+                temperature: torch.Tensor,
                 cond_input: torch.Tensor = None,
-                temperature: float = 1.0,
-                flush_samples: int = 0):
+                flush_samples: int = 0
+                ):
 
         input = input.permute(0, 2, 1) # (B, C, T) -> (B, T, C)
         input = input.contiguous()
