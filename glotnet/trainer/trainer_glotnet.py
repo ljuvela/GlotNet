@@ -125,11 +125,28 @@ class Trainer(torch.nn.Module):
             cond_net=cond_net)
         return model
 
-    def generate(self, temperature: float = 1.0):
+    def _temperature_from_voicing(
+            self, c, temperature_voiced:float=0.7, temperature_unvoiced:float=1.0):
+        """ Simple voicing decision based on upper and lower band energies """
+        if self.dataset.use_scaler:
+            c_denorm = c * self.dataset.scaler_s + self.dataset.scaler_m
+        else:
+            c_denorm = c
+        c_l, c_h = torch.chunk(c_denorm, dim=1, chunks=2)
+        c_l = c_l.exp().sum(dim=1,keepdim=True)
+        c_h = c_h.exp().sum(dim=1,keepdim=True)
+        voiced = c_l > 1.1 * c_h 
+        temperature = temperature_voiced * voiced + temperature_unvoiced * ~voiced
+        return temperature
+
+    def generate(self, 
+                 temperature_voiced: torch.Tensor = None,
+                 temperature_unvoiced: torch.Tensor = None
+                 ):
         """ Generate samples in autoregressive inference mode
         
         Args: 
-            temperature: scaling factor for sampling noise
+            temperature_voiced: scaling factor for sampling noise in voiced regions
         """
         minibatch = self.dataset.__getitem__(0)
         x, c = self._unpack_minibatch(minibatch)
@@ -142,6 +159,8 @@ class Trainer(torch.nn.Module):
             c = torch.nn.functional.interpolate(
                         input=c, size=x.size(-1), mode='linear')
             c = c.to('cpu')
+
+        temperature = self._temperature_from_voicing(c, temperature_voiced, temperature_unvoiced)
 
         cfg = self.config
         cond_net = self.model.cond_net
@@ -167,12 +186,14 @@ class Trainer(torch.nn.Module):
         model_ar = self.model_ar
 
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
-        model_ar.distribution.set_temperature(temperature)
 
         x_emph = self.model_ar.pre_emphasis.emphasis(x)
         a = self.lpc.estimate(x_emph[:, 0, :])
 
-        output = model_ar.inference(input=torch.zeros_like(x), a=a, cond_input=c)
+        output = model_ar.inference(
+            input=torch.zeros_like(x),
+            a=a, cond_input=c,
+            temperature=temperature)
         output = output[:, :, model_ar.receptive_field:] # remove padding
 
         norm = output.abs().max()

@@ -26,8 +26,10 @@ def parse_args():
                         help="Output audio file directory")
     parser.add_argument('--max_files', default=None, type=int,
                         help="Maximum number of files to process")
-    parser.add_argument('--temperature', default=1.0, type=float,
-                        help="Temperature for sampling")
+    parser.add_argument('--temperature_voiced', default=1.0, type=float,
+                        help="Temperature for sampling in voiced regions")
+    parser.add_argument('--temperature_unvoiced', default=1.0, type=float,
+                        help="Temperature for sampling in unvoiced regions")
     return parser.parse_args()
 
 def main(args):
@@ -36,26 +38,13 @@ def main(args):
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    melspec = LogMelSpectrogram(
-        sample_rate=config.sample_rate,
-        n_fft=config.n_fft,
-        win_length=config.win_length,
-        hop_length=config.hop_length,
-        f_min=config.mel_fmin,
-        f_max=config.mel_fmax,
-        n_mels=config.n_mels,
-    )
-
-    # TODO: instantiate trainer here, load weights
-
     input_dir = args.input_dir
     files = glob(os.path.join(input_dir, '*.wav'))
     if args.max_files is not None:
         files = files[:args.max_files]
 
-    #! Fix this later
+    # TODO: refactor dummy dataset out
     config.dataset_train_filelist = None
-
     dummy_dataset = AudioDataset(config,
                         audio_dir="",
                         file_list=[])
@@ -71,8 +60,17 @@ def main(args):
     else:
         raise ValueError(f"Unknown model type {config.model_type}")
     
-    # TODO: only load once
     trainer.load(model_path=args.model)
+
+    melspec = LogMelSpectrogram(
+        sample_rate=config.sample_rate,
+        n_fft=config.n_fft,
+        win_length=config.win_length,
+        hop_length=config.hop_length,
+        f_min=config.mel_fmin,
+        f_max=config.mel_fmax,
+        n_mels=config.n_mels,
+    )
 
     for f in files:
         config.segment_len = torchaudio.info(f).num_frames
@@ -83,7 +81,9 @@ def main(args):
     
         trainer.set_dataset(dataset)
 
-        x = trainer.generate(temperature=args.temperature)
+        x = trainer.generate(
+            temperature_voiced=args.temperature_voiced,
+            temperature_unvoiced=args.temperature_unvoiced)
 
         bname = os.path.basename(f)
         outfile = os.path.join(args.output_dir, bname)
@@ -91,7 +91,6 @@ def main(args):
         torchaudio.save(outfile, x[0], sample_rate=config.sample_rate,
                         bits_per_sample=16 ,encoding='PCM_S')
 
-        # TODO: validation
 
 
 if __name__ == "__main__":
