@@ -2,40 +2,45 @@
 #include <vector>
 #include <iostream>
 
-#include "../src/GlotNetAR.h"
+#include "../src/WaveNetAR.h"
 
 namespace glotnet
 {
 namespace binding
 {
 
-class GlotNetAR
+class WaveNetAR
 {
 
 public:
-    GlotNetAR(size_t input_channels, size_t output_channels,
-              size_t convolution_channels, size_t skip_channels, size_t cond_channels,
-              size_t filter_width, std::string activation, std::vector<int> dilations, 
-              size_t lpc_order)
+
+    WaveNetAR(size_t input_channels, size_t output_channels,
+              size_t residual_channels, size_t skip_channels, size_t cond_channels,
+              size_t filter_width, std::string activation, std::vector<int> dilations)
         : input_channels(input_channels),
           output_channels(output_channels),
-          convolution_channels(convolution_channels),
+          residual_channels(residual_channels),
           skip_channels(skip_channels),
           cond_channels(cond_channels),
           filter_width(filter_width),
           activation(activation),
           dilations(dilations),
-          lpc_order(lpc_order),
           model(input_channels, output_channels,
-                convolution_channels, skip_channels, cond_channels,
-                filter_width, activation, dilations, lpc_order)
+                residual_channels, skip_channels, cond_channels,
+                filter_width, activation, dilations)
     {
     }
 
 
+
+void flush(int64_t timesteps)
+{
+    model.flush(timesteps);
+}
+
+
 std::vector<at::Tensor> forward(
     const torch::Tensor &input,
-    const torch::Tensor &a,
     const torch::Tensor &temperature
     )
 {
@@ -44,20 +49,17 @@ std::vector<at::Tensor> forward(
 
     auto temperature_a = temperature.accessor<float, 3>();  
 
-
     auto output = torch::zeros({batch_size, timesteps, 1});
 
     // Accessors
     const auto input_a = input.accessor<float, 3>();
     auto output_a = output.accessor<float, 3>();
-    auto a_a = a.accessor<float, 3>();
 
     // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
         model.process(
             &input_a[b][0][0],
-            &a_a[b][0][0],
             &temperature_a[b][0][0],
             &output_a[b][0][0],
             timesteps);
@@ -68,14 +70,12 @@ std::vector<at::Tensor> forward(
 
 std::vector<at::Tensor> cond_forward(
     const torch::Tensor &input,
-    const torch::Tensor &a,
     const torch::Tensor &cond_input,
     const torch::Tensor &temperature
     )
 {
     const int64_t batch_size = cond_input.size(0);
     const int64_t timesteps = cond_input.size(1);
-
 
     auto temperature_a = temperature.accessor<float, 3>();  
 
@@ -85,14 +85,12 @@ std::vector<at::Tensor> cond_forward(
     const auto input_a = input.accessor<float, 3>();
     const auto cond_input_a = cond_input.accessor<float, 3>();
     auto output_a = output.accessor<float, 3>();
-    auto a_a = a.accessor<float, 3>();
 
     // Process
     for (int64_t b = 0; b < batch_size; b++)
     {
         model.processConditional(
             &input_a[b][0][0],
-            &a_a[b][0][0],
             &cond_input_a[b][0][0],
             &temperature_a[b][0][0],
             &output_a[b][0][0],
@@ -101,10 +99,7 @@ std::vector<at::Tensor> cond_forward(
     return {output};
 }
 
-void flush(int64_t timesteps)
-{
-    model.flush(timesteps);
-}
+
 
 
 void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
@@ -183,25 +178,23 @@ void setParametersConditional(
 private:
     const int64_t input_channels;
     const int64_t output_channels;
-    const int64_t convolution_channels;
+    const int64_t residual_channels;
     const int64_t skip_channels;
     const int64_t cond_channels;
     const int64_t filter_width;
-    const int64_t lpc_order;
     const std::string activation;
     const std::vector<int> dilations;
-    glotnet::GlotNetAR model;
-
+    glotnet::WaveNetAR model;
 
 };
+
 
 } // namespace binding
 } // namespace glotnet
 
-void init_glotnet_ar(py::module &m)
+void init_wavenet_ar(py::module &m)
 {
-
-    py::class_<glotnet::binding::GlotNetAR>(m, "GlotNetAR")
+    py::class_<glotnet::binding::WaveNetAR>(m, "WaveNetAR")
         .def(py::init<
             int,              // input_channels
             int,              // output_channels
@@ -210,12 +203,12 @@ void init_glotnet_ar(py::module &m)
             int,              // cond_channels
             int,              // filter_width
             std::string,      // activation
-            std::vector<int>, // dilations
-            int               // lpc_order
+            std::vector<int> // dilations
             >())
-        .def("forward", &glotnet::binding::GlotNetAR::forward)
-        .def("cond_forward", &glotnet::binding::GlotNetAR::cond_forward)
-        .def("flush", &glotnet::binding::GlotNetAR::flush)
-        .def("set_parameters", &glotnet::binding::GlotNetAR::setParameters)
-        .def("set_parameters_conditional", &glotnet::binding::GlotNetAR::setParametersConditional);
+        .def("forward", &glotnet::binding::WaveNetAR::forward)
+        .def("cond_forward", &glotnet::binding::WaveNetAR::cond_forward)
+        .def("flush", &glotnet::binding::WaveNetAR::flush)
+        .def("set_parameters", &glotnet::binding::WaveNetAR::setParameters)
+        .def("set_parameters_conditional", &glotnet::binding::WaveNetAR::setParametersConditional);
+
 }

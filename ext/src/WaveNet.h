@@ -12,7 +12,10 @@ public:
             size_t filter_width, std::string activation, std::vector<int> dilations);
     void prepare(int block_size);
     void process(const float *inputData, float *outputData, int total_samples);
-    void processConditional(const float *inputData, const float *conditioning, float *outputData, int total_samples);
+    void processConditional(const float *inputData,
+                            const float *conditioning,
+                            float *outputData,
+                            int total_samples);
     void reset();
     void setStackConvolutionWeight(const torch::Tensor &W, int layerIdx);
     void setStackConvolutionBias(const torch::Tensor &b, int layerIdx);
