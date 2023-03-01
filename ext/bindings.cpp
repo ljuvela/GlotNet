@@ -5,10 +5,10 @@ void init_activations(py::module&);
 void init_convolution_layer(py::module&);
 void init_convolution_stack(py::module&);
 void init_wavenet(py::module&);
-void init_wavenet_ar(py::module&);
 void init_distributions(py::module&);
 #include "bind/LFilter.h"
 #include "bind/GlotNetAR.h"
+#include "bind/WaveNetAR.h"
 
 PYBIND11_MODULE(cpp_extensions, m)
 {

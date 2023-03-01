@@ -26,11 +26,11 @@ pip install -r requirements.txt
 ### Build
 
 ```
-python setup.py develop -- -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-march=native -O3 -std=c++17"
+python setup.py develop -- -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O3 -std=c++17"
 ```
 
 ```
-python setup.py develop -- -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-march=native -O0 -g -std=c++17"
+python setup.py develop -- -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-O0 -g -std=c++17"
 ```
 
 Build and install
