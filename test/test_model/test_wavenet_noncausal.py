@@ -28,7 +28,7 @@ def test_wavenet_multichannel():
     batch = 4
     frames = 50
 
-    lar_target = torch.randn(batch, output_dim, frames)
+    features_target = torch.randn(batch, output_dim, frames)
     input = torch.randn(batch, input_dim, frames)
 
     model = WaveNet(
@@ -40,10 +40,10 @@ def test_wavenet_multichannel():
         dilations=[1, 2, 4, 8, 16, 32],
         causal=False)
 
-    lar = model(input)
+    features = model(input)
 
-    assert lar.shape == lar_target.shape, \
-        f"Expected shape {lar_target.shape}, got {lar.shape}"
+    assert features.shape == features_target.shape, \
+        f"Expected shape {features_target.shape}, got {features.shape}"
     
 
 if __name__ == "__main__":
