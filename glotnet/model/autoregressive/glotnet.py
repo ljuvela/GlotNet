@@ -25,6 +25,7 @@ class GlotNetAR(WaveNet):
             hop_length:int=256,
             lpc_order:int=10,
             cond_net: torch.nn.Module = None,
+            sample_after_filtering : bool = False,
             ):
         """
            Args:
@@ -52,6 +53,7 @@ class GlotNetAR(WaveNet):
 
         self.hop_length = hop_length
         self.lpc_order = lpc_order
+        self.sample_after_filtering = sample_after_filtering
 
         cond_channels_int = 0 if cond_channels is None else cond_channels
         self._impl = ext.GlotNetAR(
@@ -59,7 +61,7 @@ class GlotNetAR(WaveNet):
             residual_channels, skip_channels,
             cond_channels_int, kernel_size,
             activation, dilations,
-            lpc_order
+            lpc_order, self.sample_after_filtering
         )
             
         self._validate_distribution(distribution)
@@ -222,18 +224,19 @@ class GlotNetAR(WaveNet):
             else:
                 cond_context = cond_input[:, :, t:t + self.receptive_field]
 
-            e_t_params = super().forward(input=context, cond_input=cond_context)
-            e_t = self.distribution.sample(
-                e_t_params[..., -1:], temperature=temperature[..., t:t+1])
-            e_curr = e_t[:, :, -1]
+            params = super().forward(input=context, cond_input=cond_context)
 
-            # external excitation
-            # z_t = input[:, :, t] # TODO: use external excitation
-
-            # update current sample based on excitation and prediction
             p_curr = context[:, 1:2, -1]
-            # x_curr = p_curr + e_t # TODO + z_t
-            x_curr = p_curr + e_curr
+
+            if self.sample_after_filtering:
+                params[:, 0:1, -1:] = p_curr + params[:, 0:1, -1:]
+                x_curr = self.distribution.sample(
+                    params[..., -1:], temperature=temperature[..., t:t+1])
+                e_curr = x_curr - p_curr
+            else:
+                e_curr = self.distribution.sample(
+                    params[..., -1:], temperature=temperature[..., t:t+1])
+                x_curr = p_curr + e_curr
 
             # update output 
             output[:, :, t] = x_curr

@@ -66,6 +66,8 @@ class Trainer(torch.nn.Module):
                                    win_length=config.win_length,
                                    order=config.lpc_order).to(device)
 
+        self.sample_after_filtering = config.glotnet_sample_after_filtering
+
         self.set_dataset(self.dataset)
 
         self.writer = self.create_writer()
@@ -128,6 +130,10 @@ class Trainer(torch.nn.Module):
     def _temperature_from_voicing(
             self, c, temperature_voiced:float=0.7, temperature_unvoiced:float=1.0):
         """ Simple voicing decision based on upper and lower band energies """
+
+        if temperature_voiced is None:
+            return None
+
         if self.dataset.use_scaler:
             c_denorm = c * self.dataset.scaler_s + self.dataset.scaler_m
         else:
@@ -181,7 +187,8 @@ class Trainer(torch.nn.Module):
                 cond_channels=wavenet_cond_channels,
                 lpc_order=cfg.lpc_order,
                 hop_length=cfg.hop_length,
-                cond_net=cond_net,)
+                cond_net=cond_net,
+                sample_after_filtering=self.sample_after_filtering)
             self.model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
         model_ar = self.model_ar
 
@@ -264,18 +271,19 @@ class Trainer(torch.nn.Module):
                 e_clean = self.lpc.inverse_filter(x, a)
 
                 # add noise to signal
-                x = x + 1e-3 * torch.randn_like(x)
+                x_noisy = x + (4.0 / 2 ** 16) * torch.randn_like(x)
+                x_clean = x
 
                 # get prediction signal
                 p = self.lpc.prediction(x, a)
 
                 # noisy error signal (residual)
-                e_noisy = x - p
+                e_noisy = x_noisy - p
 
                 e_curr = e_clean[:, :, 1:]
                 e_prev = e_noisy[:, :, :-1]
-
-                x_prev = x[:, :, :-1]
+                x_curr = x_clean[:, :, 1:]
+                x_prev = x_noisy[:, :, :-1]
                 p_curr = p[:, :, 1:]
 
                 input = torch.cat([e_prev, p_curr, x_prev], dim=1)
@@ -292,9 +300,13 @@ class Trainer(torch.nn.Module):
 
                 params = self.model(input, c)
 
-                # discard non-valid samples (padding)
-                loss = self.criterion(x=e_curr[..., self.config.padding:],
-                                      params=params[..., self.config.padding:])
+                if self.sample_after_filtering:
+                    params = params + p_curr
+                    loss = self.criterion(x=x_curr[..., self.config.padding:],
+                                        params=params[..., self.config.padding:])
+                else:
+                    loss = self.criterion(x=e_curr[..., self.config.padding:],
+                                        params=params[..., self.config.padding:])
                 loss.backward()
 
                 self.batch_loss = loss
