@@ -63,6 +63,8 @@ class Config:
 
     model_type: str = 'wavenet'
 
+    glotnet_sample_after_filtering: bool = False
+
     # Dataset properties
     dataset_audio_dir: str = None
     dataset_compute_mel: bool = False
