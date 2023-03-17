@@ -21,7 +21,7 @@ public:
               size_t convolution_channels, size_t skip_channels,
               size_t cond_channels, size_t filter_width,
               std::string activation, std::vector<int> dilations,
-              size_t lpc_order);
+              size_t lpc_order, bool sample_after_filtering);
     void prepare();
     void flush(int64_t num_samples);
     void process(
@@ -50,6 +50,8 @@ private:
     const int64_t lpc_order;
     const int64_t input_channels;
     const int64_t output_channels;
+
+    const bool sample_after_filtering;
 
 };
 

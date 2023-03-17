@@ -25,7 +25,6 @@ void WaveNetAR::prepare()
 
 void WaveNetAR::flush(int64_t num_samples)
 {
-    std::cerr << "flushing " << num_samples << " samples" << std::endl;
     this->prepare();
     float * const input_buffer_data = input_buffer.data();
     float * const x_dist_data = x_dist.data();

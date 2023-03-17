@@ -4,14 +4,15 @@
 GlotNetAR::GlotNetAR(size_t input_channels, size_t output_channels,
                      size_t convolution_channels, size_t skip_channels, size_t cond_channels,
                      size_t filter_width, std::string activation, std::vector<int> dilations,
-                     size_t lpc_order)
+                     size_t lpc_order, bool sample_after_filtering)
     : WaveNet(input_channels, output_channels,
               convolution_channels, skip_channels, cond_channels,
               filter_width, activation, dilations),
       dist(std::unique_ptr<Distribution>(new GaussianDensity())),
       lpc_order(lpc_order),
       input_channels(input_channels),
-      output_channels(output_channels)
+      output_channels(output_channels),
+      sample_after_filtering(sample_after_filtering)
 {
 }
 
@@ -59,27 +60,28 @@ void GlotNetAR::process(const float *input_data,
     // Timesteps 1:total_samples
     for (int64_t t = 0; t < total_samples; t++)
     {
-        float e_curr;
 
-        if (false)
-        {
-            // set distribution to white noise
-            x_dist[0] = 0.0f; // mean
-            x_dist[1] = 0.0f; // log variance
-        }
-        else
-        {
-            // get distribution from wavenet
-            WaveNet::process(input_buffer_data, x_dist_data, 1u);
-        }
-
-        dist->sample(x_dist_data, &e_curr, 1u, &temperature[t]);
+        // get distribution from wavenet
+        WaveNet::process(input_buffer_data, x_dist_data, 1u);
 
         // get current prediction from input
         float p_curr = input_buffer[1];
+        float x_curr;
+        float e_curr;
 
-        // compute current sample
-        float x_curr = e_curr + p_curr;
+        if (sample_after_filtering)
+        {
+            x_dist[0] += p_curr;
+            // sample from distribution
+            dist->sample(x_dist_data, &x_curr, 1u, &temperature[t]);
+            e_curr = x_curr - p_curr;
+        }
+        else
+        {
+            dist->sample(x_dist_data, &e_curr, 1u, &temperature[t]);
+            // compute current sample
+            x_curr = e_curr + p_curr;
+        }
 
         // Update signal buffer
         for (size_t i = lpc_order-1; i > 0; i--)
@@ -94,7 +96,6 @@ void GlotNetAR::process(const float *input_data,
         {
             const float a = a_data[t * (lpc_order+1) + (i+1)];
             p_next -=  a * x_buffer[i];
-
         }
 
         // Update input buffer

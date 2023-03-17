@@ -26,8 +26,10 @@ def parse_args():
                         help="Output audio file directory")
     parser.add_argument('--max_files', default=None, type=int,
                         help="Maximum number of files to process")
-    parser.add_argument('--temperature', default=1.0, type=float,
-                        help="Temperature for sampling")
+    parser.add_argument('--temperature_voiced', default=1.0, type=float,
+                        help="Temperature for sampling in voiced regions")
+    parser.add_argument('--temperature_unvoiced', default=1.0, type=float,
+                        help="Temperature for sampling in unvoiced regions")
     return parser.parse_args()
 
 def main(args):
@@ -35,6 +37,30 @@ def main(args):
     config = Config.from_json(args.config)
 
     os.makedirs(args.output_dir, exist_ok=True)
+
+    input_dir = args.input_dir
+    files = glob(os.path.join(input_dir, '*.wav'))
+    if args.max_files is not None:
+        files = files[:args.max_files]
+
+    # TODO: refactor dummy dataset out
+    config.dataset_train_filelist = None
+    dummy_dataset = AudioDataset(config,
+                        audio_dir="",
+                        file_list=[])
+
+    if config.model_type == 'wavenet':
+        trainer = TrainerWaveNet(config=config,
+                        dataset=dummy_dataset,
+                        device='cpu')
+    elif config.model_type == 'glotnet':
+        trainer = TrainerGlotNet(config=config,
+                        dataset=dummy_dataset,
+                        device='cpu')
+    else:
+        raise ValueError(f"Unknown model type {config.model_type}")
+    
+    trainer.load(model_path=args.model)
 
     melspec = LogMelSpectrogram(
         sample_rate=config.sample_rate,
@@ -46,12 +72,6 @@ def main(args):
         n_mels=config.n_mels,
     )
 
-    # TODO: instantiate trainer here, load weights
-
-    input_dir = args.input_dir
-    files = glob(os.path.join(input_dir, '*.wav'))
-    if args.max_files is not None:
-        files = files[:args.max_files]
     for f in files:
         config.segment_len = torchaudio.info(f).num_frames
         dataset = AudioDataset(config,
@@ -59,23 +79,11 @@ def main(args):
                                transforms=melspec,
                                file_list=[f])
     
+        trainer.set_dataset(dataset)
 
-        if config.model_type == 'wavenet':
-            trainer = TrainerWaveNet(config=config,
-                          dataset=dataset,
-                          device='cpu')
-        elif config.model_type == 'glotnet':
-            trainer = TrainerGlotNet(config=config,
-                          dataset=dataset,
-                          device='cpu')
-        else:
-            raise ValueError(f"Unknown model type {config.model_type}")
-
-
-        # TODO: only load once
-        trainer.load(model_path=args.model)
-
-        x = trainer.generate(temperature=args.temperature)
+        x = trainer.generate(
+            temperature_voiced=args.temperature_voiced,
+            temperature_unvoiced=args.temperature_unvoiced)
 
         bname = os.path.basename(f)
         outfile = os.path.join(args.output_dir, bname)
@@ -83,7 +91,6 @@ def main(args):
         torchaudio.save(outfile, x[0], sample_rate=config.sample_rate,
                         bits_per_sample=16 ,encoding='PCM_S')
 
-        # TODO: validation
 
 
 if __name__ == "__main__":
