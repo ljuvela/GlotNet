@@ -7,7 +7,7 @@ import torchaudio
 from torch.utils.data import TensorDataset
 from glotnet.data.audio_dataset import AudioDataset
 
-from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
+from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 from glotnet.config import Config
 
 # pytest fixture for temporary directory

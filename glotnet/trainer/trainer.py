@@ -136,6 +136,29 @@ class Trainer(torch.nn.Module):
         temperature = temperature_voiced * voiced + temperature_unvoiced * ~voiced
         return temperature
 
+    @property
+    def model_ar(self):
+        cfg = self.config
+        cond_net = self.model.cond_net
+        wavenet_cond_channels = cfg.cond_channels if cond_net is None else cond_net.output_channels
+        distribution = self.criterion
+        # TODO: teacher forcing and AR inference should be in the same model!
+        if not hasattr(self, '_model_ar'):
+            self._model_ar = WaveNetAR(
+                input_channels=cfg.input_channels,
+                output_channels=distribution.params_dim,
+                residual_channels=cfg.residual_channels,
+                skip_channels=cfg.skip_channels,
+                kernel_size=cfg.filter_width,
+                dilations=cfg.dilations,
+                causal=True,
+                activation=cfg.activation,
+                use_residual=cfg.use_residual,
+                cond_channels=wavenet_cond_channels,
+                cond_net=cond_net,)
+            self._model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
+        return self._model_ar
+
     def generate(self, 
                  temperature_voiced: torch.Tensor = None,
                  temperature_unvoiced: torch.Tensor = None
@@ -159,27 +182,7 @@ class Trainer(torch.nn.Module):
 
         temperature = self._temperature_from_voicing(c, temperature_voiced, temperature_unvoiced)
 
-        cfg = self.config
-        cond_net = self.model.cond_net
-        wavenet_cond_channels = cfg.cond_channels if cond_net is None else cond_net.output_channels
-        distribution = self.criterion
-        # TODO: teacher forcing and AR inference should be in the same model!
-        if not hasattr(self, 'model_ar'):
-            self.model_ar = WaveNetAR(
-                input_channels=cfg.input_channels,
-                output_channels=distribution.params_dim,
-                residual_channels=cfg.residual_channels,
-                skip_channels=cfg.skip_channels,
-                kernel_size=cfg.filter_width,
-                dilations=cfg.dilations,
-                causal=True,
-                activation=cfg.activation,
-                use_residual=cfg.use_residual,
-                cond_channels=wavenet_cond_channels,
-                cond_net=cond_net,)
-            self.model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
         model_ar = self.model_ar
-
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
 
         output = model_ar.inference(
@@ -187,7 +190,7 @@ class Trainer(torch.nn.Module):
             cond_input=c,
             temperature=temperature)
         output = output[:, :, model_ar.receptive_field:] # remove padding
-        output = self.model_ar.pre_emphasis.deemphasis(output)
+        output = model_ar.pre_emphasis.deemphasis(output)
         return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
@@ -299,6 +302,9 @@ class Trainer(torch.nn.Module):
                         and self.iter_global >= global_iter_max):
                     stop = True
                     break
+        
+    def validate(self):
+        
 
     def set_dataset(self, dataset):
         self.dataset = dataset
