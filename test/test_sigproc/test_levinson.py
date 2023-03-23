@@ -48,6 +48,20 @@ def test_spectrum_to_allpole():
     # check that spectrum is close to flat
     assert torch.allclose(H2, H, atol=1e-5, rtol=1e-4), \
         f'Results should match \n lev: {H2} \n ref: {H} '
+    
+
+def test_forward_levinson():
+
+
+    k = torch.tensor([0.1849, 0.6333, 0.1133, 0.8901])
+    a_ref = torch.tensor([1.0000,  0.1049, -0.0688, -0.1169, -0.8901])
+
+    # forward levinson
+    a = forward_levinson(k)
+
+    # check that all-pole is close to an impulse
+    assert torch.allclose(a, a_ref, atol=1e-3, rtol=1e-4), \
+        f'Results should match \n lev: {a} \n ref: {a_ref} '
 
 
 

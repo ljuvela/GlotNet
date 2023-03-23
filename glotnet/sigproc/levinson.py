@@ -24,28 +24,28 @@ def levinson(R, M, eps=1e-3):
     R[..., 0] = R[..., 0] + eps
 
     E = R[..., 0:1]
-    L = torch.cat([torch.ones_like(R[..., 0:1]),
+    A = torch.cat([torch.ones_like(R[..., 0:1]),
                    torch.zeros_like(R[..., 0:M])], dim=-1)
-    L_prev = L
+    A_prev = A
     for p in torch.arange(0, M):
-        K = torch.sum(L_prev[..., 0:p+1] * R[..., 1:p+2], dim=-1, keepdim=True) / E
+        K = torch.sum(A_prev[..., 0:p+1] * R[..., 1:p+2], dim=-1, keepdim=True) / E
         if K.abs().max() > 1.0:
             raise ValueError(f"Unstable filter, |K| was {K.abs().max()}")
         pad = torch.clamp(M-p-1, min=0)
         if p == 0:
-            L = torch.cat([-1.0*K,
+            A = torch.cat([-1.0*K,
                            torch.ones_like(R[..., 0:1]),
                            torch.zeros_like(R[..., 0:pad])], dim=-1)
         else:
-            L = torch.cat([-1.0*K,
-                           L_prev[..., 0:p] - 1.0*K *
-                           torch.flip(L_prev[..., 0:p], dims=[-1]),
+            A = torch.cat([-1.0*K,
+                           A_prev[..., 0:p] - 1.0*K *
+                           torch.flip(A_prev[..., 0:p], dims=[-1]),
                            torch.ones_like(R[..., 0:1]),
                            torch.zeros_like(R[..., 0:pad])], dim=-1)
-        L_prev = L
+        A_prev = A
         E = E * (1.0 - K ** 2)  # % order-p mean-square error
-    L = torch.flip(L, dims=[-1])  # flip zero delay to zero:th index
-    return L
+    A = torch.flip(A, dims=[-1])  # flip zero delay to zero:th index
+    return A
 
 
 def forward_levinson(K, M=None):
@@ -63,23 +63,19 @@ def forward_levinson(K, M=None):
     if M is None:
         M = K.size(-1)
 
-    L = torch.cat([torch.ones_like(K[..., 0:1]), torch.zeros_like(K[..., 0:M])], dim=-1)
-    L_prev = L 
-    for p in torch.arange(0, M):
-        pad = torch.clamp(M-p-1, min=0)
-        if p == 0:
-            L = torch.cat([-1.0*K[..., p:p+1],
-                           torch.ones_like(K[..., 0:1]),
-                           torch.zeros_like(K[..., 0:pad])], dim=-1)
-        else:
-            L = torch.cat([-1.0*K[..., p:p+1],
-                           L_prev[..., 0:p] - 1.0*K[..., p:p+1] * torch.flip(L_prev[..., 0:p], dims=[-1]), # should be complex conjugate, if complex vals are used
-                           torch.ones_like(K[..., 0:1]),
-                           torch.zeros_like(K[..., 0:pad])], dim=-1)
-        L_prev = L
+    A = -1.0*K[..., 0:1]
+    for p in torch.arange(1, M):
+        A = torch.cat([-1.0*K[..., p:p+1],
+                        A[..., 0:p] - 1.0*K[..., p:p+1] * torch.flip(A[..., 0:p], dims=[-1])], dim=-1)
 
-    L = torch.flip(L, dims=[-1]) # flip zero delay to zero:th index
-    return L
+    A = torch.cat([A, torch.ones_like(A[..., 0:1])], dim=-1)
+    A = torch.flip(A, dims=[-1]) # flip zero delay to zero:th index
+
+
+    return A
+
+
+
 
 
 def spectrum_to_allpole(spectrum:torch.Tensor, order:int, root_scale:float=1.0):
