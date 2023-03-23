@@ -303,8 +303,8 @@ class Trainer(torch.nn.Module):
                     stop = True
                     break
         
-    def validate(self):
-        
+    # def validate(self):
+
 
     def set_dataset(self, dataset):
         self.dataset = dataset
