@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass
 import json
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import torch
 
@@ -50,7 +50,9 @@ class Config:
     channels: int = 1
     segment_len: int = 8000
     padding: int = 0
+
     # acoustic features
+    # https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L180
     hop_length: int = 256
     win_length: int = 1024
     n_fft: int = 1024
@@ -66,21 +68,12 @@ class Config:
     glotnet_sample_after_filtering: bool = False
 
     # Dataset properties
-    dataset_audio_dir: str = None
+    dataset_audio_dir_training: str = None
+    dataset_filelist_training: Union[str, list] = None
+    dataset_audio_dir_validation: str = None
+    dataset_filelist_validation: Union[str, list] = None
     dataset_compute_mel: bool = False
-    dataset_scaler_file: str = None
-    dataset_train_filelist: str = None
-
-    # from https://github.com/pytorch/audio/blob/6b2b6c79ca029b4aa9bdb72d12ad061b144c2410/examples/pipeline_tacotron2/train.py#L180
-    # audio = parser.add_argument_group("audio parameters")
-    # audio.add_argument("--sample-rate", default=22050, type=int, help="Sampling rate")
-    # audio.add_argument("--n-fft", default=1024, type=int, help="Filter length for STFT")
-    # audio.add_argument("--hop-length", default=256, type=int, help="Hop (stride) length")
-    # audio.add_argument("--win-length", default=1024, type=int, help="Window length")
-    # audio.add_argument("--n-mels", default=80, type=int, help="")
-    # audio.add_argument("--mel-fmin", default=0.0, type=float, help="Minimum mel frequency")
-    # audio.add_argument("--mel-fmax", default=8000.0, type=float, help="Maximum mel frequency")
-
+    dataset_scaler_file: str = None # TODO: integrate scaler to model
 
     # summary writer 
     log_dir: str = None

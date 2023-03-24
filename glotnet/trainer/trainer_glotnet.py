@@ -5,7 +5,7 @@ from torch.utils.tensorboard import SummaryWriter
 from glotnet.config import Config
 
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
-
+from glotnet.data.audio_dataset import AudioDataset
 
 from glotnet.model.autoregressive.glotnet import GlotNetAR
 from glotnet.sigproc.lpc import LinearPredictor
@@ -22,10 +22,9 @@ class TrainerGlotNet(TrainerWaveNet):
 
     def __init__(self,
                  config: Config,
-                 dataset=None,
                  device: DeviceType = 'cpu'):
         """ Init GlotNet Trainer """
-        super().__init__(config=config, dataset=dataset, device=device)
+        super().__init__(config=config, device=device)
         
         if config.input_channels % 3 != 0:
             raise ValueError("Input channels must be divisible by 3")
@@ -58,19 +57,22 @@ class TrainerGlotNet(TrainerWaveNet):
                 hop_length=cfg.hop_length,
                 cond_net=cond_net,
                 sample_after_filtering=self.sample_after_filtering)
-            self._model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
         return self._model_ar
 
-    def generate(self, 
+    def generate(self,
+                 dataset: AudioDataset,
                  temperature_voiced: torch.Tensor = None,
                  temperature_unvoiced: torch.Tensor = None
                  ):
         """ Generate samples in autoregressive inference mode
         
-        Args: 
+        Args:
+            dataset: dataset to generate from (defaut: validation dataset)
+
             temperature_voiced: scaling factor for sampling noise in voiced regions
         """
-        minibatch = self.dataset.__getitem__(0)
+
+        minibatch = dataset.__getitem__(0)
         x, c = self._unpack_minibatch(minibatch)
         c = c.unsqueeze(0)
         if self.model.cond_net is not None:
@@ -86,7 +88,7 @@ class TrainerGlotNet(TrainerWaveNet):
 
         model_ar = self.model_ar
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
-        x_emph = model_ar.pre_emphasis.emphasis(x)
+        x_emph = self.pre_emphasis.emphasis(x)
         a = self.lpc.estimate(x_emph[:, 0, :])
 
         output = model_ar.inference(
@@ -106,7 +108,7 @@ class TrainerGlotNet(TrainerWaveNet):
         self.iter = 0
         stop = False
         while not stop:
-            for minibatch in self.data_loader:
+            for minibatch in self.data_loader_training:
                 x, c = self._unpack_minibatch(minibatch)
                 x_emph = self.pre_emphasis.emphasis(x)
 

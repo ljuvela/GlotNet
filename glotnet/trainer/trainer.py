@@ -13,17 +13,15 @@ from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
 
 
-from typing import Union
+from typing import Union, Tuple
 
 DeviceType = Union[str, torch.device]
-
 class Trainer(torch.nn.Module):
 
     optim : torch.optim.Optimizer
 
     def __init__(self,
                  config: Config,
-                 dataset=None,
                  device: DeviceType = 'cpu'):
         """ Init GlotNet Trainer """
         super().__init__()
@@ -39,31 +37,16 @@ class Trainer(torch.nn.Module):
 
         self.optim = self.create_optimizer()
 
-        if dataset is None:
-            if config.dataset_compute_mel:
-                config.cond_channels = config.n_mels
-                melspec = LogMelSpectrogram(
-                    sample_rate=config.sample_rate,
-                    n_fft=config.n_fft,
-                    win_length=config.win_length,
-                    hop_length=config.hop_length,
-                    f_min=config.mel_fmin,
-                    f_max=config.mel_fmax,
-                    n_mels=config.n_mels)
-            else:
-                melspec = None
-
-            self.dataset = AudioDataset(
-                config=config,
-                audio_dir=config.dataset_audio_dir,
-                transforms=melspec)
-        else:
-            self.dataset = dataset
-
         self.pre_emphasis = Emphasis(alpha=config.pre_emphasis).to(device)
+        self.dataset_training : AudioDataset = None
+        self.dataset_validation : AudioDataset = None
+        self._data_loader_training : DataLoader = None
+        self._data_loader_validation : DataLoader = None
 
-        self.set_dataset(self.dataset)
-        
+        if config.dataset_filelist_training is not None:
+            data_train, data_val = self.create_datasets()
+            self.set_training_dataset(data_train)
+            self.set_validation_dataset(data_val)
 
         self.writer = self.create_writer()
         self.iter_global = 0
@@ -125,8 +108,8 @@ class Trainer(torch.nn.Module):
         if temperature_voiced is None:
             return None
 
-        if self.dataset.use_scaler:
-            c_denorm = c * self.dataset.scaler_s + self.dataset.scaler_m
+        if self.dataset_training is not None and self.dataset_training.use_scaler:
+            c_denorm = c * self.dataset_training.scaler_s + self.dataset_training.scaler_m
         else:
             c_denorm = c
         c_l, c_h = torch.chunk(c_denorm, dim=1, chunks=2)
@@ -156,19 +139,21 @@ class Trainer(torch.nn.Module):
                 use_residual=cfg.use_residual,
                 cond_channels=wavenet_cond_channels,
                 cond_net=cond_net,)
-            self._model_ar.pre_emphasis = Emphasis(alpha=cfg.pre_emphasis)
         return self._model_ar
 
-    def generate(self, 
+    def generate(self,
+                 dataset: AudioDataset,
                  temperature_voiced: torch.Tensor = None,
                  temperature_unvoiced: torch.Tensor = None
                  ):
         """ Generate samples in autoregressive inference mode
         
-        Args: 
+        Args:
+            dataset: dataset to generate from (defaut: validation dataset)
             temperature: scaling factor for sampling noise
         """
-        minibatch = self.dataset.__getitem__(0)
+
+        minibatch = dataset.__getitem__(0)
         x, c = self._unpack_minibatch(minibatch)
         c = c.unsqueeze(0)
         if self.model.cond_net is not None:
@@ -190,7 +175,7 @@ class Trainer(torch.nn.Module):
             cond_input=c,
             temperature=temperature)
         output = output[:, :, model_ar.receptive_field:] # remove padding
-        output = model_ar.pre_emphasis.deemphasis(output)
+        output = self.pre_emphasis.deemphasis(output)
         return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
@@ -243,7 +228,7 @@ class Trainer(torch.nn.Module):
         self.iter = 0
         stop = False
         while not stop:
-            for minibatch in self.data_loader:
+            for minibatch in self.data_loader_training:
                 x, c = self._unpack_minibatch(minibatch)
                 x = self.pre_emphasis.emphasis(x)
                 x_curr = x[:, :, 1:]
@@ -304,19 +289,85 @@ class Trainer(torch.nn.Module):
                     break
         
     def validate(self):
-        
+        raise NotImplementedError("Validation not implemented yet")
 
-    def set_dataset(self, dataset):
-        self.dataset = dataset
-        if len(self.dataset) == 0:
-            self.data_loader = None
+    def create_datasets(self) -> Tuple[AudioDataset, AudioDataset]:
+        config = self.config
+        if config.dataset_compute_mel:
+            config.cond_channels = config.n_mels
+            melspec = LogMelSpectrogram(
+                sample_rate=config.sample_rate,
+                n_fft=config.n_fft,
+                win_length=config.win_length,
+                hop_length=config.hop_length,
+                f_min=config.mel_fmin,
+                f_max=config.mel_fmax,
+                n_mels=config.n_mels)
         else:
-            self.data_loader = DataLoader(
-                self.dataset,
+            melspec = None
+
+        filelist_train = AudioDataset.read_filelist(
+            audio_dir=config.dataset_audio_dir_training,
+            filelist=config.dataset_filelist_training)
+        dataset_training = AudioDataset(
+            config=config,
+            audio_dir=config.dataset_audio_dir_training,
+            file_list=filelist_train,
+            transforms=melspec)
+
+        if config.dataset_filelist_validation is None:
+            return dataset_training, None
+        filelist_val = AudioDataset.read_filelist(
+            audio_dir=config.dataset_audio_dir_validation,
+            filelist=config.dataset_filelist_validation)
+        dataset_validation = AudioDataset(
+            config=config,
+            audio_dir=config.dataset_audio_dir_validation,
+            file_list=filelist_val,
+            transforms=melspec)
+
+        return dataset_training, dataset_validation
+
+    @property
+    def data_loader_training(self):
+        if self._data_loader_training is None:
+            raise ValueError("No training data loader defined, call set_training_dataset() first")
+        return self._data_loader_training
+
+    def set_training_dataset(self, dataset: AudioDataset = None):
+        """ Set training dataset and create data loader """
+
+        self.dataset_training = dataset
+        if dataset is None:
+            self._data_loader_training = None
+        else:
+            self._data_loader_training = DataLoader(
+                self.dataset_training,
                 batch_size=self.config.batch_size,
                 shuffle=self.config.shuffle,
                 drop_last=True,
                 num_workers=self.config.dataloader_workers)
+
+    @property
+    def data_loader_validation(self):
+        if self._data_loader_validation is None:
+            raise ValueError("No training data loader defined, call set_training_dataset() first")
+        return self._data_loader_validation
+
+    def set_validation_dataset(self, dataset: AudioDataset = None):
+        """ Set validation dataset and create data loader """
+
+        self.dataset_validation = dataset
+        if dataset is None:
+            self._data_loader_validation = None
+        else:
+            self._data_loader_validation = DataLoader(
+                self.dataset_training,
+                batch_size=self.config.batch_size,
+                shuffle=self.config.shuffle,
+                drop_last=True,
+                num_workers=self.config.dataloader_workers)
+
 
     optimizers = {
         "adam": torch.optim.Adam

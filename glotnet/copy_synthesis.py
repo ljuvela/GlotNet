@@ -2,7 +2,7 @@ import argparse
 import os
 import torch
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
-from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
+from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 from glotnet.config import Config
 
 from glotnet.data.config import DataConfig
@@ -13,7 +13,7 @@ from glotnet.sigproc.melspec import LogMelSpectrogram
 from glob import glob
 import torchaudio
 
-def parse_args():
+def parse_args(args=None):
     parser = argparse.ArgumentParser(
         description="GlotNet copy synthesis script")
     parser.add_argument('--config', required=True, type=str,
@@ -30,7 +30,7 @@ def parse_args():
                         help="Temperature for sampling in voiced regions")
     parser.add_argument('--temperature_unvoiced', default=1.0, type=float,
                         help="Temperature for sampling in unvoiced regions")
-    return parser.parse_args()
+    return parser.parse_args(args=args)
 
 def main(args):
     
@@ -43,20 +43,14 @@ def main(args):
     if args.max_files is not None:
         files = files[:args.max_files]
 
-    # TODO: refactor dummy dataset out
-    config.dataset_train_filelist = None
-    dummy_dataset = AudioDataset(config,
-                        audio_dir="",
-                        file_list=[])
-
     if config.model_type == 'wavenet':
-        trainer = TrainerWaveNet(config=config,
-                        dataset=dummy_dataset,
-                        device='cpu')
+        trainer = TrainerWaveNet(
+            config=config,
+            device='cpu')
     elif config.model_type == 'glotnet':
-        trainer = TrainerGlotNet(config=config,
-                        dataset=dummy_dataset,
-                        device='cpu')
+        trainer = TrainerGlotNet(
+            config=config,
+            device='cpu')
     else:
         raise ValueError(f"Unknown model type {config.model_type}")
     
@@ -74,14 +68,14 @@ def main(args):
 
     for f in files:
         config.segment_len = torchaudio.info(f).num_frames
-        dataset = AudioDataset(config,
-                               audio_dir=input_dir,
-                               transforms=melspec,
-                               file_list=[f])
+        dataset = AudioDataset(
+            config,
+            audio_dir=input_dir,
+            transforms=melspec,
+            file_list=[f])
     
-        trainer.set_dataset(dataset)
-
         x = trainer.generate(
+            dataset=dataset,
             temperature_voiced=args.temperature_voiced,
             temperature_unvoiced=args.temperature_unvoiced)
 

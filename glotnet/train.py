@@ -2,7 +2,7 @@ import argparse
 import os
 import torch
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
-from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
+from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 from glotnet.config import Config
 
 
