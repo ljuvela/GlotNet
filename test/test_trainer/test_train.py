@@ -6,6 +6,7 @@ import torch
 import torchaudio
 from glotnet.config import Config
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
+from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 
 from glotnet.train import main as train_main
 from glotnet.train import parse_args
@@ -43,6 +44,51 @@ def test_train(tempdir, config):
     config.n_mels = 20
     config.dataset_compute_mel = True
     config.max_iters = 1
+
+    # save model to tempdir
+    trainer = TrainerWaveNet(config=config)
+    trainer.save(model_path=os.path.join(tempdir, "model.pt"))
+    config.to_json(os.path.join(tempdir, "config.json"))
+
+    args = parse_args(args=[
+        '--mel_cond', 'True',
+        '--config', os.path.join(tempdir, 'config.json'),
+        '--device', 'cpu',
+        ])
+    train_main(args)
+
+
+def test_train_glotnet(tempdir, config):
+
+    config.cond_channels = 20
+    config.n_mels = 20
+    config.dataset_compute_mel = True
+    config.max_iters = 1
+    config.input_channels = 3
+
+    # save model to tempdir
+    trainer = TrainerGlotNet(config=config)
+    trainer.save(model_path=os.path.join(tempdir, "model.pt"))
+    config.to_json(os.path.join(tempdir, "config.json"))
+
+    args = parse_args(args=[
+        '--mel_cond', 'True',
+        '--config', os.path.join(tempdir, 'config.json'),
+        '--device', 'cpu',
+        ])
+    train_main(args)
+
+
+
+def test_train_with_validation(tempdir, config):
+
+    config.cond_channels = 20
+    config.n_mels = 20
+    config.dataset_compute_mel = True
+    config.max_iters = 1
+
+    config.dataset_audio_dir_validation = tempdir
+    config.dataset_filelist_validation = config.dataset_filelist_training
 
     # save model to tempdir
     trainer = TrainerWaveNet(config=config)

@@ -17,8 +17,8 @@ def tempdir():
         yield tempdir
 
 
-def test_copy_synthesis(tempdir):
-
+@pytest.fixture
+def config(tempdir):
     config = Config(use_condnet=True)
 
     # data
@@ -30,9 +30,14 @@ def test_copy_synthesis(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ['sine.wav']
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
+
+    return config
+
+def test_copy_synthesis(tempdir, config):
 
     config.cond_channels = 20
     config.n_mels = 20

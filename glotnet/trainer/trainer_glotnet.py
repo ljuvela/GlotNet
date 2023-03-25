@@ -25,7 +25,9 @@ class TrainerGlotNet(TrainerWaveNet):
                  device: DeviceType = 'cpu'):
         """ Init GlotNet Trainer """
         super().__init__(config=config, device=device)
-        
+
+        config.model_type = 'glotnet'
+
         if config.input_channels % 3 != 0:
             raise ValueError("Input channels must be divisible by 3")
         self.sample_after_filtering = config.glotnet_sample_after_filtering
