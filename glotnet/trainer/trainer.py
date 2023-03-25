@@ -44,8 +44,11 @@ class Trainer(torch.nn.Module):
         self._data_loader_validation : DataLoader = None
 
         if config.dataset_filelist_training is not None:
-            data_train, data_val = self.create_datasets()
+            data_train = self.create_dataset_training()
             self.set_training_dataset(data_train)
+
+        if config.dataset_filelist_validation is not None:
+            data_val = self.create_dataset_validation()
             self.set_validation_dataset(data_val)
 
         self.writer = self.create_writer()
@@ -291,7 +294,7 @@ class Trainer(torch.nn.Module):
     def validate(self):
         raise NotImplementedError("Validation not implemented yet")
 
-    def create_datasets(self) -> Tuple[AudioDataset, AudioDataset]:
+    def create_dataset_training(self) -> AudioDataset:
         config = self.config
         if config.dataset_compute_mel:
             config.cond_channels = config.n_mels
@@ -306,27 +309,42 @@ class Trainer(torch.nn.Module):
         else:
             melspec = None
 
-        filelist_train = AudioDataset.read_filelist(
+        filelist = AudioDataset.read_filelist(
             audio_dir=config.dataset_audio_dir_training,
             filelist=config.dataset_filelist_training)
-        dataset_training = AudioDataset(
+        dataset = AudioDataset(
             config=config,
             audio_dir=config.dataset_audio_dir_training,
-            file_list=filelist_train,
+            file_list=filelist,
             transforms=melspec)
 
-        if config.dataset_filelist_validation is None:
-            return dataset_training, None
+        return dataset
+
+    def create_dataset_validation(self) -> AudioDataset:
+        config = self.config
+        if config.dataset_compute_mel:
+            config.cond_channels = config.n_mels
+            melspec = LogMelSpectrogram(
+                sample_rate=config.sample_rate,
+                n_fft=config.n_fft,
+                win_length=config.win_length,
+                hop_length=config.hop_length,
+                f_min=config.mel_fmin,
+                f_max=config.mel_fmax,
+                n_mels=config.n_mels)
+        else:
+            melspec = None
+
         filelist_val = AudioDataset.read_filelist(
             audio_dir=config.dataset_audio_dir_validation,
             filelist=config.dataset_filelist_validation)
-        dataset_validation = AudioDataset(
+        dataset = AudioDataset(
             config=config,
             audio_dir=config.dataset_audio_dir_validation,
             file_list=filelist_val,
             transforms=melspec)
+        return dataset
 
-        return dataset_training, dataset_validation
 
     @property
     def data_loader_training(self):

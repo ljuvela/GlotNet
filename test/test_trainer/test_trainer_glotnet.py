@@ -48,7 +48,7 @@ def test_trainer_generate(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerGlotNet(config=config)
-    data, _ = trainer.create_datasets()
+    data = trainer.create_dataset_training()
     trainer.set_training_dataset(data)
     x = trainer.generate(data)
     
@@ -118,7 +118,7 @@ def test_trainer_generate_condnet(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerGlotNet(config=config)
-    data, _ = trainer.create_datasets()
+    data = trainer.create_dataset_training()
     x = trainer.generate(data)
 
 
@@ -188,6 +188,6 @@ def test_trainer_generate_condnet_sample_after_filtering(tempdir):
 
     trainer = TrainerGlotNet(config=config)
 
-    dataset, _ = trainer.create_datasets()
+    dataset = trainer.create_dataset_training()
     x = trainer.generate(dataset)
 

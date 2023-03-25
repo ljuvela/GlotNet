@@ -113,7 +113,7 @@ def test_trainer_generate(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerWaveNet(config=config)
-    dataset, _ = trainer.create_datasets()
+    dataset = trainer.create_dataset_training()
     x = trainer.generate(dataset=dataset)
     
     assert x.shape == (1, 1, config.segment_len), \
@@ -211,7 +211,7 @@ def test_trainer_generate_condnet(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerWaveNet(config=config)
-    dataset, _ = trainer.create_datasets()
+    dataset = trainer.create_dataset_training()
 
     x = trainer.generate(dataset)
 

@@ -7,8 +7,8 @@ import torchaudio
 from glotnet.config import Config
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
 
-from glotnet.copy_synthesis import main as copy_synthesis
-from glotnet.copy_synthesis import parse_args
+from glotnet.train import main as train_main
+from glotnet.train import parse_args
 
 # pytest fixture for temporary directory
 @pytest.fixture
@@ -16,9 +16,8 @@ def tempdir():
     with tempfile.TemporaryDirectory() as tempdir:
         yield tempdir
 
-
-def test_copy_synthesis(tempdir):
-
+@pytest.fixture
+def config(tempdir):
     config = Config(use_condnet=True)
 
     # data
@@ -30,13 +29,20 @@ def test_copy_synthesis(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ['sine.wav']
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
+
+    return config
+
+
+def test_train(tempdir, config):
 
     config.cond_channels = 20
     config.n_mels = 20
     config.dataset_compute_mel = True
+    config.max_iters = 1
 
     # save model to tempdir
     trainer = TrainerWaveNet(config=config)
@@ -44,9 +50,8 @@ def test_copy_synthesis(tempdir):
     config.to_json(os.path.join(tempdir, "config.json"))
 
     args = parse_args(args=[
-        '--model', os.path.join(tempdir, 'model.pt'),
+        '--mel_cond', 'True',
         '--config', os.path.join(tempdir, 'config.json'),
-        '--output_dir', tempdir,
-        '--input_dir', tempdir
+        '--device', 'cpu',
         ])
-    copy_synthesis(args)
+    train_main(args)

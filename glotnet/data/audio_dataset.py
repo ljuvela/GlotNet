@@ -63,6 +63,10 @@ class AudioDataset(Dataset):
     def read_filelist(audio_dir:str, filelist:Union[str, list]):
         """ Read a list of files from a file or a list of files """
 
+        if filelist is None:
+            raise ValueError(
+                "File list must be specified, " 
+                "use either a list or a file path")
         file_list = []
         # if filelist is a list, then it is already a list of files
         if type(filelist) == list:
