@@ -11,7 +11,7 @@ from glotnet.losses.distributions import Distribution, GaussianDensity
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
-
+import numpy as np
 
 from typing import Union, Tuple
 
@@ -292,7 +292,34 @@ class Trainer(torch.nn.Module):
                     break
         
     def validate(self):
-        raise NotImplementedError("Validation not implemented yet")
+        losses = []
+        with torch.no_grad():
+            for minibatch in self.data_loader_validation:
+                x, c = self._unpack_minibatch(minibatch)
+                x = self.pre_emphasis.emphasis(x)
+                x_curr = x[:, :, 1:]
+                x_prev = x[:, :, :-1]
+
+                if self.model.cond_net is not None:
+                    c = self.model.cond_net(c)
+
+                if c is not None:
+                    c = torch.nn.functional.interpolate(
+                        input=c, size= x.size(-1), mode='linear')
+                    # trim last sample to match x_prev size
+                    c = c[..., :-1]
+
+                params = self.model(x_prev, c)
+
+                loss = self.criterion(x=x_curr[..., self.config.padding:],
+                        params=params[..., self.config.padding:])
+                losses.append(loss.item())
+
+            mean_loss = np.mean(losses)
+            self.writer.add_scalar("loss_validation", mean_loss, global_step=self.iter_global)
+
+            return mean_loss
+
 
     def create_dataset_training(self) -> AudioDataset:
         config = self.config

@@ -59,6 +59,9 @@ def main(args):
     else:
         gen_data = trainer.dataset_training
 
+    loss_best = 1e9
+    current_patience = config.max_patience
+
     while trainer.iter_global < config.max_iters:
         trainer.fit(num_iters=config.validation_interval,
                     global_iter_max=config.max_iters)
@@ -71,7 +74,23 @@ def main(args):
                                  global_step=trainer.iter_global,
                                  sample_rate=config.sample_rate)
 
-        # TODO: validation
+        if trainer.dataset_validation is None:
+            print(f"Validation data not provided, skipping validation step")
+        else:
+            loss_valid = trainer.validate()
+            import ipdb; ipdb.set_trace()
+            if loss_valid < loss_best:
+                current_patience = config.max_patience
+                loss_best = loss_valid
+                trainer.save(
+                    model_path=os.path.join(trainer.writer.log_dir, 'model-best.pt'),
+                    optim_path=os.path.join(trainer.writer.log_dir, 'optim-best.pt'))
+            else:
+                current_patience -= 1
+                
+            if current_patience <= 0:
+                print(f"Early stopping at iteration {trainer.iter_global}")
+                break
 
 
 if __name__ == "__main__":

@@ -41,9 +41,11 @@ class Config:
     shuffle: bool = True
 
     # Training
-    max_iters: int = 10 ** 6
-    logging_interval: int = 10 ** 2
-    validation_interval: int = 10 ** 3
+    max_iters: int = 1000000
+    logging_interval: int = 100
+    validation_interval: int = 5000
+    max_patience: int = 10
+
 
     # Audio properties
     sample_rate: int = 16000

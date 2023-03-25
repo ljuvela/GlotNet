@@ -201,3 +201,6 @@ class TrainerGlotNet(TrainerWaveNet):
                     stop = True
                     break
 
+
+    def validate(self):
+        raise NotImplementedError("Validation not implemented for LPCNet")
