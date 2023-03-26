@@ -78,7 +78,6 @@ def main(args):
             print(f"Validation data not provided, skipping validation step")
         else:
             loss_valid = trainer.validate()
-            import ipdb; ipdb.set_trace()
             if loss_valid < loss_best:
                 current_patience = config.max_patience
                 loss_best = loss_valid

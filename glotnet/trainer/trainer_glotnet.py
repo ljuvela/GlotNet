@@ -10,7 +10,7 @@ from glotnet.data.audio_dataset import AudioDataset
 from glotnet.model.autoregressive.glotnet import GlotNetAR
 from glotnet.sigproc.lpc import LinearPredictor
 from glotnet.sigproc.emphasis import Emphasis
-
+import numpy as np
 
 from typing import Union
 
@@ -203,4 +203,57 @@ class TrainerGlotNet(TrainerWaveNet):
 
 
     def validate(self):
-        raise NotImplementedError("Validation not implemented for LPCNet")
+        losses = []
+        with torch.no_grad():
+            for minibatch in self.data_loader_validation:
+                x, c = self._unpack_minibatch(minibatch)
+                x_emph = self.pre_emphasis.emphasis(x)
+
+                # estimate lpc coefficients
+                a = self.lpc.estimate(x_emph[:, 0, :])
+
+                # clean excitation for target
+                e_clean = self.lpc.inverse_filter(x, a)
+
+                # add noise to signal
+                x_noisy = x + (4.0 / 2 ** 16) * torch.randn_like(x)
+                x_clean = x
+
+                # get prediction signal
+                p = self.lpc.prediction(x, a)
+
+                # noisy error signal (residual)
+                e_noisy = x_noisy - p
+
+                e_curr = e_clean[:, :, 1:]
+                e_prev = e_noisy[:, :, :-1]
+                x_curr = x_clean[:, :, 1:]
+                x_prev = x_noisy[:, :, :-1]
+                p_curr = p[:, :, 1:]
+
+                input = torch.cat([e_prev, p_curr, x_prev], dim=1)
+
+                if self.model.cond_net is not None:
+                    c = self.model.cond_net(c)
+
+                if c is not None:
+                    c = torch.nn.functional.interpolate(
+                        input=c, size= x.size(-1), mode='linear')
+                    # trim last sample to match x_prev size
+                    c = c[..., :-1]
+
+                params = self.model(input, c)
+
+                if self.sample_after_filtering:
+                    params = params + p_curr
+                    loss = self.criterion(x=x_curr[..., self.config.padding:],
+                                        params=params[..., self.config.padding:])
+                else:
+                    loss = self.criterion(x=e_curr[..., self.config.padding:],
+                                        params=params[..., self.config.padding:])
+
+                losses.append(loss.item())
+
+            mean_loss = np.mean(losses)
+            self.writer.add_scalar("loss_validation", mean_loss, global_step=self.iter_global)
+            return mean_loss

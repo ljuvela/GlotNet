@@ -13,7 +13,7 @@ from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
 import numpy as np
 
-from typing import Union, Tuple
+from typing import Union
 
 DeviceType = Union[str, torch.device]
 class Trainer(torch.nn.Module):
