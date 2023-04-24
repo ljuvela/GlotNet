@@ -4,7 +4,6 @@ project(GlotNet LANGUAGES C CXX VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 
-find_package(OpenMP REQUIRED)
 
 # Add Conda headers
 if(DEFINED ENV{CONDA_PREFIX})
@@ -23,7 +22,6 @@ pybind11_add_module(${python_module_name} MODULE
     ext/bind/ConvolutionStack.cpp
     ext/bind/Distributions.cpp
     ext/bind/WaveNet.cpp
-    # ext/bind/WaveNetAR.cpp
     ext/src/Activations.cpp
     ext/src/Distributions.cpp
     ext/src/Convolution.cpp
@@ -34,10 +32,6 @@ pybind11_add_module(${python_module_name} MODULE
     ext/src/GlotNetAR.cpp
 )
 
-
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(${python_module_name} PUBLIC OpenMP::OpenMP_CXX)
-endif()
 
 if(DEFINED ENV{CONDA_PREFIX})
     target_link_libraries(${python_module_name} PUBLIC -L${CONDA_PREFIX}/lib/)
