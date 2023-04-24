@@ -146,8 +146,9 @@ class Trainer(torch.nn.Module):
 
     def generate(self,
                  dataset: AudioDataset,
-                 temperature_voiced: torch.Tensor = None,
-                 temperature_unvoiced: torch.Tensor = None
+                 temperature_voiced: float = None,
+                 temperature_unvoiced: float = None,
+                 use_temperature_from_voicing: bool = True
                  ):
         """ Generate samples in autoregressive inference mode
         
@@ -158,17 +159,21 @@ class Trainer(torch.nn.Module):
 
         minibatch = dataset.__getitem__(0)
         x, c = self._unpack_minibatch(minibatch)
-        c = c.unsqueeze(0)
-        if self.model.cond_net is not None:
-            c = self.model.cond_net(c)
+
         x = x.unsqueeze(0)
         x = x.to('cpu')
         if c is not None:
+            c = c.unsqueeze(0)
+            if self.model.cond_net is not None:
+                c = self.model.cond_net(c)
             c = torch.nn.functional.interpolate(
                         input=c, size= x.size(-1), mode='linear')
             c = c.to('cpu')
 
-        temperature = self._temperature_from_voicing(c, temperature_voiced, temperature_unvoiced)
+        if use_temperature_from_voicing:
+            temperature = self._temperature_from_voicing(c, temperature_voiced, temperature_unvoiced)
+        else:
+            temperature = temperature_voiced * torch.ones_like(x)
 
         model_ar = self.model_ar
         model_ar.load_state_dict(self.model.state_dict(), strict=False)

@@ -35,6 +35,10 @@ def parse_args(args=None):
 def main(args):
     
     config = Config.from_json(args.config)
+    config.dataset_audio_dir_training = None
+    config.dataset_audio_dir_validation = None
+    config.dataset_filelist_training = None
+    config.dataset_filelist_validation = None
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -56,15 +60,20 @@ def main(args):
     
     trainer.load(model_path=args.model)
 
-    melspec = LogMelSpectrogram(
-        sample_rate=config.sample_rate,
-        n_fft=config.n_fft,
-        win_length=config.win_length,
-        hop_length=config.hop_length,
-        f_min=config.mel_fmin,
-        f_max=config.mel_fmax,
-        n_mels=config.n_mels,
-    )
+    use_conditioning = config.dataset_compute_mel 
+
+    if use_conditioning:
+        melspec = LogMelSpectrogram(
+            sample_rate=config.sample_rate,
+            n_fft=config.n_fft,
+            win_length=config.win_length,
+            hop_length=config.hop_length,
+            f_min=config.mel_fmin,
+            f_max=config.mel_fmax,
+            n_mels=config.n_mels,
+        )
+    else:
+        melspec = None
 
     for f in files:
         config.segment_len = torchaudio.info(f).num_frames
@@ -77,7 +86,8 @@ def main(args):
         x = trainer.generate(
             dataset=dataset,
             temperature_voiced=args.temperature_voiced,
-            temperature_unvoiced=args.temperature_unvoiced)
+            temperature_unvoiced=args.temperature_unvoiced,
+            use_temperature_from_voicing=use_conditioning)
 
         bname = os.path.basename(f)
         outfile = os.path.join(args.output_dir, bname)
