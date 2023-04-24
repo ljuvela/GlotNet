@@ -32,6 +32,8 @@ pybind11_add_module(${python_module_name} MODULE
     ext/src/GlotNetAR.cpp
 )
 
+add_subdirectory(third_party/eigen)
+target_link_libraries(${python_module_name} PUBLIC Eigen3::Eigen)
 
 if(DEFINED ENV{CONDA_PREFIX})
     target_link_libraries(${python_module_name} PUBLIC -L${CONDA_PREFIX}/lib/)

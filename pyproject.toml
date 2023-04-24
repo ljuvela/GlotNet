@@ -5,6 +5,5 @@ requires = [
     "scikit-build",
     "cmake",
     "ninja",
-    "eigen"
 ]
 build-backend = "setuptools.build_meta"
