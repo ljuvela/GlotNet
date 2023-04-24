@@ -2,6 +2,7 @@
 #define GLOTNET_EXT_SRC_DISTRIBUTIONS_H_
 
 #include <random>
+#include <time.h>
 
 namespace glotnet
 {
@@ -26,7 +27,8 @@ private:
     const float log_sigma_floor = -14.0f;
     float variance_shape = 0.0f;
     float one_per_log_one_plus_mu = 0.0f;
-    std::default_random_engine generator;
+    unsigned int seed = time(0);
+    std::default_random_engine generator{seed};
     std::normal_distribution<float> distribution;
 
     float shapeVariance(float sigma);
