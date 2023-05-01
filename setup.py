@@ -3,6 +3,7 @@ from skbuild import setup
 
 packages = find_packages('glotnet')
 packages = [f'glotnet.{p}' for p in packages]
+packages.append('glotnet')
 
 setup(
     name="glotnet",
