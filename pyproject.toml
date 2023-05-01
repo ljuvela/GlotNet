@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "torch",
+    "numpy",
     "setuptools",
     "scikit-build",
     "cmake",
