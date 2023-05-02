@@ -4,9 +4,6 @@ project(GlotNet LANGUAGES C CXX VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 
-
-# https://github.com/scikit-build/scikit-build-sample-projects/tree/master/projects/hello-cmake-package
-
 include(GNUInstallDirs)
 
 # Add Conda headers
@@ -15,12 +12,6 @@ if(DEFINED ENV{CONDA_PREFIX})
     include_directories(${CONDA_PREFIX}/include)
 endif ()
 list(APPEND CMAKE_PREFIX_PATH ${CONDA_PREFIX})
-
-# # call pybind11-config to obtain the root of the cmake package
-# execute_process(COMMAND ${PYTHON_EXECUTABLE} -m pybind11 --cmakedir
-#                 OUTPUT_VARIABLE pybind11_ROOT_RAW)
-# string(STRIP ${pybind11_ROOT_RAW} pybind11_ROOT)
-
 
 add_subdirectory(third_party/pybind11)
 set(python_module_name cpp_extensions)
@@ -71,30 +62,7 @@ target_include_directories(${python_module_name} PRIVATE ${TORCH_INCLUDE_DIRS})
 find_package(Eigen3 REQUIRED)
 target_link_libraries (${python_module_name} PRIVATE Eigen3::Eigen)
 
-
-# target_include_directories(
-#     GlotNet PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-#                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-
-# install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
-#         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-# Standard installation subdirs for the C++ library are used. The files will end
-# up in the specified subdirectories under the Python package root. For example,
-# "<python package prefix>/hello/lib/" if the destination is "lib/".
-#
-# Installing the objects in the package provides encapsulation and will become
-# # important later for binary redistribution reasons.
-# install(
-#   TARGETS GlotNet
-#   EXPORT GlotNetTargets
-#   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-
-
 install(TARGETS ${python_module_name} DESTINATION .)
-
-message("Cmake install libdir :" ${CMAKE_INSTALL_LIBDIR} )
 
 # The extension module must load the hello library as a dependency when the
 # extension module is loaded. The easiest way to locate the hello library is
