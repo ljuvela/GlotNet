@@ -1,0 +1,27 @@
+[build-system]
+requires = [
+    "torch",
+    "numpy",
+    "setuptools",
+    "scikit-build",
+    "cmake",
+    "ninja",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glotnet"
+version = "0.1.0"
+authors = [
+  { name="Lauri Juvela", email="lauri.juvela@aalto.fi" },
+]
+description = "GlotNet: Differentiable Audio Processing Library for Neural Vocoding in PyTorch"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ljuvela/GlotNet"
+"Bug Tracker" = "https://github.com/ljuvela/GlotNet/issues"

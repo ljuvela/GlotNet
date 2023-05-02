@@ -8,7 +8,7 @@ class LinearPredictor(torch.nn.Module):
     def __init__(self,
                  n_fft: int = 512,
                  hop_length: int = 256,
-                 win_length=256,
+                 win_length=512,
                  order=10):
         """
         Args:
