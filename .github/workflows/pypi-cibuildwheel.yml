@@ -30,7 +30,6 @@ jobs:
       - name: Install build dependencies
         run: |
           git submodule update --init --recursive
-          python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.12.3
@@ -48,7 +47,6 @@ jobs:
       - name: Install build dependencies
         run: |
           git submodule update --init --recursive
-          python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Build sdist
         run: pipx run build --sdist
