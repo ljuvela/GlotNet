@@ -1,7 +1,13 @@
 name: Build and upload to PyPI
 
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
 # Build on every branch push, tag push, and pull request change:
-on: [push, pull_request]
+# on: [push, pull_request]
 # Alternatively, to publish when a (published) GitHub Release is created, use the following:
 # on:
 #   push:
@@ -9,12 +15,6 @@ on: [push, pull_request]
 #   release:
 #     types:
 #       - published
-
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
   build_wheels:
