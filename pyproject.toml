@@ -11,9 +11,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
 
-# Install CPU-only PyTorch on Linux (build system won't have CUDA)
+# Install CPU-only PyTorch (build system won't have CUDA)
 # build-system.requires does not allow sources outside PyPI
-before-build-linux = "python -m pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cpu"
+before-build = "python -m pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cpu"
 
 [project]
 name = "glotnet"
