@@ -22,7 +22,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-11]
+        #os: [ubuntu-20.04, macos-11]
+        os: [macos-11]
 
     steps:
       - uses: actions/checkout@v3
@@ -30,6 +31,7 @@ jobs:
       - name: Install build dependencies
         run: |
           git submodule update --init --recursive
+          python -m pip install torch torchaudio
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.12.3

@@ -80,8 +80,8 @@ install(TARGETS ${python_module_name} DESTINATION .)
 # Placing the hello library in the package and using relative RPATHs that
 # doesn't point outside of the package means that the built package is
 # relocatable. This allows for safe binary redistribution.
-if(APPLE)
-    set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "@loader_path/${CMAKE_INSTALL_LIBDIR}")
-else()
-    set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
-endif()
+# if(APPLE)
+#     set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "@loader_path/${CMAKE_INSTALL_LIBDIR}")
+# else()
+#     set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
+# endif()
