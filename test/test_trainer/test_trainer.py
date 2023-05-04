@@ -39,7 +39,8 @@ def test_trainer(tempdir):
                     dataset_compute_mel=False,
                     log_dir=tempdir)
     
-    trainer = TrainerWaveNet(config=config, dataset=dataset)
+    trainer = TrainerWaveNet(config=config)
+    trainer.set_training_dataset(dataset)
 
     trainer.fit(num_iters=1)
     loss_1 = trainer.batch_loss
@@ -63,7 +64,8 @@ def test_trainer_conditional(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ["sine.wav"]
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -101,7 +103,8 @@ def test_trainer_generate(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ["sine.wav"]
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -110,7 +113,8 @@ def test_trainer_generate(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerWaveNet(config=config)
-    x = trainer.generate()
+    dataset = trainer.create_dataset_training()
+    x = trainer.generate(dataset=dataset)
     
     assert x.shape == (1, 1, config.segment_len), \
         f"Generated audio expected to have shape (1, 1, {config.segment_len}), got {x.shape}"
@@ -125,7 +129,8 @@ def test_resume_training(tempdir):
     seg_len = config.batch_size * config.segment_len
     x = torch.randn(1, seg_len)
 
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ["data.wav"]
     torchaudio.save(os.path.join(tempdir, f"data.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -141,7 +146,6 @@ def test_resume_training(tempdir):
 
     for p1, p2 in zip(trainer1.model.parameters(), trainer2.model.parameters()):
         assert torch.allclose(p1, p2)
-
 
 
 def test_trainer_condnet(tempdir):
@@ -161,7 +165,8 @@ def test_trainer_condnet(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ["sine.wav"]
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -196,7 +201,8 @@ def test_trainer_generate_condnet(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ["sine.wav"]
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -205,6 +211,7 @@ def test_trainer_generate_condnet(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerWaveNet(config=config)
+    dataset = trainer.create_dataset_training()
 
-    x = trainer.generate()
+    x = trainer.generate(dataset)
 

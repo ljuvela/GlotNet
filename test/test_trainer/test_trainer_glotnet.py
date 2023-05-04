@@ -7,7 +7,7 @@ import torchaudio
 from torch.utils.data import TensorDataset
 from glotnet.data.audio_dataset import AudioDataset
 
-from glotnet.trainer.trainer_glotnet import Trainer as TrainerGlotNet
+from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 from glotnet.config import Config
 
 # pytest fixture for temporary directory
@@ -38,7 +38,8 @@ def test_trainer_generate(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ['sine.wav']
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -47,7 +48,9 @@ def test_trainer_generate(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerGlotNet(config=config)
-    x = trainer.generate()
+    data = trainer.create_dataset_training()
+    trainer.set_training_dataset(data)
+    x = trainer.generate(data)
     
     assert x.shape == (1, 1, config.segment_len), \
         f"Generated audio expected to have shape (1, 1, {config.segment_len}), got {x.shape}"
@@ -70,8 +73,9 @@ def test_trainer_condnet(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
-    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ['sine.wav']
+    torchaudio.save(os.path.join(tempdir, f'sine.wav'),
                     x, sample_rate=config.sample_rate)
 
     config.cond_channels = 20
@@ -79,7 +83,6 @@ def test_trainer_condnet(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerGlotNet(config=config)
-
     trainer.fit(num_iters=1)
     loss_1 = trainer.batch_loss
     trainer.fit(num_iters=1)
@@ -105,7 +108,8 @@ def test_trainer_generate_condnet(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ['sine.wav']
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -114,9 +118,8 @@ def test_trainer_generate_condnet(tempdir):
     config.dataset_compute_mel = True
 
     trainer = TrainerGlotNet(config=config)
-
-    x = trainer.generate()
-
+    data = trainer.create_dataset_training()
+    x = trainer.generate(data)
 
 
 def test_trainer_condnet_sample_after_filtering(tempdir):
@@ -137,7 +140,8 @@ def test_trainer_condnet_sample_after_filtering(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ['sine.wav']
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -173,7 +177,8 @@ def test_trainer_generate_condnet_sample_after_filtering(tempdir):
     x = x.unsqueeze(0)
 
     config.log_dir = tempdir
-    config.dataset_audio_dir = tempdir
+    config.dataset_audio_dir_training = tempdir
+    config.dataset_filelist_training = ["sine.wav"]
     torchaudio.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
@@ -183,5 +188,6 @@ def test_trainer_generate_condnet_sample_after_filtering(tempdir):
 
     trainer = TrainerGlotNet(config=config)
 
-    x = trainer.generate()
+    dataset = trainer.create_dataset_training()
+    x = trainer.generate(dataset)
 

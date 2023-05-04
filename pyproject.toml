@@ -1,0 +1,33 @@
+[build-system]
+requires = [
+    "torch",
+    "numpy",
+    "setuptools",
+    "scikit-build",
+    "cmake",
+    "ninja",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+
+# Install CPU-only PyTorch (build system won't have CUDA)
+# build-system.requires does not allow sources outside PyPI
+before-build = "python -m pip config set global.extra-index-url https://download.pytorch.org/whl/cpu"
+
+[project]
+name = "glotnet"
+version = "0.1.0"
+authors = [
+  { name="Lauri Juvela", email="lauri.juvela@aalto.fi" },
+]
+description = "GlotNet: Differentiable Audio Processing Library for Neural Vocoding in PyTorch"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ljuvela/GlotNet"
+"Bug Tracker" = "https://github.com/ljuvela/GlotNet/issues"

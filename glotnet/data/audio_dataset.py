@@ -46,13 +46,6 @@ class AudioDataset(Dataset):
             self.scaler_m = torch.tensor(data['mean'], dtype=torch.float32).reshape(1, -1, 1)
             self.scaler_s = torch.tensor(data['scale'], dtype=torch.float32).reshape(1, -1, 1)
             self.use_scaler = True
-        if config.dataset_train_filelist is not None:
-            file_list = []
-            with open( config.dataset_train_filelist, 'r') as f:
-                for line in f.readlines():
-                   file_list.append(os.path.join(self.audio_dir, line.strip()))
-
-        # file_list = file_list[:10]
 
         if file_list is None:
             self.audio_files = glob(os.path.join(
@@ -65,6 +58,27 @@ class AudioDataset(Dataset):
 
         for f in self.audio_files:
             self._check_audio_file(f)
+
+    @staticmethod
+    def read_filelist(audio_dir:str, filelist:Union[str, list]):
+        """ Read a list of files from a file or a list of files """
+
+        if filelist is None:
+            raise ValueError(
+                "File list must be specified, " 
+                "use either a list or a file path")
+        file_list = []
+        # if filelist is a list, then it is already a list of files
+        if type(filelist) == list:
+            for f in filelist:
+                file_list.append(os.path.join(audio_dir, f.strip()))
+            return file_list
+        # if filelist is a string, then it is a path to a file containing a list of files
+        with open(filelist, 'r') as f:
+            for line in f.readlines():
+                file_list.append(os.path.join(audio_dir, line.strip()))
+        return file_list
+
 
     def _check_audio_file(self, f):
 
