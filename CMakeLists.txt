@@ -33,8 +33,8 @@ pybind11_add_module(${python_module_name} MODULE
     ext/src/GlotNetAR.cpp
 )
 
-add_subdirectory(third_party/eigen)
-target_link_libraries(${python_module_name} PUBLIC Eigen3::Eigen)
+# add_subdirectory(third_party/eigen)
+# target_link_libraries(${python_module_name} PUBLIC Eigen3::Eigen)
 
 if(DEFINED ENV{CONDA_PREFIX})
     target_link_libraries(${python_module_name} PUBLIC -L${CONDA_PREFIX}/lib/)
@@ -60,16 +60,31 @@ message(STATUS "Torch_DIR: ${Torch_DIR}")
 find_package(Torch REQUIRED)
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 
+
 target_link_libraries(${python_module_name}
     PRIVATE ${TORCH_LIBRARIES}
     PRIVATE ${TORCH_PYTHON_LIBRARY}
 )
 target_include_directories(${python_module_name} PRIVATE ${TORCH_INCLUDE_DIRS})
 
+message(STATUS "Origin: ${ORIGIN}")
+message(STATUS "Torch Libraries: ${TORCH_LIBRARIES}")
+message(STATUS "Torch Python library: ${TORCH_PYTHON_LIBRARY}")
+message(STATUS "Torch install prefix/lib: ${TORCH_INSTALL_PREFIX}/lib")
+
+set(CMAKE_MACOSX_RPATH TRUE)
+# set(CMAKE_BUILD_RPATH "/opt/homebrew/Caskroom/miniconda/base/envs/glotnet/lib/python3.9/site-packages/torch/lib")
+# set(CMAKE_INSTALL_RPATH "/opt/homebrew/Caskroom/miniconda/base/envs/glotnet/lib/python3.9/site-packages/torch/lib")
+# set(CMAKE_INSTALL_RPATH "${TORCH_INSTALL_PREFIX}/lib")
+
+
+set_property(TARGET ${python_module_name} PROPERTY INSTALL_RPATH "${TORCH_INSTALL_PREFIX}/lib")
+
+
+
 find_package(Eigen3 REQUIRED)
 target_link_libraries (${python_module_name} PRIVATE Eigen3::Eigen)
 
-install(TARGETS ${python_module_name} DESTINATION .)
 
 # The extension module must load the hello library as a dependency when the
 # extension module is loaded. The easiest way to locate the hello library is
@@ -85,3 +100,41 @@ install(TARGETS ${python_module_name} DESTINATION .)
 # else()
 #     set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
 # endif()
+
+# https://stackoverflow.com/a/70163027
+
+# if (SKBUILD)
+#     find_package(PythonExtensions REQUIRED)
+#     set(lib_path "${PYTHON_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+# else()
+#     set(lib_path "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+# endif()
+# list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${lib_path}" is_system)
+# if ("${is_system}" STREQUAL "-1")
+#     set_target_properties(${python_module_name} PROPERTIES
+#         INSTALL_RPATH_USE_LINK_PATH FALSE
+#         INSTALL_RPATH "${lib_path}")
+#     # The following is necessary for installation in a virtual
+#     # environment `python -m pip venv env`
+#     set_target_properties(${python_module_name} PROPERTIES
+#         INSTALL_RPATH_USE_LINK_PATH FALSE
+#         INSTALL_RPATH "${lib_path}")
+# endif()
+
+# # use, i.e. don't skip the full RPATH for the build tree
+# set(CMAKE_SKIP_BUILD_RPATH TRUE)
+
+# # when building, don't use the install RPATH already
+# # (but later on when installing)
+# set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+
+# set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+
+# # add the automatically determined parts of the RPATH
+# # which point to directories outside the build tree to the install RPATH
+# set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+
+
+install(TARGETS ${python_module_name} DESTINATION .)
+
+# install(TARGETS ${python_module_name} DESTINATION ${PYTHON_RELATIVE_SITE_PACKAGES_DIR}/glotnet)
