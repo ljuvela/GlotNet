@@ -4,7 +4,7 @@ from .lfilter import LFilter
 from typing import Tuple, Union
 
 
-class BiquadBandPassFunctional(torch.nn.Module):
+class BiquadBaseFunctional(torch.nn.Module):
 
     def __init__(self):
         """ Initialize Biquad"""
@@ -18,6 +18,72 @@ class BiquadBandPassFunctional(torch.nn.Module):
         self.lfilter = LFilter(n_fft=self.n_fft,
                                hop_length=self.hop_length,
                                win_length=self.win_length)
+
+    def _params_to_direct_form(self,
+                               freq: torch.Tensor,
+                               gain: torch.Tensor,
+                               Q: torch.Tensor
+                               ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Args: 
+            freq, center frequency,
+                shape is (batch, 1, n_frames)
+            gain, gain in decibels
+                shape is (batch, 1, n_frames)
+            Q, resonance sharpness
+                shape is (batch, 1, n_frames)
+
+        Returns:
+            a, filter denominator coefficients
+                shape is (batch, n_taps, n_frames)
+
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
+    def forward(self,
+                x: torch.Tensor,
+                freq: torch.Tensor,
+                gain: torch.Tensor,
+                Q: torch.Tensor,
+                ) -> torch.Tensor:
+        """ 
+        Args:
+            x: input signal
+                shape = (batch, channels, time)
+            freq: center frequencies 
+                shape = (batch, channels, n_filters, n_frames)
+                n_frames is expected to be (time // hop_size)
+            gain: gains in decibels,
+                shape = (batch, channels, n_filters, n_frames)
+            Q: filter resonance (quality factor)
+                shape = (batch, channels, n_filters, n_frames)
+        """
+
+        # save parameter shapes for later
+        batch, channels, n_filters, n_frames = freq.shape
+
+        # reshape to (batch * channels * n_filters, 1, n_frames)
+        freq = freq.reshape(-1, 1, freq.size(-1))
+        gain = gain.reshape(-1, 1, gain.size(-1))
+        Q = Q.reshape(-1, Q.size(-1))
+
+        b, a = self._params_to_direct_form(freq=freq, gain=gain, Q=Q)
+
+        x = x.reshape(batch * channels * n_filters, 1, -1)
+
+        y = self.lfilter.forward(x, b=b, a=a)
+
+        # reshape to (batch, channels, n_filters, time)
+        y = y.reshape(batch, channels, n_filters, -1)
+
+        return y
+    
+
+class BiquadPeakFunctional(BiquadBaseFunctional):
+
+    def __init__(self):
+        """ Initialize Biquad"""
+        super().__init__()
 
     def _params_to_direct_form(self,
                                freq: torch.Tensor,
@@ -60,54 +126,18 @@ class BiquadBandPassFunctional(torch.nn.Module):
         a = a / a0
         return b, a
 
-    def forward(self,
-                x: torch.Tensor,
-                freq: torch.Tensor,
-                gain: torch.Tensor,
-                Q: torch.Tensor,
-                ) -> torch.Tensor:
-        """ 
-        Args:
-            x: input signal
-                shape = (batch, channels, time)
-            freq: center frequencies 
-                shape = (batch, channels, n_filters, n_frames)
-                n_frames is expected to be (time // hop_size)
-            gain: gains in decibels,
-                shape = (batch, channels, n_filters, n_frames)
-            Q: filter resonance (quality factor)
-                shape = (batch, channels, n_filters, n_frames)
-        """
 
-        # save parameter shapes for later
-        batch, channels, n_filters, n_frames = freq.shape
-
-        # reshape to (batch * channels * n_filters, 1, n_frames)
-        freq = freq.reshape(-1, 1, freq.size(-1))
-        gain = gain.reshape(-1, 1, gain.size(-1))
-        Q = Q.reshape(-1, Q.size(-1))
-
-        b, a = self._params_to_direct_form(freq=freq, gain=gain, Q=Q)
-
-        x = x.reshape(batch * channels * n_filters, 1, -1)
-
-        y = self.lfilter.forward(x, b=b, a=a)
-
-        # reshape to (batch, channels, n_filters, time)
-        y = y.reshape(batch, channels, n_filters, -1)
-
-        return y
-
-
-class BiquadBandPassModule(BiquadBandPassFunctional):
+class BiquadModule(torch.nn.Module):
 
     def __init__(self,
+                 func: BiquadBaseFunctional = BiquadPeakFunctional(),
                  freq: Union[torch.Tensor, float] = torch.tensor([0.5]),
                  gain: Union[torch.Tensor, float] = torch.tensor([0.0]),
                  Q: Union[torch.Tensor, float] = torch.tensor([0.7071]),
                  fs: float = None):
         """
         Args:
+            func: BiquadBaseFunctional subclass
             freq: center frequency 
             gain: gain in dB
             Q: quality factor determining filter resonance bandwidth
@@ -115,6 +145,8 @@ class BiquadBandPassModule(BiquadBandPassFunctional):
 
         """
         super().__init__()
+
+        self.func = func
 
         # if no sample rate provided, assume normalized frequency
         if fs is None:
@@ -160,7 +192,7 @@ class BiquadBandPassModule(BiquadBandPassFunctional):
         # Expand time dimension
         # TODO: separate backend for time-constant params
         timesteps = x.size(2)
-        num_frames = timesteps // self.hop_length
+        num_frames = timesteps // self.func.hop_length
         freq = freq.unsqueeze(-1).expand(-1, -1, -1, num_frames)
         gain = gain.unsqueeze(-1).expand(-1, -1, -1, num_frames)
         Q = Q.unsqueeze(-1).expand(-1, -1, -1, num_frames)
@@ -168,7 +200,7 @@ class BiquadBandPassModule(BiquadBandPassFunctional):
         # reshape parameters
         # freq.expand()
 
-        y = super().forward(x, freq, gain, Q)
+        y = self.func.forward(x, freq, gain, Q)
 
         # TODO reshape outputs
 

@@ -1,6 +1,6 @@
 import torch
 
-from glotnet.sigproc.biquad import BiquadBandPassFunctional, BiquadBandPassModule
+from glotnet.sigproc.biquad import BiquadPeakFunctional, BiquadModule
 from glotnet.sigproc.oscillator import Oscillator
 
 def test_peak_biquad_gains():
@@ -19,7 +19,7 @@ def test_peak_biquad_gains():
     gain = 6.0
     # normalized frequency (nyquist = 1)
     freq = f0 / (fs / 2)
-    biquad = BiquadBandPassModule(freq=freq, gain=gain)
+    biquad = BiquadModule(freq=freq, gain=gain, func=BiquadPeakFunctional())
     
     # pass throught biquad
     y_100 = biquad(x_100)
@@ -41,7 +41,7 @@ def test_peak_biquad_bank():
     freq = torch.tensor([100.0, 1000.0, 2000.0])
     gain = torch.tensor([6.0, -6.0, 12.0])
 
-    biquad = BiquadBandPassModule(freq=freq, gain=gain, fs=fs)
+    biquad = BiquadModule(freq=freq, gain=gain, fs=fs, func=BiquadPeakFunctional())
 
     osc = Oscillator(audio_rate=fs, control_rate=fs)    
 
@@ -59,5 +59,5 @@ def test_biquad_backprop():
 
 def test_peak_biquad_variable_freq():
 
-    biquad = BiquadBandPassFunctional()
+    biquad = BiquadPeakFunctional()
 
