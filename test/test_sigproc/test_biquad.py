@@ -3,6 +3,7 @@ import torch
 from glotnet.sigproc.biquad import BiquadModule
 from glotnet.sigproc.biquad import BiquadPeakFunctional
 from glotnet.sigproc.biquad import BiquadResonatorFunctional
+from glotnet.sigproc.biquad import BiquadParallelBankModule
 
 from glotnet.sigproc.oscillator import Oscillator
 
@@ -24,8 +25,10 @@ def test_peak_biquad_gains():
     gain = 6.0
     # normalized frequency (nyquist = 1)
     freq = f0 / (fs / 2)
-    biquad = BiquadModule(freq=freq, gain=gain, func=BiquadPeakFunctional())
-    
+    biquad = BiquadModule(func=BiquadPeakFunctional())
+    biquad.freq = freq
+    biquad.gain_dB = gain
+
     # pass throught biquad
     y_100 = biquad(x_100)
     y_2000 = biquad(x_2000)
@@ -43,10 +46,15 @@ def test_peak_biquad_bank():
     timesteps = 2048
 
     # bank of biquads
-    freq = torch.tensor([100.0, 1000.0, 2000.0])
-    gain = torch.tensor([6.0, -6.0, 12.0])
+    # freq = torch.tensor([100.0, 1000.0, 2000.0])
+    # gain = torch.tensor([6.0, -6.0, 12.0])
 
-    biquad = BiquadModule(freq=freq, gain=gain, fs=fs, func=BiquadPeakFunctional())
+    freq = torch.tensor([100.0, 1000.0, 2000.0, 3000.0])
+    gain = torch.tensor([6.0, -6.0, 12.0, 0.0])
+
+    biquad = BiquadModule(channels_in=1, channels_out=4, fs=fs, func=BiquadPeakFunctional())
+    biquad.freq = freq
+    biquad.gain_dB = gain
 
     osc = Oscillator(audio_rate=fs, control_rate=fs)    
 
@@ -75,7 +83,10 @@ def test_resonator_biquad():
     nfft=2048
     fbins = nfft // 2 + 1
 
-    biquad = BiquadModule(freq=f0, gain=0.0, Q=10, fs=fs, func=BiquadResonatorFunctional())
+    biquad = BiquadModule(fs=fs, func=BiquadResonatorFunctional())
+    biquad.freq = f0
+    biquad.gain = 0.0
+    biquad.Q = 10
 
     h = biquad.get_impulse_response(n_timesteps=timesteps)
 
@@ -98,3 +109,29 @@ def test_resonator_biquad():
     # plt.semilogx(f, 20 * np.log10(H))
     # plt.show()
 
+
+def test_biquad_parallel_bank():
+
+    biquad = BiquadParallelBankModule(num_filters=4, func=BiquadResonatorFunctional())
+
+    biquad.filter_bank.Q = torch.tensor([10.0, 10.0, 10.0, 10.0])
+
+    import ipdb; ipdb.set_trace()
+
+    n_fft = 2048
+    fbins = n_fft // 2 + 1
+    fs = 2
+
+    H = biquad.get_frequency_response(n_timesteps=2048, n_fft=2048)
+
+    import matplotlib.pyplot as plt
+    H = H.squeeze().detach().numpy()
+    f = np.linspace(0, fs / 2, fbins)
+    plt.close('all')
+
+    plt.figure()
+    plt.plot(f, 20 * np.log10(H))
+
+    plt.figure()
+    plt.semilogx(f, 20 * np.log10(H))
+    plt.show()

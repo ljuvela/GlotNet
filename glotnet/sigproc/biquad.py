@@ -65,7 +65,7 @@ class BiquadBaseFunctional(torch.nn.Module):
         # reshape to (batch * channels * n_filters, 1, n_frames)
         freq = freq.reshape(-1, 1, freq.size(-1))
         gain = gain.reshape(-1, 1, gain.size(-1))
-        Q = Q.reshape(-1, Q.size(-1))
+        Q = Q.reshape(-1, 1, Q.size(-1))
 
         b, a = self._params_to_direct_form(freq=freq, gain=gain, Q=Q)
 
@@ -129,10 +129,67 @@ class BiquadPeakFunctional(BiquadBaseFunctional):
 
 class BiquadModule(torch.nn.Module):
 
+
+    @property 
+    def freq(self):
+        return self._freq
+    
+    @freq.setter
+    def freq(self, freq):
+        if type(freq) != torch.Tensor:
+            freq = torch.tensor([freq], dtype=torch.float32)
+
+        # convert to normalized frequency
+        freq = 2.0 * freq / self.fs
+
+        if freq.max() > 1.0:
+            raise ValueError(
+                "Maximum normalized frequency is larger than 1.0. "
+                "Please provide a sample rate or input normalized frequencies")
+        if freq.min() < 0.0:
+            raise ValueError(
+                "Maximum normalized frequency is smaller than 0.0.")
+
+
+        self._freq.data = freq * torch.ones_like(self._freq)
+
+    @property 
+    def gain_dB(self):
+        return self._gain_dB
+
+    @gain_dB.setter
+    def gain_dB(self, gain):
+        if type(gain) != torch.Tensor:
+            gain = torch.tensor([gain], dtype=torch.float32)
+        self._gain_dB.data = gain * torch.ones_like(self._gain_dB)
+
+    @property
+    def Q(self):
+        return self._Q
+    
+    @Q.setter
+    def Q(self, Q):
+        if type(Q) != torch.Tensor:
+            Q = torch.tensor([Q], dtype=torch.float32)
+        self._Q.data = Q * torch.ones_like(self._Q)
+
+    def _init_freq(self):
+        freq = torch.rand(1, self.channels_in, self.channels_out)
+        self._freq = torch.nn.Parameter(freq)
+
+    def _init_gain_dB(self):
+        gain_dB = torch.zeros(1, self.channels_in, self.channels_out)
+        self._gain_dB = torch.nn.Parameter(gain_dB)
+
+    def _init_Q(self):
+        Q = torch.ones(1, self.channels_in, self.channels_out)
+        self._Q = torch.nn.Parameter(0.7071 * Q)
+
+
+
     def __init__(self,
-                 freq: Union[torch.Tensor, float] = torch.tensor([0.5]),
-                 gain: Union[torch.Tensor, float] = torch.tensor([0.0]),
-                 Q: Union[torch.Tensor, float] = torch.tensor([0.7071]),
+                 channels_in: int=1,
+                 channels_out: int=1,
                  fs: float = None,
                  func: BiquadBaseFunctional = BiquadPeakFunctional()
                 ):
@@ -155,28 +212,13 @@ class BiquadModule(torch.nn.Module):
 
         self.fs = fs
 
-        if type(freq) != torch.Tensor:
-            freq = torch.tensor([freq], dtype=torch.float32)
-        if type(gain) != torch.Tensor:
-            gain = torch.tensor([gain], dtype=torch.float32)
-        if type(Q) != torch.Tensor:
-            Q = torch.tensor([Q], dtype=torch.float32)
+        self.channels_in = channels_in
+        self.channels_out = channels_out
 
-        # convert to normalized frequency
-        freq = 2.0 * freq / fs
+        self._init_freq()
+        self._init_gain_dB()
+        self._init_Q()
 
-        if freq.max() > 1.0:
-            raise ValueError(
-                "Maximum normalized frequency is larger than 1.0. "
-                "Please provide a sample rate or input normalized frequencies")
-        if freq.min() < 0.0:
-            raise ValueError(
-                "Maximum normalized frequency is smaller than 0.0.")
-
-        # reshape to (batch, channels, n_filters)
-        self.gain_dB = torch.nn.Parameter(gain.reshape(1, 1, -1))
-        self.freq = torch.nn.Parameter(freq.reshape(1, 1, -1))
-        self.Q = torch.nn.Parameter(Q.reshape(1, 1, -1))
 
     def get_impulse_response(self, n_timesteps: int = 2048) -> torch.Tensor:
         """ Get impulse response of filter
@@ -219,22 +261,106 @@ class BiquadModule(torch.nn.Module):
         gain = self.gain_dB
         Q = self.Q
 
+        batch, channels, timesteps = x.size()
+
         # Expand time dimension
         # TODO: separate backend for time-constant params
         timesteps = x.size(2)
         num_frames = timesteps // self.func.hop_length
+        # size is (batch, channels_in, channels_out, n_frames)
         freq = freq.unsqueeze(-1).expand(-1, -1, -1, num_frames)
         gain = gain.unsqueeze(-1).expand(-1, -1, -1, num_frames)
         Q = Q.unsqueeze(-1).expand(-1, -1, -1, num_frames)
 
         # reshape parameters
-        # freq.expand()
+        # freq = freq.reshape(-1, 1, num_frames)
+        # gain = gain.reshape(-1, 1, num_frames)
+        # Q = Q.reshape(-1, 1, num_frames)
 
         y = self.func.forward(x, freq, gain, Q)
 
-        # TODO reshape outputs
+        # reshape outputs
+        # y = y.reshape(batch, channels, -1)
+
 
         return y
+
+class BiquadParallelBankModule(torch.nn.Module):
+
+    def __init__(self, 
+                 num_filters:int=10, 
+                 func: BiquadBaseFunctional = BiquadPeakFunctional()
+                ):
+        """
+        Args:
+            num_filters: number of filters in bank
+            func: BiquadBaseFunctional subclass
+
+        """
+        super().__init__()
+
+        self.num_filters = num_filters
+        # flat initialization
+        freq = torch.linspace(0.0, 1.0, num_filters+2)[1:-1]
+        gain = torch.zeros_like(freq)
+        Q = 0.7071 * torch.ones_like(freq)
+
+        self.filter_bank = BiquadModule(channels_in=1, channels_out=num_filters, func=func)
+        self.filter_bank.freq = freq
+        self.filter_bank.gain_dB = gain
+        self.filter_bank.Q = Q
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x, shape is (batch, channels=1, timesteps)
+
+        Returns:
+            y, shape is (batch, channels=1, timesteps)
+        """
+
+        if x.size(1) != 1:
+            raise ValueError(f"Input must have 1 channel, got {x.size(1)}")
+
+        # expand channels to match filter bank
+        # x = x.expand(-1, self.num_filters, -1)
+
+        import ipdb; ipdb.set_trace()
+
+        # output shape is (batch, channels, , timesteps)
+        y = self.filter_bank(x)
+
+        # parallel filters are summed
+        y = y.sum(dim=-2, keepdim=False)
+        return y
+
+    def get_impulse_response(self, n_timesteps: int = 2048) -> torch.Tensor:
+        """ Get impulse response of filter
+
+        Args:
+            n_timesteps: number of timesteps to evaluate
+
+        Returns:
+            h, shape is (batch, channels, n_timesteps)
+        """
+        x = torch.zeros(1, 1, n_timesteps)
+        x[:, :, 0] = 1.0
+        h = self.forward(x)
+        return h
+    
+    def get_frequency_response(self, n_timesteps: int = 2048, n_fft: int = 2048) -> torch.Tensor:
+        """ Get frequency response of filter
+
+        Args:
+            n_timesteps: number of timesteps to evaluate
+
+        Returns:
+            H, shape is (batch, channels, n_timesteps)
+        """
+        h = self.get_impulse_response(n_timesteps=n_timesteps)
+        H = torch.fft.rfft(h, n=n_fft, dim=-1)
+        H = torch.abs(H)
+        return H
 
 
 
