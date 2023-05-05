@@ -1,7 +1,12 @@
 import torch
 
-from glotnet.sigproc.biquad import BiquadPeakFunctional, BiquadModule
+from glotnet.sigproc.biquad import BiquadModule
+from glotnet.sigproc.biquad import BiquadPeakFunctional
+from glotnet.sigproc.biquad import BiquadResonatorFunctional
+
 from glotnet.sigproc.oscillator import Oscillator
+
+import numpy as np
 
 def test_peak_biquad_gains():
 
@@ -60,4 +65,36 @@ def test_biquad_backprop():
 def test_peak_biquad_variable_freq():
 
     biquad = BiquadPeakFunctional()
+
+def test_resonator_biquad():
+
+    # get a resonator impulse response
+    fs = 16000
+    f0 = 3000
+    timesteps = 2048
+    nfft=2048
+    fbins = nfft // 2 + 1
+
+    biquad = BiquadModule(freq=f0, gain=0.0, Q=10, fs=fs, func=BiquadResonatorFunctional())
+
+    h = biquad.get_impulse_response(n_timesteps=timesteps)
+
+    H = biquad.get_frequency_response(n_timesteps=timesteps, n_fft=timesteps)
+
+    assert H.argmax() == f0 * nfft / fs
+
+    # import matplotlib.pyplot as plt
+    # h = h.squeeze().detach().numpy()
+    # H = H.squeeze().detach().numpy()
+    # f = np.linspace(0, fs / 2, fbins)
+    # plt.close('all')
+    # plt.figure()
+    # plt.plot(h)
+
+    # plt.figure()
+    # plt.plot(f, 20 * np.log10(H))
+
+    # plt.figure()
+    # plt.semilogx(f, 20 * np.log10(H))
+    # plt.show()
 

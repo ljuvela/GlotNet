@@ -130,11 +130,12 @@ class BiquadPeakFunctional(BiquadBaseFunctional):
 class BiquadModule(torch.nn.Module):
 
     def __init__(self,
-                 func: BiquadBaseFunctional = BiquadPeakFunctional(),
                  freq: Union[torch.Tensor, float] = torch.tensor([0.5]),
                  gain: Union[torch.Tensor, float] = torch.tensor([0.0]),
                  Q: Union[torch.Tensor, float] = torch.tensor([0.7071]),
-                 fs: float = None):
+                 fs: float = None,
+                 func: BiquadBaseFunctional = BiquadPeakFunctional()
+                ):
         """
         Args:
             func: BiquadBaseFunctional subclass
@@ -154,12 +155,12 @@ class BiquadModule(torch.nn.Module):
 
         self.fs = fs
 
-        if type(freq) == float:
-            freq = torch.tensor([freq])
-        if type(gain) == float:
-            gain = torch.tensor([gain])
-        if type(Q) == float:
-            Q = torch.tensor([Q])
+        if type(freq) != torch.Tensor:
+            freq = torch.tensor([freq], dtype=torch.float32)
+        if type(gain) != torch.Tensor:
+            gain = torch.tensor([gain], dtype=torch.float32)
+        if type(Q) != torch.Tensor:
+            Q = torch.tensor([Q], dtype=torch.float32)
 
         # convert to normalized frequency
         freq = 2.0 * freq / fs
@@ -176,6 +177,35 @@ class BiquadModule(torch.nn.Module):
         self.gain_dB = torch.nn.Parameter(gain.reshape(1, 1, -1))
         self.freq = torch.nn.Parameter(freq.reshape(1, 1, -1))
         self.Q = torch.nn.Parameter(Q.reshape(1, 1, -1))
+
+    def get_impulse_response(self, n_timesteps: int = 2048) -> torch.Tensor:
+        """ Get impulse response of filter
+
+        Args:
+            n_timesteps: number of timesteps to evaluate
+
+        Returns:
+            h, shape is (batch, channels, n_timesteps)
+        """
+        x = torch.zeros(1, 1, n_timesteps)
+        x[:, :, 0] = 1.0
+        h = self.forward(x)
+        return h
+    
+    def get_frequency_response(self, n_timesteps: int = 2048, n_fft: int = 2048) -> torch.Tensor:
+        """ Get frequency response of filter
+
+        Args:
+            n_timesteps: number of timesteps to evaluate
+
+        Returns:
+            H, shape is (batch, channels, n_timesteps)
+        """
+        h = self.get_impulse_response(n_timesteps=n_timesteps)
+        H = torch.fft.rfft(h, n=n_fft, dim=-1)
+        H = torch.abs(H)
+        return H
+
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -205,3 +235,52 @@ class BiquadModule(torch.nn.Module):
         # TODO reshape outputs
 
         return y
+
+
+
+class BiquadResonatorFunctional(BiquadBaseFunctional):
+
+    def __init__(self):
+        """ Initialize Biquad"""
+        super().__init__()
+
+    def _params_to_direct_form(self,
+                               freq: torch.Tensor,
+                               gain: torch.Tensor,
+                               Q: torch.Tensor
+                               ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Args: 
+            freq, center frequency,
+                shape is (batch, 1, n_frames)
+            gain, gain in decibels
+                shape is (batch, 1, n_frames)
+            Q, resonance sharpness
+                shape is (batch, 1, n_frames)
+
+        Returns:
+            a, filter denominator coefficients
+                shape is (batch, n_taps, n_frames)
+
+        """
+        if torch.any(freq > 1.0):
+            raise ValueError(f"Normalized frequency must be below 1.0, max was {freq.max()}")
+        if torch.any(freq < 0.0):
+            raise ValueError(f"Normalized frequency must be above 0.0, min was {freq.min()}")
+        omega = torch.pi * freq
+        A = torch.pow(10.0, 0.025 * gain)
+        alpha = 0.5 * torch.sin(omega) / Q
+
+        b0 = torch.ones_like(freq)
+        b1 = torch.zeros_like(freq)
+        b2 = torch.zeros_like(freq)
+        a0 = 1 + alpha / A
+        a1 = -2.0 * torch.cos(omega)
+        a2 = 1 - alpha / A
+
+        a = torch.cat([a0, a1, a2], dim=1)
+        b = torch.cat([b0, b1, b2], dim=1)
+
+        b = b / a0
+        a = a / a0
+        return b, a
