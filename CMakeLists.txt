@@ -66,22 +66,8 @@ target_link_libraries(${python_module_name}
 )
 target_include_directories(${python_module_name} PRIVATE ${TORCH_INCLUDE_DIRS})
 
-find_package(Eigen3 REQUIRED)
-target_link_libraries (${python_module_name} PRIVATE Eigen3::Eigen)
+# Change torch RPATH for delocate
+# set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "${TORCH_INSTALL_PREFIX}/lib")
+# message(STATUS "Torch Library DIR: ${TORCH_INSTALL_PREFIX}/lib")
 
 install(TARGETS ${python_module_name} DESTINATION .)
-
-# The extension module must load the hello library as a dependency when the
-# extension module is loaded. The easiest way to locate the hello library is
-# via RPATH. Absolute RPATHs are possible, but they make the resulting
-# binaries not redistributable to other Python installations (conda is broke,
-# wheel reuse is broke, and more!).
-#
-# Placing the hello library in the package and using relative RPATHs that
-# doesn't point outside of the package means that the built package is
-# relocatable. This allows for safe binary redistribution.
-# if(APPLE)
-#     set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "@loader_path/${CMAKE_INSTALL_LIBDIR}")
-# else()
-#     set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
-# endif()
