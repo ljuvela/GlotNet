@@ -32,9 +32,18 @@ jobs:
         run: |
           git submodule update --init --recursive
           python -m pip install torch torchaudio
+          python -m pip install cibuildwheel==2.12.3
 
+      # - name: Build wheels
+      #   uses: pypa/cibuildwheel@v2.12.3
+      
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.12.3
+        run: python -m cibuildwheel --output-dir wheelhouse
+        env:
+          CIBW_REPAIR_WHEEL_COMMAND: '' # disable repair wheel
+          CIBW_BEFORE_TEST: pip install -r requirements.txt
+          CIBW_TEST_COMMAND: pytest {project}/tests
+         
 
       - uses: actions/upload-artifact@v3
         with:
