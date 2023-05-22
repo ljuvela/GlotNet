@@ -32,7 +32,7 @@ jobs:
         run: |
           git submodule update --init --recursive
           python -m pip install torch torchaudio
-          python -m pip install cibuildwheel==2.12.3
+          python -m pip install cibuildwheel
 
       # - name: Build wheels
       #   uses: pypa/cibuildwheel@v2.12.3
