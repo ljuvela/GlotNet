@@ -31,17 +31,17 @@ jobs:
       - name: Install build dependencies
         run: |
           git submodule update --init --recursive
-          python -m pip install torch torchaudio
-          python -m pip install cibuildwheel
+          python3 -m pip install torch torchaudio
+          python3 -m pip install cibuildwheel
 
       # - name: Build wheels
       #   uses: pypa/cibuildwheel@v2.12.3
       
       - name: Build wheels
-        run: python -m cibuildwheel --output-dir wheelhouse
+        run: python3 -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_REPAIR_WHEEL_COMMAND: '' # disable repair wheel
-          CIBW_BEFORE_TEST: pip install -r requirements.txt
+          CIBW_BEFORE_TEST: python3 -m pip install -r requirements.txt
           CIBW_TEST_COMMAND: pytest {project}/tests
          
 
