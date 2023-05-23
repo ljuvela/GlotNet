@@ -1,10 +1,5 @@
 # GlotNet
 
-## Build status
-
-![pip_package](https://github.com/ljuvela/GlotNet/actions/workflows/python-package.yml/badge.svg)
-![conda_package](https://github.com/ljuvela/GlotNet/actions/workflows/python-package-conda.yml/badge.svg)
-
 ## Dependencies
 
 ### Conda environment
