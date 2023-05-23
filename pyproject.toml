@@ -17,7 +17,7 @@ before-build = "python -m pip config set global.extra-index-url https://download
 
 [project]
 name = "glotnet"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Lauri Juvela", email="lauri.juvela@aalto.fi" },
 ]
