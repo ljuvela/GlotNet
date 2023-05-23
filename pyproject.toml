@@ -23,7 +23,7 @@ authors = [
 ]
 description = "GlotNet: Differentiable Audio Processing Library for Neural Vocoding in PyTorch"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
