@@ -37,7 +37,7 @@ class LFilter(torch.nn.Module):
         """
         Args:
             x : input signal
-                (batch, channels, timesteps)
+                (batch, channels==1, timesteps)
             b : filter numerator coefficients
                 (batch, b_len, n_frames)
             a : filter denominator coefficients
