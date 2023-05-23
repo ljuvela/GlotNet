@@ -40,11 +40,13 @@ jobs:
       - name: Build wheels
         run: python3 -m cibuildwheel --output-dir wheelhouse
         env:
-          CIBW_REPAIR_WHEEL_COMMAND: '' # disable repair wheel
+          # disable repair wheel to accomodate torch @rpath
+          CIBW_REPAIR_WHEEL_COMMAND: ''
           CIBW_BEFORE_TEST: python3 -m pip install -r requirements.txt
-          # CIBW_TEST_COMMAND: pytest {project}/../test
           CIBW_TEST_COMMAND: pytest {package}/test
-         
+          # Disable building PyPy wheels on all platforms
+          CIBW_SKIP: pp*
+
 
       - uses: actions/upload-artifact@v3
         with:
