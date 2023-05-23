@@ -3,8 +3,8 @@ import torch
 class Oscillator(torch.nn.Module):
     """ Sinusoidal oscillator """
     def __init__(self, 
-                 audio_rate:int=48000,
-                 control_rate:int=200,
+                 audio_rate:float=48000.0,
+                 control_rate:float=200.0,
                  shape:str='sin'):
         """
         Args:
@@ -18,7 +18,7 @@ class Oscillator(torch.nn.Module):
         self.control_rate = control_rate
         self.nyquist_rate = audio_rate // 2
 
-        upsample_factor = self.audio_rate // self.control_rate
+        upsample_factor = self.audio_rate / self.control_rate
         self.upsampler = torch.nn.modules.Upsample(
             mode='linear',
             scale_factor=upsample_factor,
