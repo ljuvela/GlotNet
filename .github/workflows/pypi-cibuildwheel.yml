@@ -49,6 +49,8 @@ jobs:
           # Mac architectures
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*_arm64'
+          # Linux architectures, skip 32-bit because torch is 64-bit only
+          CIBW_ARCHS_LINUX: auto64
 
       - uses: actions/upload-artifact@v3
         with:
