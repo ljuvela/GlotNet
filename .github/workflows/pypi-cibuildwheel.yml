@@ -45,7 +45,8 @@ jobs:
           CIBW_BEFORE_TEST: python3 -m pip install -r requirements.txt
           CIBW_TEST_COMMAND: pytest {package}/test
           # Disable building PyPy wheels on all platforms
-          CIBW_SKIP: pp*
+          # Disable musllinux builds
+          CIBW_SKIP: 'pp* *-musllinux*'
           # Mac architectures
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*_arm64'
