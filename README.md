@@ -1,63 +1,41 @@
 # GlotNet
 
-## Dependencies
+This repository implements 
+  - Autoregressive WaveNet in PyTorch
+  - C++ extensions with PyTorch bindings for fast inference
+  - Various signal processing functions for linear autoregressive modeling in GlotNet
 
-### Conda environment
 
-Create environment based on `environment.yml`
-```bash
-conda env create -n glotnet -f environment.yml
+## Installation
+
+Installing and testing the package requires building the C++ extensions. The build is triggered by running `pip install .`. This will take a few minutes, please be patient.
+
+Pre-built packages for pip are work in progress, but not active right now. If you would like to contribute, please see the Issues page.
+
+The following commands should get you into working state on most systems (tested on Linux and Mac)
+```
+# Create a conda environment
+conda create -n glotnet python=3.10
 conda activate glotnet
-```
 
-### Pip package manager
+# Install requirements in with conda
+conda install -c pytorch -c conda-forge pytorch torchaudio tensorboard scikit-build cmake eigen ninja pytest
 
-Pip can not handle C++ dependencies, but in this case the only external dependency is the lightweight header-only Eigen library
-```bash
-git submodule update --recursive --init
-pip install -r requirements.txt
-```
+# Clone git submodules
+git submodule update --init --recursive
 
-### Build
+# Build extensions and install
+pip install -v .
 
-```
-python setup.py develop -- -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O3 -std=c++17"
-```
-
-```
-python setup.py develop -- -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-O0 -g -std=c++17"
-```
-
-Build and install
-```bash
-pip install .
-```
-
-Run tests
-
-```bash
+# Run pytest unit tests to check everthing works correctly
 pytest test
 ```
 
-### Development
+### Building for development
 
-Build in edit mode 
+Add the `-e` flag in the pip build command for editable installation
 ```bash
 pip install -v -e .
-```
-
-Flake8 linter tests must pass. Install by
-```bash
-conda install flake8
-```
-or if using pip
-```bash
-pip install flake8
-```
-
-Run linter by 
-```bash
-flake8
 ```
 
 ### Docker
@@ -80,7 +58,3 @@ pytest test
 
 A bash terminal is then opened in the container to interact with the repository.
 
-### Acknowledgements
-
-
-### Tests
