@@ -19,7 +19,7 @@ conda create -n glotnet python=3.10
 conda activate glotnet
 
 # Install requirements in with conda
-conda install -c pytorch -c conda-forge pytorch torchaudio tensorboard scikit-build cmake eigen ninja pytest
+conda install -c pytorch -c conda-forge pytorch torchaudio tensorboard scikit-build pysoundfile cmake eigen ninja pytest
 
 # Clone git submodules
 git submodule update --init --recursive
