@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14...3.22)
 
-project(GlotNet LANGUAGES C CXX VERSION 0.1.1)
+project(GlotNet LANGUAGES C CXX VERSION 0.1.2)
 
 set(CMAKE_CXX_STANDARD 17)
 

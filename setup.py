@@ -7,7 +7,7 @@ packages.append('glotnet')
 
 setup(
     name="glotnet",
-    version="0.1.1",
+    version="0.1.2",
     description="",
     author='Lauri Juvela',
     license="",
