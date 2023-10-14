@@ -92,7 +92,7 @@ def main(args):
         bname = os.path.basename(f)
         outfile = os.path.join(args.output_dir, bname)
         print(f"saving to {outfile}")
-        torchaudio.save(outfile, x[0], sample_rate=config.sample_rate,
+        torchaudio.save(outfile, x[0].detach(), sample_rate=config.sample_rate,
                         bits_per_sample=16 ,encoding='PCM_S')
 
 
