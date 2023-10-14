@@ -14,6 +14,9 @@ import numpy as np
 
 from typing import Union
 
+# https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/2
+torch.backends.cudnn.benchmark = True
+
 DeviceType = Union[str, torch.device]
 
 class TrainerGlotNet(TrainerWaveNet):

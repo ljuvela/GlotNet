@@ -71,8 +71,8 @@ def spectrum_to_allpole(spectrum:torch.Tensor, order:int, root_scale:float=1.0):
         order: filter polynomial order
 
     Returns:
-        g: filter gain
         a: filter predictor polynomial tensor, shape=(..., order+1)
+        g: filter gain
     """
     r = torch.fft.irfft(spectrum, dim=-1)
     # add small value to diagonal to avoid singular matrix
