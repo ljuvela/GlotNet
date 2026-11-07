@@ -1,5 +1,7 @@
 import torch
+import torch.nn.functional as F
 import glotnet.cpp_extensions as ext
+from glotnet.sigproc import mulaw
 
 class Distribution(torch.nn.Module):
     """ Base class for distributions
@@ -96,9 +98,89 @@ class GaussianDensity(Distribution):
 
 
 
+class CategoricalDensity(Distribution):
+    """ Categorical distribution over mu-law quantized sample values
+
+        The model outputs one logit per quantization level
+        (params_dim = 2**num_bits). Samples are returned as signal values
+        in [-1, 1] (dequantized and expanded), so the autoregressive
+        feedback stays a single float channel.
+    """
+
+    def __init__(self,
+                 num_bits: int = 8,
+                 temperature: float = 1.0,
+                 weight_nll: float = 1.0):
+        """
+        Args:
+            num_bits: quantization bits, mu = 2**num_bits - 1
+            temperature: default sampling temperature (logits are divided by it)
+            weight_nll: loss weight
+        """
+        mu = mulaw.mu_from_bits(num_bits)
+        super().__init__(params_dim=mu + 1, out_dim=1)
+        self.num_bits = num_bits
+        self.mu = mu
+        self.temperature = temperature
+        self.weight_nll = weight_nll
+
+    def set_temperature(self, temp: float):
+        self.temperature = temp
+
+    def _check_params(self, params: torch.Tensor):
+        if params.size(1) != self.params_dim:
+            raise ValueError(f'Expected params to have {self.params_dim} channels, got {params.size(1)}')
+
+    def nll(self, x, params):
+        """ Negative log-likelihood (in nats) of the quantized samples
+
+        Args:
+            x: signal, shape (batch, 1, time), values in [-1, 1]
+            params: logits, shape (batch, 2**num_bits, time)
+
+        Returns:
+            nll, shape (batch, 1, time)
+        """
+        self._check_params(params)
+        target = mulaw.encode(x[:, 0, :], self.mu)
+        nll = F.cross_entropy(params, target, reduction='none').unsqueeze(1)
+        self.batch_nll = nll
+        return nll
+
+    def forward(self, x, params):
+        nll = self.nll(x, params)
+        return self.weight_nll * nll.mean()
+
+    def sample(self, params, use_extension=False, temperature=None):
+        """ Sample signal values
+
+        Args:
+            params: logits, shape (batch, 2**num_bits, time)
+            temperature: float or tensor broadcastable to (batch, 1, time);
+                logits are divided by it, 0 gives the most likely value
+
+        Returns:
+            x, shape (batch, 1, time), values in [-1, 1]
+        """
+        self._check_params(params)
+        if use_extension:
+            raise NotImplementedError('C++ categorical sampling not implemented yet')
+        if temperature is None:
+            temperature = self.temperature
+        temperature = torch.as_tensor(temperature, dtype=params.dtype, device=params.device)
+        temperature = temperature.expand(params.size(0), 1, params.size(2))
+
+        logits = params / temperature.clamp(min=1e-6)
+        q = torch.distributions.Categorical(logits=logits.transpose(1, 2)).sample()
+        # exact argmax where temperature is zero
+        greedy = temperature[:, 0, :] <= 0.0
+        q = torch.where(greedy, params.argmax(dim=1), q)
+        return mulaw.decode(q, self.mu).unsqueeze(1)
+
+
 class Identity(Distribution):
     def __init__(self):
-        super().__init__()
+        super().__init__(params_dim=1, out_dim=1)
 
     def forward(self, x):
         return x

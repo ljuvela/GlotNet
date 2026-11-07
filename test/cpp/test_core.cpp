@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "glotnet/Convolution.h"
+#include "glotnet/MuLaw.h"
 #include "glotnet/WaveNet.h"
 
 namespace
@@ -122,6 +123,28 @@ void testWaveNetRuns()
         CHECK(std::isfinite(v));
 }
 
+void testMuLaw()
+{
+    namespace mulaw = glotnet::mulaw;
+    const int mu = mulaw::muFromBits(8);
+    CHECK(mu == 255);
+
+    // reference codes from glotnet/sigproc/mulaw.py (== torchaudio)
+    const float x[] = {-0.9f, -0.1f, -0.001f, 0.0f, 0.002f, 0.3f, 0.75f};
+    const int q_ref[] = {2, 52, 122, 128, 137, 228, 248};
+    for (int i = 0; i < 7; i++)
+        CHECK(mulaw::encode(x[i], mu) == q_ref[i]);
+
+    // every class decodes to a value that encodes back to the same class
+    for (int q = 0; q <= mu; q++)
+        CHECK(mulaw::encode(mulaw::decode(q, mu), mu) == q);
+    CHECK(mulaw::decode(0, mu) == -1.0f);
+    CHECK(mulaw::decode(mu, mu) == 1.0f);
+    // clipping
+    CHECK(mulaw::encode(-3.0f, mu) == 0);
+    CHECK(mulaw::encode(3.0f, mu) == mu);
+}
+
 } // namespace
 
 int main()
@@ -129,6 +152,7 @@ int main()
     testConvolutionMatchesReference();
     testShapeValidation();
     testWaveNetRuns();
+    testMuLaw();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else
