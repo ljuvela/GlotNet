@@ -1,4 +1,4 @@
-#include "ConvolutionLayer.h"
+#include "glotnet/ConvolutionLayer.h"
 
 #include <cstring>
 

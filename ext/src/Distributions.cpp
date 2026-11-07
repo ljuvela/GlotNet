@@ -1,7 +1,7 @@
 #include <cmath>
 #include <random>
 #include <iostream>
-#include "Distributions.h"
+#include "glotnet/Distributions.h"
 
 namespace glotnet
 {

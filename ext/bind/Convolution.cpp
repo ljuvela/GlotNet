@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "TensorView.h"
-#include "../src/Convolution.h"
+#include "glotnet/Convolution.h"
 
 namespace glotnet
 {

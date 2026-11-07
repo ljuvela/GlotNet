@@ -7,8 +7,8 @@
 #include <stdexcept>
 #include <vector>
 
-#include "Convolution.h"
-#include "WaveNet.h"
+#include "glotnet/Convolution.h"
+#include "glotnet/WaveNet.h"
 
 namespace
 {

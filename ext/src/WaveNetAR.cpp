@@ -1,5 +1,5 @@
-#include "WaveNetAR.h"
-#include "Distributions.h"
+#include "glotnet/WaveNetAR.h"
+#include "glotnet/Distributions.h"
 
 namespace glotnet
 {

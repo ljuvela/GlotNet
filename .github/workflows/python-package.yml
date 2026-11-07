@@ -65,3 +65,10 @@ jobs:
 
     - name: Test
       run: ctest --test-dir build-core --output-on-failure
+
+    - name: Downstream project (FetchContent, this checkout)
+      run: |
+        cmake -S test/cpp/consumer -B build-consumer -DCMAKE_BUILD_TYPE=Release \
+              -DFETCHCONTENT_SOURCE_DIR_GLOTNET="$GITHUB_WORKSPACE"
+        cmake --build build-consumer --parallel
+        ctest --test-dir build-consumer --output-on-failure

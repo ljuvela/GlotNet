@@ -1,5 +1,5 @@
 #include <cassert>
-#include "Activations.h"
+#include "glotnet/Activations.h"
 #include <iostream>
 namespace {
     typedef float (* activationFunction)(float x);

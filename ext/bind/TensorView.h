@@ -2,7 +2,7 @@
 
 #include <torch/extension.h>
 
-#include "../src/ArrayView.h"
+#include "glotnet/ArrayView.h"
 
 namespace glotnet
 {

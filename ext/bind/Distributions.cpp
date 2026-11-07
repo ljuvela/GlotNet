@@ -1,7 +1,7 @@
 #include <torch/extension.h>
 #include <vector>
 
-#include "../src/Distributions.h"
+#include "glotnet/Distributions.h"
 
 namespace glotnet
 {

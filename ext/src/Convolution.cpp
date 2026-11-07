@@ -1,4 +1,4 @@
-#include "Convolution.h"
+#include "glotnet/Convolution.h"
 #include <cassert>
 #include <cstring>
 namespace glotnet

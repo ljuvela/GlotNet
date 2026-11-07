@@ -15,7 +15,7 @@
 Goal: C++ code usable from CMake-based audio plugins without linking libtorch.
 
 - [x] Remove torch dependency from `ext/src/`: setters take
-      `glotnet::ConstArrayView` (`ext/src/ArrayView.h`, pointer + shape in
+      `glotnet::ConstArrayView` (`include/glotnet/ArrayView.h`, pointer + shape in
       torch layout); shapes validated in core (`std::invalid_argument`)
 - [x] Tensor -> view conversion in `ext/bind/TensorView.h` (`glotnet::view`)
 - [x] CMake: torch-free `glotnet_core` static library (alias `GlotNet::core`)
@@ -26,9 +26,16 @@ Goal: C++ code usable from CMake-based audio plugins without linking libtorch.
 - [x] Only set `CMAKE_CXX_STANDARD` when built standalone
 - [x] C++ tests (`test/cpp/test_core.cpp`, `-DGLOTNET_BUILD_TESTS=ON`, ctest);
       CI job builds the core without Python/torch
-- [ ] Separate public headers (e.g. `include/glotnet/`) from sources
-- [ ] Make the project consumable via `add_subdirectory` / `FetchContent`
-      (test from a minimal consumer project)
+- [x] Public headers in `include/glotnet/` (`#include "glotnet/WaveNet.h"`)
+- [x] Consumable via `add_subdirectory` / `FetchContent`: Python module off by
+      default as a subproject; parent's `Eigen3::Eigen` used if present;
+      example/CI check in `test/cpp/consumer/`
+- [ ] `ext/src/LFilter.h` declares `AllPoleFilter` with no implementation
+      and no users: implement or delete
+- [ ] `install()` + exported CMake package config (`find_package(GlotNet)`),
+      if needed beyond FetchContent
+- [ ] Model weight loading for plugins (currently only via setters; e.g. a
+      file format exported from the Python side)
 - [ ] Clean up core API: mixed `int`/`size_t`/`int64_t` sizes, activation
       names as strings (enum), `std::unique_ptr<Distribution>(new ...)`
 

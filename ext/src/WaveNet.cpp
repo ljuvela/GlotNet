@@ -1,4 +1,4 @@
-#include "WaveNet.h"
+#include "glotnet/WaveNet.h"
 
 #include <cstring>
 

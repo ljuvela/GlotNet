@@ -1,4 +1,4 @@
-#include "ConvolutionStack.h"
+#include "glotnet/ConvolutionStack.h"
 
 namespace glotnet
 {

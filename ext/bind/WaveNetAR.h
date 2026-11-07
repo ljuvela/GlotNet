@@ -3,7 +3,7 @@
 #include <iostream>
 
 #include "TensorView.h"
-#include "../src/WaveNetAR.h"
+#include "glotnet/WaveNetAR.h"
 
 namespace glotnet
 {

@@ -3,7 +3,7 @@
 #include <iostream>
 
 #include "TensorView.h"
-#include "../src/ConvolutionLayer.h"
+#include "glotnet/ConvolutionLayer.h"
 
 namespace glotnet
 {

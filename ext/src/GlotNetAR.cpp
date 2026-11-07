@@ -1,5 +1,5 @@
-#include "GlotNetAR.h"
-#include "Distributions.h"
+#include "glotnet/GlotNetAR.h"
+#include "glotnet/Distributions.h"
 
 namespace glotnet
 {
