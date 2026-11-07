@@ -42,3 +42,33 @@ jobs:
 
     - name: Test with pytest
       run: pytest test
+
+  # The C++ core library on its own: no Python, no torch
+  core:
+    name: C++ core / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: cmake -S . -B build-core -DGLOTNET_BUILD_PYTHON=OFF -DGLOTNET_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build-core --parallel
+
+    - name: Test
+      run: ctest --test-dir build-core --output-on-failure
+
+    - name: Downstream project (FetchContent, this checkout)
+      run: |
+        cmake -S test/cpp/consumer -B build-consumer -DCMAKE_BUILD_TYPE=Release \
+              -DFETCHCONTENT_SOURCE_DIR_GLOTNET="$GITHUB_WORKSPACE"
+        cmake --build build-consumer --parallel
+        ctest --test-dir build-consumer --output-on-failure

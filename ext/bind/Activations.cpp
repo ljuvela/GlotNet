@@ -16,7 +16,7 @@
 #include <vector>
 #include <iostream>
 
-#include "../src/Activations.h"
+#include "glotnet/Activations.h"
 
 namespace glotnet
 {

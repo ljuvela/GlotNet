@@ -2,7 +2,8 @@
 #include <vector>
 #include <iostream>
 
-#include "../src/WaveNet.h"
+#include "TensorView.h"
+#include "glotnet/WaveNet.h"
 
 namespace glotnet
 {
@@ -46,22 +47,22 @@ std::vector<at::Tensor> forward(
     wavenet.prepare(timesteps);
 
     // Set parameters
-    wavenet.setInputWeight(input_weight);
-    wavenet.setInputBias(input_bias);
+    wavenet.setInputWeight(glotnet::view(input_weight));
+    wavenet.setInputBias(glotnet::view(input_bias));
     int num_layers = dilations.size();
     for (size_t i = 0; i < num_layers; i++)
     {
-        wavenet.setStackConvolutionWeight(stack_weights_conv[i], i);
-        wavenet.setStackConvolutionBias(stack_biases_conv[i], i);
-        wavenet.setStackOutputWeight(stack_weights_out[i], i);
-        wavenet.setStackOutputBias(stack_biases_out[i], i);
-        wavenet.setStackSkipWeight(stack_weights_skip[i], i);
-        wavenet.setStackSkipBias(stack_biases_skip[i], i);
+        wavenet.setStackConvolutionWeight(glotnet::view(stack_weights_conv[i]), i);
+        wavenet.setStackConvolutionBias(glotnet::view(stack_biases_conv[i]), i);
+        wavenet.setStackOutputWeight(glotnet::view(stack_weights_out[i]), i);
+        wavenet.setStackOutputBias(glotnet::view(stack_biases_out[i]), i);
+        wavenet.setStackSkipWeight(glotnet::view(stack_weights_skip[i]), i);
+        wavenet.setStackSkipBias(glotnet::view(stack_biases_skip[i]), i);
     }
     for (size_t i = 0; i < output_weights.size(); i++)
     {
-        wavenet.setOutputWeight(output_weights[i], i);
-        wavenet.setOutputBias(output_biases[i], i);
+        wavenet.setOutputWeight(glotnet::view(output_weights[i]), i);
+        wavenet.setOutputBias(glotnet::view(output_biases[i]), i);
     }
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
@@ -117,24 +118,24 @@ std::vector<at::Tensor> cond_forward(
     wavenet.prepare(timesteps);
 
     // Set parameters
-    wavenet.setInputWeight(input_weight);
-    wavenet.setInputBias(input_bias);
+    wavenet.setInputWeight(glotnet::view(input_weight));
+    wavenet.setInputBias(glotnet::view(input_bias));
     int num_layers = dilations.size();
     for (size_t i = 0; i < num_layers; i++)
     {
-        wavenet.setStackConvolutionWeight(stack_weights_conv[i], i);
-        wavenet.setStackConvolutionBias(stack_biases_conv[i], i);
-        wavenet.setStackOutputWeight(stack_weights_out[i], i);
-        wavenet.setStackOutputBias(stack_biases_out[i], i);
-        wavenet.setStackSkipWeight(stack_weights_skip[i], i);
-        wavenet.setStackSkipBias(stack_biases_skip[i], i);
-        wavenet.setStackCondWeight(stack_weights_cond[i], i);
-        wavenet.setStackCondBias(stack_biases_cond[i], i);
+        wavenet.setStackConvolutionWeight(glotnet::view(stack_weights_conv[i]), i);
+        wavenet.setStackConvolutionBias(glotnet::view(stack_biases_conv[i]), i);
+        wavenet.setStackOutputWeight(glotnet::view(stack_weights_out[i]), i);
+        wavenet.setStackOutputBias(glotnet::view(stack_biases_out[i]), i);
+        wavenet.setStackSkipWeight(glotnet::view(stack_weights_skip[i]), i);
+        wavenet.setStackSkipBias(glotnet::view(stack_biases_skip[i]), i);
+        wavenet.setStackCondWeight(glotnet::view(stack_weights_cond[i]), i);
+        wavenet.setStackCondBias(glotnet::view(stack_biases_cond[i]), i);
     }
     for (size_t i = 0; i < output_weights.size(); i++)
     {
-        wavenet.setOutputWeight(output_weights[i], i);
-        wavenet.setOutputBias(output_biases[i], i);
+        wavenet.setOutputWeight(glotnet::view(output_weights[i]), i);
+        wavenet.setOutputBias(glotnet::view(output_biases[i]), i);
     }
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});

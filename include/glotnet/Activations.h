@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <string>
+namespace glotnet {
 namespace Activations {
     float tanh(float x);
     float sigmoid(float x);
@@ -34,3 +35,4 @@ namespace Activations {
     activationFuncArray getActivationFuncArray(std::string name);
     activationFunc2DArray getActivationFunc2DArray(std::string name);
 }
+} // namespace glotnet

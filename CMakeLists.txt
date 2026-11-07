@@ -2,10 +2,72 @@ cmake_minimum_required(VERSION 3.18...3.31)
 
 project(GlotNet LANGUAGES C CXX VERSION 0.1.2)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Built standalone (pip install / direct CMake), or as a subproject of e.g.
+# an audio plugin via add_subdirectory/FetchContent? (PROJECT_IS_TOP_LEVEL
+# needs CMake 3.21)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(GLOTNET_IS_TOP_LEVEL ON)
+else()
+    set(GLOTNET_IS_TOP_LEVEL OFF)
+endif()
+
+# Only set global C++ settings when standalone; as a subproject the parent
+# decides (glotnet_core still requires C++17 via target_compile_features).
+if(GLOTNET_IS_TOP_LEVEL)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 
 include(GNUInstallDirs)
+
+# Subprojects get only the torch-free core library by default
+option(GLOTNET_BUILD_PYTHON "Build the Python extension module (requires torch)" ${GLOTNET_IS_TOP_LEVEL})
+option(GLOTNET_BUILD_TESTS "Build C++ tests for the core library" OFF)
+
+# Eigen is header-only: use the submodule headers directly rather than
+# configuring Eigen's own CMake project (tests, docs, etc.).
+# A parent project that already has Eigen can provide an Eigen3::Eigen
+# target before including GlotNet, and that is used instead.
+if(NOT TARGET glotnet_eigen)
+    add_library(glotnet_eigen INTERFACE)
+    if(TARGET Eigen3::Eigen)
+        target_link_libraries(glotnet_eigen INTERFACE Eigen3::Eigen)
+    else()
+        target_include_directories(glotnet_eigen SYSTEM INTERFACE
+            ${CMAKE_CURRENT_SOURCE_DIR}/third_party/eigen)
+    endif()
+endif()
+
+# Core DSP / inference library: plain C++ and Eigen, no torch or Python.
+# Parameters are passed as glotnet::ConstArrayView (glotnet/ArrayView.h).
+# Public headers: include/glotnet/*.h, used as #include "glotnet/WaveNet.h".
+add_library(glotnet_core STATIC
+    ext/src/Activations.cpp
+    ext/src/Distributions.cpp
+    ext/src/Convolution.cpp
+    ext/src/ConvolutionLayer.cpp
+    ext/src/ConvolutionStack.cpp
+    ext/src/WaveNet.cpp
+    ext/src/WaveNetAR.cpp
+    ext/src/GlotNetAR.cpp
+)
+add_library(GlotNet::core ALIAS glotnet_core)
+target_include_directories(glotnet_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(glotnet_core PUBLIC glotnet_eigen)
+target_compile_features(glotnet_core PUBLIC cxx_std_17)
+# Linked into the Python module (a shared object), so needs PIC
+set_target_properties(glotnet_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(GLOTNET_BUILD_TESTS)
+    enable_testing()
+    add_executable(glotnet_test_core test/cpp/test_core.cpp)
+    target_link_libraries(glotnet_test_core PRIVATE glotnet_core)
+    add_test(NAME glotnet_test_core COMMAND glotnet_test_core)
+endif()
+
+if(NOT GLOTNET_BUILD_PYTHON)
+    return()
+endif()
 
 # Python extension module. Built by scikit-build-core during `pip install`,
 # or directly with CMake when a Python interpreter with torch is available.
@@ -35,14 +97,6 @@ python_add_library(${python_module_name} MODULE WITH_SOABI
     ext/bind/ConvolutionStack.cpp
     ext/bind/Distributions.cpp
     ext/bind/WaveNet.cpp
-    ext/src/Activations.cpp
-    ext/src/Distributions.cpp
-    ext/src/Convolution.cpp
-    ext/src/WaveNet.cpp
-    ext/src/ConvolutionLayer.cpp
-    ext/src/WaveNetAR.cpp
-    ext/src/ConvolutionStack.cpp
-    ext/src/GlotNetAR.cpp
 )
 set_target_properties(${python_module_name} PROPERTIES
     CXX_VISIBILITY_PRESET hidden
@@ -62,12 +116,7 @@ target_compile_definitions(${python_module_name} PRIVATE
     TORCH_EXTENSION_NAME=${python_module_name}
 )
 
-# Eigen is header-only: use the submodule headers directly rather than
-# configuring Eigen's own CMake project (tests, docs, etc.)
-add_library(glotnet_eigen INTERFACE)
-target_include_directories(glotnet_eigen SYSTEM INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/eigen)
-target_link_libraries(${python_module_name} PRIVATE glotnet_eigen)
+target_link_libraries(${python_module_name} PRIVATE glotnet_core)
 
 target_include_directories(${python_module_name} PRIVATE ${TORCH_INCLUDE_DIRS})
 target_link_libraries(${python_module_name} PRIVATE

@@ -1,5 +1,11 @@
-#include "WaveNetAR.h"
-#include "Distributions.h"
+#include "glotnet/WaveNetAR.h"
+#include "glotnet/Distributions.h"
+
+namespace glotnet
+{
+
+using distributions::Distribution;
+using distributions::GaussianDensity;
 
 WaveNetAR::WaveNetAR(size_t input_channels, size_t output_channels,
                      size_t convolution_channels, size_t skip_channels, size_t cond_channels,
@@ -112,3 +118,4 @@ void  WaveNetAR::setDistribution(std::string dist_name)
     dist = std::unique_ptr<Distribution>(new GaussianDensity());
 }
 
+} // namespace glotnet

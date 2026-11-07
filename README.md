@@ -40,6 +40,23 @@ With the editable install (`-e`), Python changes take effect immediately. After 
 
 Note: avoid installing conda packages that depend on `pytorch` into the environment, as they would install a second copy of torch next to the PyPI one.
 
+### Using the C++ library from CMake
+
+The inference code (`include/glotnet/`, `ext/src/`) is plain C++17 with Eigen and has no torch or Python dependency, so it can be used in e.g. audio plugins:
+```cmake
+include(FetchContent)
+FetchContent_Declare(glotnet
+    GIT_REPOSITORY https://github.com/ljuvela/GlotNet.git
+    GIT_TAG master)
+FetchContent_MakeAvailable(glotnet)
+target_link_libraries(my_plugin PRIVATE GlotNet::core)
+```
+As a subproject only the core library is built (`GLOTNET_BUILD_PYTHON` defaults to `OFF`). Weights are passed as `glotnet::ConstArrayView` (pointer + shape, PyTorch layout). See `test/cpp/consumer/` for a complete example. To build and run the C++ tests standalone:
+```bash
+cmake -S . -B build-core -DGLOTNET_BUILD_PYTHON=OFF -DGLOTNET_BUILD_TESTS=ON
+cmake --build build-core && ctest --test-dir build-core
+```
+
 ### Docker
 
 Docker can also be used to build an image with the requried packages.

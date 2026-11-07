@@ -2,7 +2,8 @@
 #include <vector>
 #include <iostream>
 
-#include "../src/ConvolutionLayer.h"
+#include "TensorView.h"
+#include "glotnet/ConvolutionLayer.h"
 
 namespace glotnet
 {
@@ -35,12 +36,12 @@ std::vector<at::Tensor> forward(
     const int cond_channels = 0;
     auto layer = ConvolutionLayer(input_channels, output_channels, skip_channels, cond_channels,
                                   filter_width, dilation, use_output_transform, activation_name);
-    layer.setConvolutionWeight(weight_conv);
-    layer.setConvolutionBias(bias_conv);
+    layer.setConvolutionWeight(glotnet::view(weight_conv));
+    layer.setConvolutionBias(glotnet::view(bias_conv));
     if (use_output_transform)
     {
-        layer.setOutputWeight(weight_out);
-        layer.setOutputBias(bias_out);
+        layer.setOutputWeight(glotnet::view(weight_out));
+        layer.setOutputBias(glotnet::view(bias_out));
     }
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
@@ -84,15 +85,15 @@ std::vector<at::Tensor> skip_forward(
 
     auto layer = ConvolutionLayer(input_channels, output_channels, skip_channels, cond_channels,
                                   filter_width, dilation, use_output_transform, activation_name);
-    layer.setConvolutionWeight(weight_conv);
-    layer.setConvolutionBias(bias_conv);
+    layer.setConvolutionWeight(glotnet::view(weight_conv));
+    layer.setConvolutionBias(glotnet::view(bias_conv));
     if (use_output_transform)
     {
-        layer.setOutputWeight(weight_out);
-        layer.setOutputBias(bias_out);
+        layer.setOutputWeight(glotnet::view(weight_out));
+        layer.setOutputBias(glotnet::view(bias_out));
     }
-    layer.setSkipWeight(weight_skip);
-    layer.setSkipBias(bias_skip);
+    layer.setSkipWeight(glotnet::view(weight_skip));
+    layer.setSkipBias(glotnet::view(bias_skip));
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
     auto skip = torch::zeros({batch_size, timesteps, skip_channels});
@@ -145,20 +146,20 @@ std::vector<at::Tensor> skip_cond_forward(
                                   filter_width, dilation,
                                   use_output_transform, activation_name);
     // convolution
-    layer.setConvolutionWeight(weight_conv);
-    layer.setConvolutionBias(bias_conv);
+    layer.setConvolutionWeight(glotnet::view(weight_conv));
+    layer.setConvolutionBias(glotnet::view(bias_conv));
     // outputs
     if (use_output_transform)
     {
-        layer.setOutputWeight(weight_out);
-        layer.setOutputBias(bias_out);
+        layer.setOutputWeight(glotnet::view(weight_out));
+        layer.setOutputBias(glotnet::view(bias_out));
     }
     // skips
-    layer.setSkipWeight(weight_skip);
-    layer.setSkipBias(bias_skip);
+    layer.setSkipWeight(glotnet::view(weight_skip));
+    layer.setSkipBias(glotnet::view(bias_skip));
     // conditioning
-    layer.setCondWeight(weight_cond);
-    layer.setCondBias(bias_cond);
+    layer.setCondWeight(glotnet::view(weight_cond));
+    layer.setCondBias(glotnet::view(bias_cond));
 
     auto output = torch::zeros({batch_size, timesteps, output_channels});
     auto skip = torch::zeros({batch_size, timesteps, skip_channels});

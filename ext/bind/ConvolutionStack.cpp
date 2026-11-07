@@ -1,7 +1,8 @@
 #include <torch/extension.h>
 #include <vector>
 
-#include "../src/ConvolutionStack.h"
+#include "TensorView.h"
+#include "glotnet/ConvolutionStack.h"
 
 namespace glotnet
 {
@@ -33,22 +34,22 @@ std::vector<at::Tensor> forward(
                                   filter_width, dilations, activation, use_residual);
 
     for (size_t i = 0; i < weights_conv.size(); i++)
-        stack.setConvolutionWeight(weights_conv[i], i);
+        stack.setConvolutionWeight(glotnet::view(weights_conv[i]), i);
 
     for (size_t i = 0; i < biases_conv.size(); i++)
-        stack.setConvolutionBias(biases_conv[i], i);
+        stack.setConvolutionBias(glotnet::view(biases_conv[i]), i);
 
     for (size_t i = 0; i < weights_out.size(); i++)
-        stack.setOutputWeight(weights_out[i], i);
+        stack.setOutputWeight(glotnet::view(weights_out[i]), i);
     
     for (size_t i = 0; i < biases_out.size(); i++)
-        stack.setOutputBias(biases_out[i], i);
+        stack.setOutputBias(glotnet::view(biases_out[i]), i);
 
     for (size_t i = 0; i < weights_skip.size(); i++)
-        stack.setSkipWeight(weights_skip[i], i);
+        stack.setSkipWeight(glotnet::view(weights_skip[i]), i);
     
     for (size_t i = 0; i < biases_skip.size(); i++)
-        stack.setSkipBias(biases_skip[i], i);
+        stack.setSkipBias(glotnet::view(biases_skip[i]), i);
 
     auto output = 1.0 * input; // clone
     auto skip = torch::zeros({batch_size, num_layers, timesteps, skip_channels});
@@ -92,28 +93,28 @@ std::vector<at::Tensor> cond_forward(
                                   filter_width, dilations, activation, use_residual);
 
     for (size_t i = 0; i < weights_conv.size(); i++)
-        stack.setConvolutionWeight(weights_conv[i], i);
+        stack.setConvolutionWeight(glotnet::view(weights_conv[i]), i);
 
     for (size_t i = 0; i < biases_conv.size(); i++)
-        stack.setConvolutionBias(biases_conv[i], i);
+        stack.setConvolutionBias(glotnet::view(biases_conv[i]), i);
 
     for (size_t i = 0; i < weights_out.size(); i++)
-        stack.setOutputWeight(weights_out[i], i);
+        stack.setOutputWeight(glotnet::view(weights_out[i]), i);
     
     for (size_t i = 0; i < biases_out.size(); i++)
-        stack.setOutputBias(biases_out[i], i);
+        stack.setOutputBias(glotnet::view(biases_out[i]), i);
 
     for (size_t i = 0; i < weights_skip.size(); i++)
-        stack.setSkipWeight(weights_skip[i], i);
+        stack.setSkipWeight(glotnet::view(weights_skip[i]), i);
     
     for (size_t i = 0; i < biases_skip.size(); i++)
-        stack.setSkipBias(biases_skip[i], i);
+        stack.setSkipBias(glotnet::view(biases_skip[i]), i);
 
     for (size_t i = 0; i < weights_cond.size(); i++)
-        stack.setCondWeight(weights_cond[i], i);
+        stack.setCondWeight(glotnet::view(weights_cond[i]), i);
     
     for (size_t i = 0; i < biases_cond.size(); i++)
-        stack.setCondBias(biases_cond[i], i);
+        stack.setCondBias(glotnet::view(biases_cond[i]), i);
 
     auto output = 1.0 * input;
     auto skip = torch::zeros({batch_size, num_layers, timesteps, skip_channels});

@@ -1,5 +1,6 @@
-#include "Convolution.h"
+#include "glotnet/Convolution.h"
 #include <cassert>
+#include <cstring>
 namespace glotnet
 {
 
@@ -141,32 +142,23 @@ inline int Convolution::mod(int a, int b) const
     return rltz * (r + b) + (1 - rltz) * r;
 }
 
-void Convolution::setWeight(const torch::Tensor &W)
+void Convolution::setWeight(const ConstArrayView &W)
 {
-    auto W_a = W.accessor<float, 3>(); // (out_channels, in_channels, filter_size)
-    assert(input_channels == W.size(1));
-    assert(output_channels == W.size(0));
-    assert(filter_width == W.size(2));
-
-    for (size_t k = 0; k < filter_width; ++k)
-        for (size_t row = 0; row < input_channels; ++row)
-            for (size_t col = 0; col < output_channels; ++col)
-                weight[filter_width - 1 - k](row, col) = W_a[col][row][k];
+    const int64_t I = input_channels, O = output_channels, K = filter_width;
+    W.checkShape({O, I, K}, "Convolution::setWeight");
+    // W is (out_channels, in_channels, filter_width), row-major.
+    // weight[k] is (in, out) and the taps are stored in reversed time order.
+    for (int64_t k = 0; k < K; ++k)
+        for (int64_t row = 0; row < I; ++row)
+            for (int64_t col = 0; col < O; ++col)
+                weight[K - 1 - k](row, col) = W.data[(col * I + row) * K + k];
 }
 
-void Convolution::setBias(const torch::Tensor &b)
+void Convolution::setBias(const ConstArrayView &b)
 {
-    auto b_a = b.accessor<float, 1>(); // (out_channels,)
-    assert(b.size(0) == output_channels);
+    b.checkShape({static_cast<int64_t>(output_channels)}, "Convolution::setBias");
     for (size_t i = 0; i < output_channels; ++i)
-    bias(i) = b_a[i];
-}
-
-void Convolution::setParameters(const std::vector<const torch::Tensor *> & params)
-{
-    assert (params.size() == 2);
-    this->setWeight(*params[0]);
-    this->setBias(*params[1]);
+        bias(i) = b.data[i];
 }
 
 ConvolutionAR::ConvolutionAR(size_t input_channels, size_t output_channels, int filter_width, int dilation)

@@ -2,7 +2,8 @@
 #include <vector>
 #include <iostream>
 
-#include "../src/WaveNetAR.h"
+#include "TensorView.h"
+#include "glotnet/WaveNetAR.h"
 
 namespace glotnet
 {
@@ -114,22 +115,22 @@ void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
                     const std::vector<torch::Tensor> &output_biases)
 {
     // Set parameters
-    model.setInputWeight(input_weight);
-    model.setInputBias(input_bias);
+    model.setInputWeight(glotnet::view(input_weight));
+    model.setInputBias(glotnet::view(input_bias));
     int num_layers = dilations.size();
     for (size_t i = 0; i < num_layers; i++)
     {
-        model.setStackConvolutionWeight(stack_weights_conv[i], i);
-        model.setStackConvolutionBias(stack_biases_conv[i], i);
-        model.setStackOutputWeight(stack_weights_out[i], i);
-        model.setStackOutputBias(stack_biases_out[i], i);
-        model.setStackSkipWeight(stack_weights_skip[i], i);
-        model.setStackSkipBias(stack_biases_skip[i], i);
+        model.setStackConvolutionWeight(glotnet::view(stack_weights_conv[i]), i);
+        model.setStackConvolutionBias(glotnet::view(stack_biases_conv[i]), i);
+        model.setStackOutputWeight(glotnet::view(stack_weights_out[i]), i);
+        model.setStackOutputBias(glotnet::view(stack_biases_out[i]), i);
+        model.setStackSkipWeight(glotnet::view(stack_weights_skip[i]), i);
+        model.setStackSkipBias(glotnet::view(stack_biases_skip[i]), i);
     }
     for (size_t i = 0; i < output_weights.size(); i++)
     {
-        model.setOutputWeight(output_weights[i], i);
-        model.setOutputBias(output_biases[i], i);
+        model.setOutputWeight(glotnet::view(output_weights[i]), i);
+        model.setOutputBias(glotnet::view(output_biases[i]), i);
     }
     model.prepare();
     model.setDistribution("gaussian");
@@ -151,24 +152,24 @@ void setParametersConditional(
 {
 
     // Set parameters
-    model.setInputWeight(input_weight);
-    model.setInputBias(input_bias);
+    model.setInputWeight(glotnet::view(input_weight));
+    model.setInputBias(glotnet::view(input_bias));
     int num_layers = dilations.size();
     for (size_t i = 0; i < num_layers; i++)
     {
-        model.setStackConvolutionWeight(stack_weights_conv[i], i);
-        model.setStackConvolutionBias(stack_biases_conv[i], i);
-        model.setStackOutputWeight(stack_weights_out[i], i);
-        model.setStackOutputBias(stack_biases_out[i], i);
-        model.setStackSkipWeight(stack_weights_skip[i], i);
-        model.setStackSkipBias(stack_biases_skip[i], i);
-        model.setStackCondWeight(stack_weights_cond[i], i);
-        model.setStackCondBias(stack_biases_cond[i], i);
+        model.setStackConvolutionWeight(glotnet::view(stack_weights_conv[i]), i);
+        model.setStackConvolutionBias(glotnet::view(stack_biases_conv[i]), i);
+        model.setStackOutputWeight(glotnet::view(stack_weights_out[i]), i);
+        model.setStackOutputBias(glotnet::view(stack_biases_out[i]), i);
+        model.setStackSkipWeight(glotnet::view(stack_weights_skip[i]), i);
+        model.setStackSkipBias(glotnet::view(stack_biases_skip[i]), i);
+        model.setStackCondWeight(glotnet::view(stack_weights_cond[i]), i);
+        model.setStackCondBias(glotnet::view(stack_biases_cond[i]), i);
     }
     for (size_t i = 0; i < output_weights.size(); i++)
     {
-        model.setOutputWeight(output_weights[i], i);
-        model.setOutputBias(output_biases[i], i);
+        model.setOutputWeight(glotnet::view(output_weights[i]), i);
+        model.setOutputBias(glotnet::view(output_biases[i]), i);
     }
 
     model.prepare();

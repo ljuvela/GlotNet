@@ -1,4 +1,9 @@
-#include "WaveNet.h"
+#include "glotnet/WaveNet.h"
+
+#include <cstring>
+
+namespace glotnet
+{
 
 WaveNet::WaveNet(size_t input_channels, size_t output_channels,
                  size_t convolution_channels, size_t skip_channels, size_t cond_channels,
@@ -65,57 +70,57 @@ inline int WaveNet::idx(int ch, int i, int total_samples)
     return ch * total_samples + i;
 }
 
-void WaveNet::setStackConvolutionWeight(const torch::Tensor &W, int layerIdx)
+void WaveNet::setStackConvolutionWeight(const glotnet::ConstArrayView &W, int layerIdx)
 {
     conv_stack.setConvolutionWeight(W, layerIdx);
 }
 
-void WaveNet::setStackConvolutionBias(const torch::Tensor &b, int layerIdx)
+void WaveNet::setStackConvolutionBias(const glotnet::ConstArrayView &b, int layerIdx)
 {
     conv_stack.setConvolutionBias(b, layerIdx);
 }
 
-void WaveNet::setStackOutputWeight(const torch::Tensor &W, int layerIdx)
+void WaveNet::setStackOutputWeight(const glotnet::ConstArrayView &W, int layerIdx)
 {
     conv_stack.setOutputWeight(W, layerIdx);
 }
 
-void WaveNet::setStackOutputBias(const torch::Tensor &b, int layerIdx)
+void WaveNet::setStackOutputBias(const glotnet::ConstArrayView &b, int layerIdx)
 {
     conv_stack.setOutputBias(b, layerIdx);
 }
 
-void WaveNet::setStackSkipWeight(const torch::Tensor &W, int layerIdx)
+void WaveNet::setStackSkipWeight(const glotnet::ConstArrayView &W, int layerIdx)
 {
     conv_stack.setSkipWeight(W, layerIdx);
 }
 
-void WaveNet::setStackSkipBias(const torch::Tensor &b, int layerIdx)
+void WaveNet::setStackSkipBias(const glotnet::ConstArrayView &b, int layerIdx)
 {
     conv_stack.setSkipBias(b, layerIdx);
 }
 
-void WaveNet::setStackCondWeight(const torch::Tensor &W, int layerIdx)
+void WaveNet::setStackCondWeight(const glotnet::ConstArrayView &W, int layerIdx)
 {
     conv_stack.setCondWeight(W, layerIdx);
 }
 
-void WaveNet::setStackCondBias(const torch::Tensor &b, int layerIdx)
+void WaveNet::setStackCondBias(const glotnet::ConstArrayView &b, int layerIdx)
 {
     conv_stack.setCondBias(b, layerIdx);
 }
 
-void WaveNet::setInputWeight(const torch::Tensor &W)
+void WaveNet::setInputWeight(const glotnet::ConstArrayView &W)
 {
     input_layer.setConvolutionWeight(W);
 }
 
-void WaveNet::setInputBias(const torch::Tensor &b)
+void WaveNet::setInputBias(const glotnet::ConstArrayView &b)
 {
     input_layer.setConvolutionBias(b);
 }
 
-void WaveNet::setOutputWeight(const torch::Tensor &W, int layerIdx)
+void WaveNet::setOutputWeight(const glotnet::ConstArrayView &W, int layerIdx)
 {
     if (layerIdx == 0)
         output_layer1.setConvolutionWeight(W);
@@ -123,7 +128,7 @@ void WaveNet::setOutputWeight(const torch::Tensor &W, int layerIdx)
         output_layer2.setConvolutionWeight(W);
 }
 
-void WaveNet::setOutputBias(const torch::Tensor &b, int layerIdx)
+void WaveNet::setOutputBias(const glotnet::ConstArrayView &b, int layerIdx)
 {
     if (layerIdx == 0)
         output_layer1.setConvolutionBias(b);
@@ -142,3 +147,5 @@ void WaveNet::reduceSkipSum(const float * skip_data, float * skip_sum)
             for (size_t c = 0; c < C; c++)
                 skip_sum[t * C + c] += skip_data[l * (T * C) + (t * C) + c];
 }
+
+} // namespace glotnet

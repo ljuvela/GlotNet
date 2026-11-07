@@ -1,7 +1,8 @@
 #include <torch/extension.h>
 #include <vector>
 
-#include "../src/Convolution.h"
+#include "TensorView.h"
+#include "glotnet/Convolution.h"
 
 namespace glotnet
 {
@@ -26,13 +27,13 @@ public:
     {
         assert (filter_width == weight.size(2));
         assert (output_channels == weight.size(0));
-        conv.setWeight(weight);
+        conv.setWeight(glotnet::view(weight));
     }
 
     void setBias(const torch::Tensor &bias)
     {
         assert (output_channels == bias.size(0));
-        conv.setBias(bias);
+        conv.setBias(glotnet::view(bias));
     }
 
     std::vector<at::Tensor> forward(const torch::Tensor &input)
@@ -125,8 +126,8 @@ std::vector<at::Tensor> forward_autoregressive(
     auto output_a = output.accessor<float, 3>(); // size (batch, time, output_channels)
 
     auto conv = ConvolutionAR(input_channels, output_channels, filter_width, dilation);
-    conv.setWeight(weight);
-    conv.setBias(bias);
+    conv.setWeight(glotnet::view(weight));
+    conv.setBias(glotnet::view(bias));
 
     for (int64_t b = 0; b < batch_size; b++)
     {
