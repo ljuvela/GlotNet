@@ -2,12 +2,18 @@ cmake_minimum_required(VERSION 3.18...3.31)
 
 project(GlotNet LANGUAGES C CXX VERSION 0.1.2)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Only set global C++ settings when built standalone; when included via
+# add_subdirectory/FetchContent the parent project decides (glotnet_core
+# still requires C++17 through target_compile_features).
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 
 include(GNUInstallDirs)
 
 option(GLOTNET_BUILD_PYTHON "Build the Python extension module (requires torch)" ON)
+option(GLOTNET_BUILD_TESTS "Build C++ tests for the core library" OFF)
 
 # Eigen is header-only: use the submodule headers directly rather than
 # configuring Eigen's own CMake project (tests, docs, etc.)
@@ -35,6 +41,13 @@ target_link_libraries(glotnet_core PUBLIC glotnet_eigen)
 target_compile_features(glotnet_core PUBLIC cxx_std_17)
 # Linked into the Python module (a shared object), so needs PIC
 set_target_properties(glotnet_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(GLOTNET_BUILD_TESTS)
+    enable_testing()
+    add_executable(glotnet_test_core test/cpp/test_core.cpp)
+    target_link_libraries(glotnet_test_core PRIVATE glotnet_core)
+    add_test(NAME glotnet_test_core COMMAND glotnet_test_core)
+endif()
 
 if(NOT GLOTNET_BUILD_PYTHON)
     return()

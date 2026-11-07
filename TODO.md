@@ -21,12 +21,16 @@ Goal: C++ code usable from CMake-based audio plugins without linking libtorch.
 - [x] CMake: torch-free `glotnet_core` static library (alias `GlotNet::core`)
 - [x] CMake: Python module links `glotnet_core` + torch
 - [x] CMake option `GLOTNET_BUILD_PYTHON` (ON by default)
-- [ ] Namespaces: `ConvolutionLayer`, `ConvolutionStack`, `WaveNet` are in the
-      global namespace, and `ConvolutionLayer.h` has `using namespace glotnet;`
+- [x] Namespaces: all core classes (and `Activations`) in `namespace glotnet`;
+      no using-directives in headers
+- [x] Only set `CMAKE_CXX_STANDARD` when built standalone
+- [x] C++ tests (`test/cpp/test_core.cpp`, `-DGLOTNET_BUILD_TESTS=ON`, ctest);
+      CI job builds the core without Python/torch
 - [ ] Separate public headers (e.g. `include/glotnet/`) from sources
-- [ ] Only set `CMAKE_CXX_STANDARD` when top-level (`PROJECT_IS_TOP_LEVEL`)
 - [ ] Make the project consumable via `add_subdirectory` / `FetchContent`
-- [ ] C++ unit tests for the core library (independent of pytest)
+      (test from a minimal consumer project)
+- [ ] Clean up core API: mixed `int`/`size_t`/`int64_t` sizes, activation
+      names as strings (enum), `std::unique_ptr<Distribution>(new ...)`
 
 ## Dependencies
 

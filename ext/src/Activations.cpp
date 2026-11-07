@@ -45,6 +45,7 @@ namespace {
     }
 }
 
+namespace glotnet {
 namespace Activations {
     
     inline float tanh(float x)
@@ -196,3 +197,4 @@ namespace Activations {
             throw std::invalid_argument("Received unknown activation name.");
     }
 }
+} // namespace glotnet

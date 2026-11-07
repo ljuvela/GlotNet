@@ -8,7 +8,9 @@
 #include "Convolution.h"
 #include "Activations.h"
 
-using namespace glotnet;
+namespace glotnet
+{
+
 class ConvolutionLayer
 {
 public:
@@ -50,3 +52,5 @@ private:
     inline void copyData(const float *data_src, int64_t channels_src, 
         float *data_dst, int64_t channels_dst, int64_t timesteps);
 };
+
+} // namespace glotnet

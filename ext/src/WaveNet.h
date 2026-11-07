@@ -4,6 +4,9 @@
 #include "Activations.h"
 #include "ConvolutionStack.h"
 
+namespace glotnet
+{
+
 class WaveNet
 {
 public:
@@ -57,3 +60,5 @@ private:
     void reduceSkipSum(const float * skip_data, float * skip_sum);
 
 };
+
+} // namespace glotnet

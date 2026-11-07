@@ -2,6 +2,9 @@
 
 #include <cstring>
 
+namespace glotnet
+{
+
 ConvolutionLayer::ConvolutionLayer(
     size_t input_channels,
     size_t output_channels,
@@ -128,3 +131,5 @@ void ConvolutionLayer::prepare(size_t timesteps)
     memory.resize(timesteps * conv_out_ch);
     memory_cond.resize(timesteps * conv_out_ch);
 }
+
+} // namespace glotnet

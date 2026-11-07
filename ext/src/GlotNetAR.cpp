@@ -1,6 +1,12 @@
 #include "GlotNetAR.h"
 #include "Distributions.h"
 
+namespace glotnet
+{
+
+using distributions::Distribution;
+using distributions::GaussianDensity;
+
 GlotNetAR::GlotNetAR(size_t input_channels, size_t output_channels,
                      size_t convolution_channels, size_t skip_channels, size_t cond_channels,
                      size_t filter_width, std::string activation, std::vector<int> dilations,
@@ -195,3 +201,5 @@ void  GlotNetAR::setDistribution(std::string dist_name)
     // TODO: implement other distributions
     dist = std::unique_ptr<Distribution>(new GaussianDensity());
 }
+
+} // namespace glotnet

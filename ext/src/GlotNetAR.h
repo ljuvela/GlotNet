@@ -12,8 +12,6 @@
 namespace glotnet
 {
 
-using namespace glotnet::distributions;
-
 class GlotNetAR: public WaveNet
 {
 public:
@@ -46,7 +44,7 @@ private:
     std::vector<float> x_buffer;
     std::vector<float> input_buffer;
 
-    std::unique_ptr<Distribution> dist;
+    std::unique_ptr<distributions::Distribution> dist;
     const int64_t lpc_order;
     const int64_t input_channels;
     const int64_t output_channels;

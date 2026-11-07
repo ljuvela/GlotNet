@@ -4,6 +4,9 @@
 
 #include "ConvolutionLayer.h"
 
+namespace glotnet
+{
+
 class ConvolutionStack
 {
 public:
@@ -40,3 +43,5 @@ private:
     void addResidual(float *data, int total_samples);
     void initLayers();
 };
+
+} // namespace glotnet
