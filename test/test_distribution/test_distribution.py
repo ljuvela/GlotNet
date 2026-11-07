@@ -172,6 +172,51 @@ def test_categorical_per_sample_temperature():
     assert torch.equal(x[:, :, ::2], x_greedy[:, :, ::2])
 
 
+@pytest.mark.parametrize("temperature", [1.0, 0.5])
+def test_categorical_sample_extension_histogram(temperature):
+    """ C++ sampler: frequencies match softmax(logits / T) """
+    torch.manual_seed(1)
+    num_draws, num_bits = 100000, 4
+    dist = CategoricalDensity(num_bits=num_bits)
+    logits = torch.randn(dist.params_dim)
+    params = logits.view(1, -1, 1).expand(1, -1, num_draws)  # draws along time
+    x = dist.sample(params, use_extension=True, temperature=temperature)
+    assert x.shape == (1, 1, num_draws)
+    q = mulaw.encode(x[0, 0], dist.mu)
+    freq = torch.bincount(q, minlength=dist.params_dim).float() / num_draws
+    p = torch.softmax(logits / temperature, dim=0)
+    tol = 5.0 * (p * (1 - p) / num_draws).sqrt() + 1e-4
+    assert torch.all((freq - p).abs() < tol), (freq, p)
+
+
+def test_categorical_sample_extension_seeded_and_greedy():
+    dist = CategoricalDensity(num_bits=8)
+    logits = torch.randn(3, dist.params_dim, 40)
+    torch.manual_seed(3)
+    a = dist.sample(logits, use_extension=True)
+    torch.manual_seed(3)
+    b = dist.sample(logits, use_extension=True)
+    assert torch.equal(a, b)
+    # zero temperature: identical to the Python path
+    greedy_ext = dist.sample(logits, use_extension=True, temperature=0.0)
+    greedy_py = dist.sample(logits, use_extension=False, temperature=0.0)
+    assert torch.allclose(greedy_ext, greedy_py, atol=1e-6)
+
+
+def test_ar_set_distribution_checks_output_channels():
+    import glotnet.cpp_extensions as ext
+    impl = ext.WaveNetAR(1, 2, 4, 4, 0, 2, "gated", [1, 2])
+    impl.set_distribution("gaussian")
+    with pytest.raises(ValueError):
+        impl.set_distribution("categorical", 8)
+    impl = ext.WaveNetAR(1, 256, 4, 4, 0, 2, "gated", [1, 2])
+    impl.set_distribution("categorical", num_bits=8)
+    impl.set_seed(0)
+    glot = ext.GlotNetAR(3, 256, 4, 4, 0, 2, "gated", [1, 2], 10, True)
+    with pytest.raises(ValueError):
+        glot.set_distribution("categorical", 8)
+
+
 if __name__ == "__main__":
 
     test_gaussian_nll()

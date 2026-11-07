@@ -1,6 +1,7 @@
 // Minimal tests for the torch-free core library (no test framework needed).
 // Build with -DGLOTNET_BUILD_TESTS=ON and run with ctest.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <random>
@@ -9,6 +10,9 @@
 
 #include "glotnet/Convolution.h"
 #include "glotnet/MuLaw.h"
+#include "glotnet/Distributions.h"
+#include "glotnet/WaveNetAR.h"
+#include "glotnet/GlotNetAR.h"
 #include "glotnet/WaveNet.h"
 
 namespace
@@ -145,6 +149,93 @@ void testMuLaw()
     CHECK(mulaw::encode(3.0f, mu) == mu);
 }
 
+void testCategoricalSampler()
+{
+    namespace dist = glotnet::distributions;
+    const int bits = 4;
+    dist::CategoricalDensity cat(bits);
+    CHECK(cat.paramsDim() == 16);
+
+    std::mt19937 rng(7);
+    std::vector<float> logits = randn(16, rng);
+
+    // greedy at zero temperature
+    const size_t argmax = std::max_element(logits.begin(), logits.end()) - logits.begin();
+    CHECK(cat.sampleIndex(logits.data(), 0.0f) == static_cast<int>(argmax));
+
+    // empirical frequencies match softmax(logits / T)
+    const int N = 100000;
+    for (float temp : {1.0f, 0.5f})
+    {
+        cat.seed(123);
+        std::vector<int> counts(16, 0);
+        for (int n = 0; n < N; n++)
+            counts[cat.sampleIndex(logits.data(), temp)]++;
+
+        const float m = *std::max_element(logits.begin(), logits.end());
+        double z = 0.0;
+        for (float l : logits)
+            z += std::exp((l - m) / temp);
+        for (int k = 0; k < 16; k++)
+        {
+            const double p = std::exp((logits[k] - m) / temp) / z;
+            const double tol = 5.0 * std::sqrt(p * (1.0 - p) / N) + 1e-4;
+            CHECK(std::abs(counts[k] / double(N) - p) < tol);
+        }
+    }
+
+    // same seed, same sequence; samples lie on the mu-law grid
+    const int T = 64;
+    std::vector<float> params(T * 16), temp(T, 1.0f), a(T), b(T);
+    for (int t = 0; t < T; t++)
+        std::copy(logits.begin(), logits.end(), params.begin() + t * 16);
+    cat.seed(5);
+    cat.sample(params.data(), a.data(), T, temp.data());
+    cat.seed(5);
+    cat.sample(params.data(), b.data(), T, temp.data());
+    CHECK(a == b);
+    const int mu = glotnet::mulaw::muFromBits(bits);
+    for (float v : a)
+        CHECK(glotnet::mulaw::decode(glotnet::mulaw::encode(v, mu), mu) == v);
+
+    bool threw = false;
+    try { dist::CategoricalDensity bad(0); } catch (const std::invalid_argument &) { threw = true; }
+    CHECK(threw);
+}
+
+void testSetDistribution()
+{
+    const int T = 64;
+    std::vector<float> x(T, 0.0f), temp(T, 1.0f), y1(T), y2(T);
+
+    glotnet::WaveNetAR model(1, 256, 4, 4, 0, 2, "gated", {1, 2});
+    model.setDistribution("categorical", 8);
+    model.setSeed(42);
+    model.process(x.data(), temp.data(), y1.data(), T);
+    model.setSeed(42);
+    model.process(x.data(), temp.data(), y2.data(), T);
+    CHECK(y1 == y2);
+    for (float v : y1)
+        CHECK(std::isfinite(v) && std::abs(v) <= 1.0f);
+
+    auto throws = [](auto f) {
+        try { f(); } catch (const std::invalid_argument &) { return true; }
+        return false;
+    };
+    // parameter count must match the output channels
+    CHECK(throws([&] { model.setDistribution("gaussian"); }));
+    glotnet::WaveNetAR gauss(1, 2, 4, 4, 0, 2, "gated", {1, 2});
+    CHECK(throws([&] { gauss.setDistribution("categorical", 8); }));
+    CHECK(!throws([&] { gauss.setDistribution("gaussian"); }));
+    CHECK(throws([&] { gauss.setDistribution("laplace"); }));
+
+    // GlotNet: categorical only without sample_after_filtering
+    glotnet::GlotNetAR glot_after(3, 256, 4, 4, 0, 2, "gated", {1, 2}, 10, true);
+    CHECK(throws([&] { glot_after.setDistribution("categorical", 8); }));
+    glotnet::GlotNetAR glot(3, 256, 4, 4, 0, 2, "gated", {1, 2}, 10, false);
+    CHECK(!throws([&] { glot.setDistribution("categorical", 8); }));
+}
+
 } // namespace
 
 int main()
@@ -153,6 +244,8 @@ int main()
     testShapeValidation();
     testWaveNetRuns();
     testMuLaw();
+    testCategoricalSampler();
+    testSetDistribution();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -34,6 +34,17 @@ public:
 
 
 
+// Distribution persists across set_parameters / forward calls
+void setDistribution(const std::string &name, int num_bits)
+{
+    model.setDistribution(name, num_bits);
+}
+
+void setSeed(uint64_t seed)
+{
+    model.setSeed(seed);
+}
+
 void flush(int64_t timesteps)
 {
     model.flush(timesteps);
@@ -133,7 +144,6 @@ void setParameters(const std::vector<torch::Tensor> &stack_weights_conv,
         model.setOutputBias(glotnet::view(output_biases[i]), i);
     }
     model.prepare();
-    model.setDistribution("gaussian");
 }
 
 void setParametersConditional(
@@ -173,7 +183,6 @@ void setParametersConditional(
     }
 
     model.prepare();
-    model.setDistribution("gaussian");
 }
 
 private:
@@ -209,6 +218,9 @@ void init_wavenet_ar(py::module &m)
         .def("forward", &glotnet::binding::WaveNetAR::forward)
         .def("cond_forward", &glotnet::binding::WaveNetAR::cond_forward)
         .def("flush", &glotnet::binding::WaveNetAR::flush)
+        .def("set_distribution", &glotnet::binding::WaveNetAR::setDistribution,
+             py::arg("name"), py::arg("num_bits") = 8)
+        .def("set_seed", &glotnet::binding::WaveNetAR::setSeed)
         .def("set_parameters", &glotnet::binding::WaveNetAR::setParameters)
         .def("set_parameters_conditional", &glotnet::binding::WaveNetAR::setParametersConditional);
 

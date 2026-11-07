@@ -1,6 +1,8 @@
 #include "glotnet/GlotNetAR.h"
 #include "glotnet/Distributions.h"
 
+#include <stdexcept>
+
 namespace glotnet
 {
 
@@ -196,10 +198,24 @@ void GlotNetAR::processConditional(const float *input_data,
     }
 }
 
-void  GlotNetAR::setDistribution(std::string dist_name)
+void GlotNetAR::setDistribution(const std::string &dist_name, int num_bits)
 {
-    // TODO: implement other distributions
-    dist = std::unique_ptr<Distribution>(new GaussianDensity());
+    auto new_dist = distributions::create(dist_name, num_bits);
+    if (new_dist->paramsDim() != static_cast<size_t>(output_channels))
+        throw std::invalid_argument(
+            "GlotNetAR: distribution '" + dist_name + "' needs "
+            + std::to_string(new_dist->paramsDim()) + " output channels, model has "
+            + std::to_string(output_channels));
+    // the Gaussian mean can be shifted by the LPC prediction, a categorical cannot
+    if (sample_after_filtering && dist_name != "gaussian")
+        throw std::invalid_argument(
+            "GlotNetAR: sample_after_filtering is only supported with 'gaussian'");
+    dist = std::move(new_dist);
+}
+
+void GlotNetAR::setSeed(uint64_t seed)
+{
+    dist->seed(seed);
 }
 
 } // namespace glotnet

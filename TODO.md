@@ -76,11 +76,15 @@ Implementation steps (one commit each):
        -> dequantize -> decode; T = 0 is argmax; fixed `Identity()`.
        `use_extension=True` raises until step 3. Trainer kwargs/registry
        moved to step 4 (C++ inference would misread logits as Gaussian)
-3. [ ] C++: `paramsDim()` and `seed(uint64_t)` on the base class;
+3. [x] C++: `paramsDim()` and `seed(uint64_t)` on the base class;
        `CategoricalDensity(bits)` with stable log-softmax and inverse-CDF
        sampling (no per-sample allocation); real `setDistribution(name, bits)`
        in `WaveNetAR` and `GlotNetAR`; reject GlotNetAR + sample_after_filtering;
        bindings `sample_categorical`, `set_distribution`
+       Notes: bindings no longer reset the distribution to Gaussian in
+       `set_parameters`; Python `use_extension=True` seeds the C++ sampler from
+       torch's RNG (`torch.manual_seed` makes it reproducible); default C++
+       seed is `std::random_device` (was `time(0)`)
 4. [ ] Wiring: Python AR models pass the distribution to `_impl`; `Config`
        gets `distribution: 'categorical'`, `num_bits: 8`; trainer registry with
        per-class constructor kwargs (no entropy floor for categorical);
@@ -129,6 +133,12 @@ I want support for mixture distributions from the location-scale family
 - Misture of Laplacians
 
 Especially interesting is is a mixture of one Gaussian and one Laplacian, which combines L2 and L1 residual minimisation. This is novel in the WaveNet/GlotNet context, and also matches well with speech science: unvoiced residual is close to Gaussian, voiced residual is close to Laplacian. Both are continous, so reshaping the sampling with all-pole filters is also possible.
+
+## Performance bottlenecks
+
+- Identify performance bottlenecks in C++ inference code and proposed improvements. 
+- Create benchmark for measuring performance; these are not part of the unit test suite
+- Compare pairwise and keep the best implementation; this can be iterated in stages
 
 ## Dependencies
 

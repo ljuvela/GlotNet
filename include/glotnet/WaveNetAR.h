@@ -30,7 +30,12 @@ public:
                             float *const output_data,
                             int total_samples);
 
-    void setDistribution(std::string dist_name = "gaussian");
+    // "gaussian" or "categorical" (num_bits: mu-law bits for categorical).
+    // Throws std::invalid_argument if the distribution's paramsDim() does
+    // not match the output channels.
+    void setDistribution(const std::string &dist_name = "gaussian", int num_bits = 8);
+    // Reseed the sampler (call after setDistribution)
+    void setSeed(uint64_t seed);
     void setSamplingTemperature(float temperature);
 
 private:

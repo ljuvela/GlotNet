@@ -163,12 +163,19 @@ class CategoricalDensity(Distribution):
             x, shape (batch, 1, time), values in [-1, 1]
         """
         self._check_params(params)
-        if use_extension:
-            raise NotImplementedError('C++ categorical sampling not implemented yet')
         if temperature is None:
             temperature = self.temperature
         temperature = torch.as_tensor(temperature, dtype=params.dtype, device=params.device)
         temperature = temperature.expand(params.size(0), 1, params.size(2))
+
+        if use_extension:
+            # seed drawn from torch's RNG, so torch.manual_seed makes it reproducible
+            seed = int(torch.randint(0, 2**62, (1,)).item())
+            x, = ext.sample_categorical(
+                params.transpose(1, 2).contiguous(),       # (B, T, K)
+                temperature.transpose(1, 2).contiguous(),  # (B, T, 1)
+                self.num_bits, seed)
+            return x.transpose(1, 2)  # (B, 1, T)
 
         logits = params / temperature.clamp(min=1e-6)
         q = torch.distributions.Categorical(logits=logits.transpose(1, 2)).sample()
