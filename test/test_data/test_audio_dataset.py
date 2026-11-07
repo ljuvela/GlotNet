@@ -2,7 +2,7 @@ import os
 import tempfile
 import numpy as np
 import torch
-import torchaudio
+from glotnet.data import audio_io
 import pytest
 
 from torch.utils.data.dataloader import DataLoader
@@ -23,7 +23,7 @@ def generate_random_wav_files(dir, num_files, sample_rate, channels, ext='.wav')
             low=int(0.1 * sample_rate),
             high=int(8 * sample_rate))
         x = torch.randn(channels, num_samples)
-        torchaudio.save(os.path.join(dir, f"{i}{ext}"),
+        audio_io.save(os.path.join(dir, f"{i}{ext}"),
                     x, sample_rate=sample_rate)
 
 def test_padding():

@@ -1,7 +1,7 @@
 from glob import glob
 from logging import warning
 import os
-import torchaudio
+from glotnet.data import audio_io
 from typing import List, Tuple, Union
 import torch
 from torch.utils.data import Dataset
@@ -82,7 +82,7 @@ class AudioDataset(Dataset):
 
     def _check_audio_file(self, f):
 
-        info = torchaudio.info(f)
+        info = audio_io.info(f)
         if info.num_channels != self.config.channels:
             raise ValueError(
                 f"Expected {self.config.channels} but got {info.num_channels} in {f}")
@@ -112,7 +112,7 @@ class AudioDataset(Dataset):
 
     def __getitem__(self, i):
         f, start, stop = self.segment_index[i]
-        x, fs = torchaudio.load(f, frame_offset=start, num_frames=stop-start)
+        x, fs = audio_io.load(f, frame_offset=start, num_frames=stop-start)
         if x.ndim == 1:
             x = x.unsqueeze(0) # shape is (channels=1, time)
         pad_left = self.config.segment_len + self.config.padding - x.size(-1)

@@ -6,6 +6,7 @@ dependencies:
   - pytorch=1.13
   - cpuonly
   - torchaudio
+  - pysoundfile
   - tensorboard
   - scikit-build
   - cmake

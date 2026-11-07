@@ -5,6 +5,7 @@ dependencies:
   - python=3.9
   - pytorch=1.13
   - torchaudio
+  - pysoundfile
   - tensorboard
   - scikit-build
   - cmake

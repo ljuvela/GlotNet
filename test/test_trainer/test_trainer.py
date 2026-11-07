@@ -2,7 +2,7 @@ import os
 import tempfile
 import pytest
 import torch
-import torchaudio
+from glotnet.data import audio_io
 from torch.utils.data import TensorDataset
 from glotnet.data.audio_dataset import AudioDataset
 
@@ -66,7 +66,7 @@ def test_trainer_conditional(tempdir):
     config.log_dir = tempdir
     config.dataset_audio_dir_training = tempdir
     config.dataset_filelist_training = ["sine.wav"]
-    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+    audio_io.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
     config.cond_channels = 20
@@ -105,7 +105,7 @@ def test_trainer_generate(tempdir):
     config.log_dir = tempdir
     config.dataset_audio_dir_training = tempdir
     config.dataset_filelist_training = ["sine.wav"]
-    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+    audio_io.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
     config.cond_channels = 20
@@ -131,7 +131,7 @@ def test_resume_training(tempdir):
 
     config.dataset_audio_dir_training = tempdir
     config.dataset_filelist_training = ["data.wav"]
-    torchaudio.save(os.path.join(tempdir, f"data.wav"),
+    audio_io.save(os.path.join(tempdir, f"data.wav"),
                     x, sample_rate=config.sample_rate)
 
     trainer1 = TrainerWaveNet(config=config)
@@ -167,7 +167,7 @@ def test_trainer_condnet(tempdir):
     config.log_dir = tempdir
     config.dataset_audio_dir_training = tempdir
     config.dataset_filelist_training = ["sine.wav"]
-    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+    audio_io.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
     config.cond_channels = 20
@@ -203,7 +203,7 @@ def test_trainer_generate_condnet(tempdir):
     config.log_dir = tempdir
     config.dataset_audio_dir_training = tempdir
     config.dataset_filelist_training = ["sine.wav"]
-    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+    audio_io.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
     config.cond_channels = 20

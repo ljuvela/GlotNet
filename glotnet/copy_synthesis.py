@@ -11,7 +11,7 @@ from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
 
 from glob import glob
-import torchaudio
+from glotnet.data import audio_io
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(
@@ -76,7 +76,7 @@ def main(args):
         melspec = None
 
     for f in files:
-        config.segment_len = torchaudio.info(f).num_frames
+        config.segment_len = audio_io.info(f).num_frames
         dataset = AudioDataset(
             config,
             audio_dir=input_dir,
@@ -92,8 +92,8 @@ def main(args):
         bname = os.path.basename(f)
         outfile = os.path.join(args.output_dir, bname)
         print(f"saving to {outfile}")
-        torchaudio.save(outfile, x[0].detach(), sample_rate=config.sample_rate,
-                        bits_per_sample=16 ,encoding='PCM_S')
+        audio_io.save(outfile, x[0].detach(), sample_rate=config.sample_rate,
+                      subtype='PCM_16')
 
 
 

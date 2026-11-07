@@ -3,7 +3,7 @@ import os
 import tempfile
 import pytest
 import torch
-import torchaudio
+from glotnet.data import audio_io
 from glotnet.config import Config
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
 from glotnet.trainer.trainer_glotnet import TrainerGlotNet
@@ -36,7 +36,7 @@ def config(tempdir):
     config.log_dir = tempdir
     config.dataset_audio_dir_training = tempdir
     config.dataset_filelist_training = ['sine.wav']
-    torchaudio.save(os.path.join(tempdir, f"sine.wav"),
+    audio_io.save(os.path.join(tempdir, f"sine.wav"),
                     x, sample_rate=config.sample_rate)
 
     return config
