@@ -1,21 +1,33 @@
-cmake_minimum_required(VERSION 3.14...3.22)
+cmake_minimum_required(VERSION 3.18...3.31)
 
 project(GlotNet LANGUAGES C CXX VERSION 0.1.2)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GNUInstallDirs)
 
-# Add Conda headers
-if(DEFINED ENV{CONDA_PREFIX})
-    set(CONDA_PREFIX $ENV{CONDA_PREFIX})
-    include_directories(${CONDA_PREFIX}/include)
-endif ()
-list(APPEND CMAKE_PREFIX_PATH ${CONDA_PREFIX})
+# Python extension module. Built by scikit-build-core during `pip install`,
+# or directly with CMake when a Python interpreter with torch is available.
+find_package(Python 3 REQUIRED COMPONENTS Interpreter Development.Module)
 
-add_subdirectory(third_party/pybind11)
+# Locate the Torch CMake config from the torch Python package
+execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c "import torch; print(torch.utils.cmake_prefix_path)"
+    OUTPUT_VARIABLE Torch_CMAKE_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+list(APPEND CMAKE_PREFIX_PATH "${Torch_CMAKE_PREFIX}")
+find_package(Torch REQUIRED)
+find_library(TORCH_PYTHON_LIBRARY torch_python REQUIRED
+    PATHS "${TORCH_INSTALL_PREFIX}/lib" NO_DEFAULT_PATH)
+
 set(python_module_name cpp_extensions)
-pybind11_add_module(${python_module_name} MODULE
+
+# pybind11 headers come from torch's include directory (TORCH_INCLUDE_DIRS),
+# which guarantees they match the pybind11 version torch was built with.
+python_add_library(${python_module_name} MODULE WITH_SOABI
     ext/bindings.cpp
     ext/bind/Activations.cpp
     ext/bind/Convolution.cpp
@@ -32,42 +44,29 @@ pybind11_add_module(${python_module_name} MODULE
     ext/src/ConvolutionStack.cpp
     ext/src/GlotNetAR.cpp
 )
+set_target_properties(${python_module_name} PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)
+target_compile_definitions(${python_module_name} PRIVATE
+    TORCH_EXTENSION_NAME=${python_module_name}
+)
 
-add_subdirectory(third_party/eigen)
-target_link_libraries(${python_module_name} PUBLIC Eigen3::Eigen)
+# Eigen is header-only: use the submodule headers directly rather than
+# configuring Eigen's own CMake project (tests, docs, etc.)
+add_library(glotnet_eigen INTERFACE)
+target_include_directories(glotnet_eigen SYSTEM INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/eigen)
+target_link_libraries(${python_module_name} PRIVATE glotnet_eigen)
 
-if(DEFINED ENV{CONDA_PREFIX})
-    target_link_libraries(${python_module_name} PUBLIC -L${CONDA_PREFIX}/lib/)
-endif ()
+target_include_directories(${python_module_name} PRIVATE ${TORCH_INCLUDE_DIRS})
+target_link_libraries(${python_module_name} PRIVATE
+    ${TORCH_LIBRARIES}
+    ${TORCH_PYTHON_LIBRARY}
+)
 
 if(DEFINED ENV{DOCKER_LIB_PATH})
-    target_link_libraries(${python_module_name} PUBLIC -L${DOCKER_LIB_PATH}/lib/)
-endif ()
+    target_link_libraries(${python_module_name} PRIVATE -L$ENV{DOCKER_LIB_PATH}/lib/)
+endif()
 
-set(CMDSTR "import torch; print(torch.utils.cmake_prefix_path)")
-execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "${CMDSTR}" OUTPUT_VARIABLE Torch_DIR_RAW)
-string(STRIP ${Torch_DIR_RAW} Torch_DIR)
-set(Torch_DIR "${Torch_DIR}/Torch")
-message(STATUS "Torch_DIR: ${Torch_DIR}")
-
-
-# find_package(Python COMPONENTS Interpreter)
-# set(Torch_DIR "${Python_SITELIB}/torch/share/cmake/Torch")
-# if(DEFINED ENV{DOCKER_LIB_PATH})
-#     set(Torch_DIR "/usr/local/lib/python3.8/dist-packages/torch/share/cmake/Torch")
-# endif()
-
-find_package(Torch REQUIRED)
-find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
-
-target_link_libraries(${python_module_name}
-    PRIVATE ${TORCH_LIBRARIES}
-    PRIVATE ${TORCH_PYTHON_LIBRARY}
-)
-target_include_directories(${python_module_name} PRIVATE ${TORCH_INCLUDE_DIRS})
-
-# Change torch RPATH for delocate
-# set_target_properties(${python_module_name} PROPERTIES INSTALL_RPATH "${TORCH_INSTALL_PREFIX}/lib")
-# message(STATUS "Torch Library DIR: ${TORCH_INSTALL_PREFIX}/lib")
-
-install(TARGETS ${python_module_name} DESTINATION .)
+install(TARGETS ${python_module_name} DESTINATION glotnet)

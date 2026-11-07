@@ -1,15 +1,21 @@
+# CPU-only variant for Linux (avoids downloading CUDA wheels).
+# On macOS, use environment.yml: the default wheels are CPU/MPS already.
 channels:
-  - pytorch
   - conda-forge
 dependencies:
-  - python=3.9
-  - pytorch=1.13
-  - cpuonly
-  - torchaudio
+  - python=3.12
+  - cmake
+  - ninja
+  - scikit-build-core
+  - eigen
+  - pytest
+  # pthreads OpenBLAS: the OpenMP variant loads a second libomp that clashes
+  # with the one bundled in the torch wheels (OMP: Error #15)
+  - libopenblas=*=*pthreads*
   - pysoundfile
   - tensorboard
-  - scikit-build
-  - cmake
-  - eigen
-  - ninja
-  - pytest
+  - pip
+  - pip:
+      - --index-url https://download.pytorch.org/whl/cpu
+      - torch
+      - torchaudio

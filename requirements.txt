@@ -1,8 +1,9 @@
-torch >= 1.12
-numpy
-pytest
+torch
 torchaudio
-tensorboard
-scikit-build
-pytest
+numpy
 soundfile
+tensorboard
+scikit-build-core
+cmake
+ninja
+pytest

@@ -8,35 +8,31 @@ This repository implements
 
 ## Installation
 
-Installing and testing the package requires building the C++ extensions. The build is triggered by running `pip install .`. This will take a few minutes, please be patient.
+Installing and testing the package requires building the C++ extensions. The extensions are built with CMake, driven by [scikit-build-core](https://scikit-build-core.readthedocs.io) when running `pip install`. A C++17 compiler is required (on macOS, the Xcode Command Line Tools: `xcode-select --install`).
 
 Pre-built packages for pip are work in progress, but not active right now. If you would like to contribute, please see the Issues page.
 
 The following commands should get you into working state on most systems (tested on Linux and Mac)
-```
-# Create a conda environment
-conda create -n glotnet python=3.10
+```bash
+# Create a conda environment (Python and build tools from conda-forge, PyTorch from PyPI)
+conda env create -n glotnet -f environment.yml   # CPU-only Linux: environment-cpu.yml
 conda activate glotnet
 
-# Install requirements in with conda
-conda install -c pytorch -c conda-forge pytorch torchaudio tensorboard scikit-build pysoundfile cmake eigen ninja pytest
-
-# Clone git submodules
+# Clone git submodules (Eigen)
 git submodule update --init --recursive
 
-# Build extensions and install
-pip install -v .
+# Build extensions and install (editable)
+pip install -v --no-build-isolation -e .
 
 # Run pytest unit tests to check everthing works correctly
 pytest test
 ```
 
-### Building for development
+`--no-build-isolation` is required so that the extension is compiled against the torch version installed in the environment. Without it, pip builds against the latest torch from PyPI, which may not match the installed version.
 
-Add the `-e` flag in the pip build command for editable installation
-```bash
-pip install -v -e .
-```
+With the editable install (`-e`), Python changes take effect immediately. After changing C++ code, rerun the `pip install` command; the CMake build directory `build/` is reused, so only changed files are recompiled.
+
+Note: avoid installing conda packages that depend on `pytorch` into the environment, as they would install a second copy of torch next to the PyPI one.
 
 ### Docker
 
@@ -52,7 +48,7 @@ When the container is initialised with `run_docker.sh`, we call
 
 ```bash
 git submodule update --recursive --init
-pip install -v -e .
+pip install -v --no-build-isolation -e .
 pytest test
 ```
 

@@ -1,19 +1,9 @@
 [build-system]
 requires = [
+    "scikit-build-core>=0.10",
     "torch",
-    "numpy",
-    "setuptools",
-    "scikit-build",
-    "cmake",
-    "ninja",
 ]
-build-backend = "setuptools.build_meta"
-
-[tool.cibuildwheel]
-
-# Install CPU-only PyTorch (build system won't have CUDA)
-# build-system.requires does not allow sources outside PyPI
-before-build = "python -m pip config set global.extra-index-url https://download.pytorch.org/whl/cpu"
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "glotnet"
@@ -23,11 +13,32 @@ authors = [
 ]
 description = "GlotNet: Differentiable Audio Processing Library for Neural Vocoding in PyTorch"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
+dependencies = [
+    "torch",
+    "torchaudio",
+    "numpy",
+    "soundfile",
+    "tensorboard",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [project.urls]
 "Homepage" = "https://github.com/ljuvela/GlotNet"
 "Bug Tracker" = "https://github.com/ljuvela/GlotNet/issues"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = ">=3.18"
+wheel.packages = ["glotnet"]
+# Persistent build directory: enables incremental C++ rebuilds
+build-dir = "build/{wheel_tag}"
+
+[tool.cibuildwheel]
+# Install CPU-only PyTorch (build system won't have CUDA)
+before-build = "python -m pip config set global.extra-index-url https://download.pytorch.org/whl/cpu"

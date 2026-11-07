@@ -1,15 +1,21 @@
+# Conda provides Python and build/test tooling; PyTorch comes from PyPI.
+# Do not add conda packages that depend on `pytorch`: they would install a
+# second copy of torch alongside the pip one.
 channels:
-  - pytorch
   - conda-forge
 dependencies:
-  - python=3.9
-  - pytorch=1.13
-  - torchaudio
+  - python=3.12
+  - cmake
+  - ninja
+  - scikit-build-core
+  - eigen
+  - pytest
+  # pthreads OpenBLAS: the OpenMP variant loads a second libomp that clashes
+  # with the one bundled in the torch wheels (OMP: Error #15)
+  - libopenblas=*=*pthreads*
   - pysoundfile
   - tensorboard
-  - scikit-build
-  - cmake
-  - eigen
-  - ninja
-  - pytest
-  - openmp
+  - pip
+  - pip:
+      - torch
+      - torchaudio
