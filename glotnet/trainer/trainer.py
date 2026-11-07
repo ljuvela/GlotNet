@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from glotnet.config import Config
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.model.autoregressive.wavenet import WaveNetAR
-from glotnet.losses.distributions import Distribution, GaussianDensity
+from glotnet.losses.distributions import Distribution, GaussianDensity, CategoricalDensity
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
@@ -59,6 +59,25 @@ class Trainer(torch.nn.Module):
         self.device = device
         super().to(device)
 
+    def _log_training_step(self, loss: torch.Tensor):
+        """ Log loss and distribution statistics for the current batch """
+        step = self.iter_global
+        self.writer.add_scalar("loss", loss.item(), global_step=step)
+        self.writer.add_scalar(
+            "nll", self.criterion.batch_nll.mean().item(), global_step=step)
+        message = f"Iter {step}: loss = {loss.item()}"
+
+        # location-scale statistics (entropy floor hinge)
+        if isinstance(self.criterion, GaussianDensity):
+            penalty = self.criterion.batch_penalty.mean().item()
+            min_log_scale = self.criterion.batch_log_scale.min().item()
+            self.writer.add_scalar("entropy_floor_penalty", penalty, global_step=step)
+            self.writer.add_scalar("min_log_scale", min_log_scale, global_step=step)
+            message += f"\n     penalty = {penalty}, min log scale = {min_log_scale}"
+
+        if self.iter % 100 == 0:
+            print(message)
+
     def _create_criterion(self) -> Distribution:
         """ Create scoring distribution instance from config """
         config = self.config
@@ -67,10 +86,14 @@ class Trainer(torch.nn.Module):
         if distribution is None:
             raise NotImplementedError(
                 f"Distribution {config.distribution} not supported")
-        dist = distribution(entropy_floor=config.entropy_floor,
-                            weight_entropy_penalty=config.loss_weight_entropy_hinge,
-                            weight_nll=config.loss_weight_nll)
-        return dist
+        if distribution is GaussianDensity:
+            kwargs = dict(entropy_floor=config.entropy_floor,
+                          weight_entropy_penalty=config.loss_weight_entropy_hinge)
+        elif distribution is CategoricalDensity:
+            kwargs = dict(num_bits=config.num_bits)
+        else:
+            kwargs = {}
+        return distribution(weight_nll=config.loss_weight_nll, **kwargs)
 
     def _create_model(self, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
@@ -141,6 +164,7 @@ class Trainer(torch.nn.Module):
                 activation=cfg.activation,
                 use_residual=cfg.use_residual,
                 cond_channels=wavenet_cond_channels,
+                distribution=distribution,
                 cond_net=cond_net,)
         return self._model_ar
 
@@ -260,31 +284,10 @@ class Trainer(torch.nn.Module):
 
                 self.batch_loss = loss
 
-                # logging 
-                self.writer.add_scalar("loss", loss.item(), global_step=self.iter_global)
-                # TODO: log scale parameter
-                self.writer.add_scalar(
-                    "nll",
-                    self.criterion.batch_nll.mean().item(),
-                    global_step=self.iter_global)
-
-                penalty = self.criterion.batch_penalty.mean().item()
-                self.writer.add_scalar(
-                    "entropy_floor_penalty",
-                    penalty,
-                    global_step=self.iter_global)
-
-                self.writer.add_scalar(
-                    "min_log_scale",
-                    self.criterion.batch_log_scale.min().item(),
-                    global_step=self.iter_global)
+                self._log_training_step(loss)
 
                 self.optim.step()
                 self.optim.zero_grad()
-
-                if self.iter % 100 == 0:
-                    print(f"Iter {self.iter_global}: loss = {loss.item()}")
-                    print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
 
                 self.iter += 1
                 self.iter_global += 1
@@ -424,7 +427,8 @@ class Trainer(torch.nn.Module):
     }
 
     distributions = {
-        "gaussian": GaussianDensity
+        "gaussian": GaussianDensity,
+        "categorical": CategoricalDensity,
     }
 
     schedulers = {

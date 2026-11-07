@@ -2,6 +2,7 @@ import torch
 from typing import List
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity, Identity
+from glotnet.losses.distributions import set_cpp_distribution, check_cpp_distribution
 import glotnet.cpp_extensions as ext
 
 import torch.nn.functional as F
@@ -71,6 +72,7 @@ class GlotNetAR(WaveNet):
         if distribution is None:
             distribution = Identity()
         self.distribution = distribution
+        set_cpp_distribution(self._impl, distribution, self.output_channels)
 
     def _pad(self, x: torch.Tensor = None):
         if x is not None:
@@ -140,6 +142,7 @@ class GlotNetAR(WaveNet):
         if cond_input is not None and cond_input.device != torch.device('cpu'):
             raise RuntimeError(f"Cond input device must be cpu, got {cond_input.device}")
 
+        check_cpp_distribution(self._impl, self.distribution, self.output_channels)
         output = GlotNetARFunction.apply(
             self._impl, input, a,
             self.stack.weights_conv, self.stack.biases_conv,

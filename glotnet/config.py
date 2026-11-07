@@ -28,10 +28,13 @@ class Config:
     condnet_dilations: Tuple[int] = (1,)
 
     # Distribution
-    distribution: str = 'gaussian'
+    distribution: str = 'gaussian'  # 'gaussian' or 'categorical'
     loss_weight_nll: float = 1.0
+    # gaussian only
     loss_weight_entropy_hinge: float = 0.1
     entropy_floor: float = -9.0
+    # categorical only: mu-law bits (2**num_bits classes)
+    num_bits: int = 8
 
     # Optimizer
     optimizer: str = 'adam'

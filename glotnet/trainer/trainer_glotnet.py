@@ -34,6 +34,11 @@ class TrainerGlotNet(TrainerWaveNet):
         if config.input_channels % 3 != 0:
             raise ValueError("Input channels must be divisible by 3")
         self.sample_after_filtering = config.glotnet_sample_after_filtering
+        if self.sample_after_filtering and config.distribution != 'gaussian':
+            raise ValueError(
+                "glotnet_sample_after_filtering requires distribution 'gaussian' "
+                f"(got '{config.distribution}'): a categorical cannot be shifted "
+                "by the LPC prediction")
         self.lpc = LinearPredictor(n_fft=config.n_fft,
             hop_length=config.hop_length,
             win_length=config.win_length,
@@ -47,7 +52,7 @@ class TrainerGlotNet(TrainerWaveNet):
         distribution = self.criterion
         # TODO: teacher forcing and AR inference should be in the same model!
         if not hasattr(self, '_model_ar'):
-            self.model_ar = GlotNetAR(
+            self._model_ar = GlotNetAR(
                 input_channels=cfg.input_channels,
                 output_channels=distribution.params_dim,
                 residual_channels=cfg.residual_channels,
@@ -58,6 +63,7 @@ class TrainerGlotNet(TrainerWaveNet):
                 activation=cfg.activation,
                 use_residual=cfg.use_residual,
                 cond_channels=wavenet_cond_channels,
+                distribution=distribution,
                 lpc_order=cfg.lpc_order,
                 hop_length=cfg.hop_length,
                 cond_net=cond_net,
@@ -164,31 +170,10 @@ class TrainerGlotNet(TrainerWaveNet):
 
                 self.batch_loss = loss
 
-                # logging 
-                self.writer.add_scalar("loss", loss.item(), global_step=self.iter_global)
-                # TODO: log scale parameter
-                self.writer.add_scalar(
-                    "nll",
-                    self.criterion.batch_nll.mean().item(),
-                    global_step=self.iter_global)
-
-                penalty = self.criterion.batch_penalty.mean().item()
-                self.writer.add_scalar(
-                    "entropy_floor_penalty",
-                    penalty,
-                    global_step=self.iter_global)
-
-                self.writer.add_scalar(
-                    "min_log_scale",
-                    self.criterion.batch_log_scale.min().item(),
-                    global_step=self.iter_global)
+                self._log_training_step(loss)
 
                 self.optim.step()
                 self.optim.zero_grad()
-
-                if self.iter % 100 == 0:
-                    print(f"Iter {self.iter_global}: loss = {loss.item()}")
-                    print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
 
                 if self.iter % self.config.validation_interval == 0:
                     self.writer.add_audio("excitation_clean", e_clean[0, 0, :], self.iter_global, sample_rate=self.config.sample_rate)

@@ -29,6 +29,8 @@ class Distribution(torch.nn.Module):
 
 class GaussianDensity(Distribution):
 
+    cpp_name = 'gaussian'
+
     def __init__(self,
                  num_bits: int = None,
                  temperature: float = 1.0,
@@ -99,6 +101,9 @@ class GaussianDensity(Distribution):
 
 
 class CategoricalDensity(Distribution):
+
+    cpp_name = 'categorical'
+
     """ Categorical distribution over mu-law quantized sample values
 
         The model outputs one logit per quantization level
@@ -194,3 +199,32 @@ class Identity(Distribution):
     
     def sample(self, x):
         return x
+
+
+def set_cpp_distribution(impl, distribution: Distribution, output_channels: int):
+    """ Select the sampler of a C++ autoregressive model (ext.WaveNetAR / ext.GlotNetAR)
+
+    Only applied when the distribution has a C++ sampler and its parameter
+    count matches the model outputs; other combinations remain valid for
+    teacher-forced use and are rejected by check_cpp_distribution at inference.
+    """
+    name = getattr(distribution, 'cpp_name', None)
+    if name is None or distribution.params_dim != output_channels:
+        return
+    num_bits = distribution.num_bits if name == 'categorical' else 8
+    impl.set_distribution(name, num_bits)
+
+
+def check_cpp_distribution(impl, distribution: Distribution, output_channels: int):
+    """ Validate before C++ inference and seed the sampler from torch's RNG """
+    name = getattr(distribution, 'cpp_name', None)
+    if name is None:
+        raise ValueError(
+            f"{type(distribution).__name__} has no C++ sampler, "
+            "inference() supports GaussianDensity and CategoricalDensity")
+    if distribution.params_dim != output_channels:
+        raise ValueError(
+            f"{type(distribution).__name__} needs {distribution.params_dim} "
+            f"output channels, model has {output_channels}")
+    # torch.manual_seed makes inference reproducible
+    impl.set_seed(int(torch.randint(0, 2**62, (1,)).item()))

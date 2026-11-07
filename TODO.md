@@ -85,10 +85,15 @@ Implementation steps (one commit each):
        `set_parameters`; Python `use_extension=True` seeds the C++ sampler from
        torch's RNG (`torch.manual_seed` makes it reproducible); default C++
        seed is `std::random_device` (was `time(0)`)
-4. [ ] Wiring: Python AR models pass the distribution to `_impl`; `Config`
-       gets `distribution: 'categorical'`, `num_bits: 8`; trainer registry with
-       per-class constructor kwargs (no entropy floor for categorical);
-       trainer logging of `batch_penalty`/`batch_log_scale` only for Gaussian
+4. [x] Wiring: Python AR models select the C++ sampler from the distribution
+       (`cpp_name`, `num_bits`); `inference()` checks params_dim == output
+       channels and seeds the C++ sampler from torch's RNG (Gaussian too);
+       `Config.num_bits`; trainer registry with per-class kwargs; Gaussian-only
+       logging in `Trainer._log_training_step`; GlotNet trainer rejects
+       categorical + `glotnet_sample_after_filtering`.
+       Fixed on the way: trainers' `model_ar` did not pass the distribution
+       (always default Gaussian); `TrainerGlotNet.model_ar` was rebuilt on
+       every access
 5. [ ] Tests: mu-law round trip and agreement with torchaudio (reference only);
        `nll` == cross entropy; T -> 0 gives argmax; seeded C++ sampler histogram
        vs softmax (chi-square, N ~ 1e5); C++ vs Python sampler statistics;
