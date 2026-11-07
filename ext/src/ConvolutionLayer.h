@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <string>
-#include <torch/extension.h>
+#include <cstdint>
 
 #include "Convolution.h"
 #include "Activations.h"
@@ -26,14 +26,14 @@ public:
     void processConditional(const float *data_in, const float *conditioning, float *data_out, float *skip_data, int64_t total_samples);
     void reset();
     void prepare(size_t timesteps);
-    void setConvolutionWeight(const torch::Tensor &W);
-    void setConvolutionBias(const torch::Tensor &b);
-    void setOutputWeight(const torch::Tensor &W);
-    void setOutputBias(const torch::Tensor &b);
-    void setSkipWeight(const torch::Tensor &W);
-    void setSkipBias(const torch::Tensor &b);
-    void setCondWeight(const torch::Tensor &W);
-    void setCondBias(const torch::Tensor &b);
+    void setConvolutionWeight(const glotnet::ConstArrayView &W);
+    void setConvolutionBias(const glotnet::ConstArrayView &b);
+    void setOutputWeight(const glotnet::ConstArrayView &W);
+    void setOutputBias(const glotnet::ConstArrayView &b);
+    void setSkipWeight(const glotnet::ConstArrayView &W);
+    void setSkipBias(const glotnet::ConstArrayView &b);
+    void setCondWeight(const glotnet::ConstArrayView &W);
+    void setCondBias(const glotnet::ConstArrayView &b);
 
 private:
     const size_t conv_out_channels;

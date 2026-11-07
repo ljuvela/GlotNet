@@ -2,8 +2,10 @@
 
 #include <Eigen/Core>
 #include <Eigen/StdVector>
-#include <torch/extension.h>
+#include <cstdint>
 #include <vector>
+
+#include "ArrayView.h"
 
 namespace glotnet
 {
@@ -19,9 +21,10 @@ public:
         const bool use_film = false);
     size_t getNumInputChannels() { return input_channels; }
     size_t getNumOutputChannels() { return output_channels; }
-    void setWeight(const torch::Tensor &W);
-    void setBias(const torch::Tensor &b);
-    void setParameters(const std::vector<const torch::Tensor *> & params);
+    /// W: (output_channels, input_channels, filter_width), as torch Conv1d
+    void setWeight(const ConstArrayView &W);
+    /// b: (output_channels,)
+    void setBias(const ConstArrayView &b);
     void resetBuffer();
     void resetWeight();
 

@@ -74,42 +74,42 @@ void ConvolutionStack::processConditional(float *data, const float *conditioning
     }
 }
 
-void ConvolutionStack::setConvolutionWeight(const torch::Tensor &W, size_t layerIdx)
+void ConvolutionStack::setConvolutionWeight(const glotnet::ConstArrayView &W, size_t layerIdx)
 {
     layers[layerIdx].setConvolutionWeight(W);
 }
 
-void ConvolutionStack::setConvolutionBias(const torch::Tensor &b, size_t layerIdx)
+void ConvolutionStack::setConvolutionBias(const glotnet::ConstArrayView &b, size_t layerIdx)
 {
     layers[layerIdx].setConvolutionBias(b);
 }
 
-void ConvolutionStack::setOutputWeight(const torch::Tensor &W, size_t layerIdx)
+void ConvolutionStack::setOutputWeight(const glotnet::ConstArrayView &W, size_t layerIdx)
 {
     layers[layerIdx].setOutputWeight(W);
 }
 
-void ConvolutionStack::setOutputBias(const torch::Tensor &b, size_t layerIdx)
+void ConvolutionStack::setOutputBias(const glotnet::ConstArrayView &b, size_t layerIdx)
 {
     layers[layerIdx].setOutputBias(b);
 }
 
-void ConvolutionStack::setSkipWeight(const torch::Tensor &W, size_t layerIdx)
+void ConvolutionStack::setSkipWeight(const glotnet::ConstArrayView &W, size_t layerIdx)
 {
     layers[layerIdx].setSkipWeight(W);
 }
 
-void ConvolutionStack::setSkipBias(const torch::Tensor &b, size_t layerIdx)
+void ConvolutionStack::setSkipBias(const glotnet::ConstArrayView &b, size_t layerIdx)
 {
     layers[layerIdx].setSkipBias(b);
 }
 
-void ConvolutionStack::setCondWeight(const torch::Tensor &W, size_t layerIdx)
+void ConvolutionStack::setCondWeight(const glotnet::ConstArrayView &W, size_t layerIdx)
 {
     layers[layerIdx].setCondWeight(W);
 }
 
-void ConvolutionStack::setCondBias(const torch::Tensor &b, size_t layerIdx)
+void ConvolutionStack::setCondBias(const glotnet::ConstArrayView &b, size_t layerIdx)
 {
     layers[layerIdx].setCondBias(b);
 }

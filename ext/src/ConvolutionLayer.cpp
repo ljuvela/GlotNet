@@ -1,5 +1,7 @@
 #include "ConvolutionLayer.h"
 
+#include <cstring>
+
 ConvolutionLayer::ConvolutionLayer(
     size_t input_channels,
     size_t output_channels,
@@ -72,42 +74,42 @@ inline void ConvolutionLayer::copyData(const float *data_src, int64_t ch_src,
         memcpy(&data_dst[t * ch_dst], &data_src[t * ch_src], ch_dst * sizeof(float));
 }
 
-void ConvolutionLayer::setConvolutionWeight(const torch::Tensor &W)
+void ConvolutionLayer::setConvolutionWeight(const glotnet::ConstArrayView &W)
 {
     conv.setWeight(W);
 }
 
-void ConvolutionLayer::setConvolutionBias(const torch::Tensor &b)
+void ConvolutionLayer::setConvolutionBias(const glotnet::ConstArrayView &b)
 {
     conv.setBias(b);
 }
 
-void ConvolutionLayer::setOutputWeight(const torch::Tensor &W)
+void ConvolutionLayer::setOutputWeight(const glotnet::ConstArrayView &W)
 {
     out1x1.setWeight(W);
 }
 
-void ConvolutionLayer::setOutputBias(const torch::Tensor &b)
+void ConvolutionLayer::setOutputBias(const glotnet::ConstArrayView &b)
 {
     out1x1.setBias(b);
 }
 
-void ConvolutionLayer::setSkipWeight(const torch::Tensor &W)
+void ConvolutionLayer::setSkipWeight(const glotnet::ConstArrayView &W)
 {
     skip1x1.setWeight(W);
 }
 
-void ConvolutionLayer::setSkipBias(const torch::Tensor &b)
+void ConvolutionLayer::setSkipBias(const glotnet::ConstArrayView &b)
 {
     skip1x1.setBias(b);
 }
 
-void ConvolutionLayer::setCondWeight(const torch::Tensor &W)
+void ConvolutionLayer::setCondWeight(const glotnet::ConstArrayView &W)
 {
     cond1x1.setWeight(W);
 }
 
-void ConvolutionLayer::setCondBias(const torch::Tensor &b)
+void ConvolutionLayer::setCondBias(const glotnet::ConstArrayView &b)
 {
     cond1x1.setBias(b);
 }

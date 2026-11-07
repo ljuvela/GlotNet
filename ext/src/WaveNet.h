@@ -17,18 +17,18 @@ public:
                             float *outputData,
                             int total_samples);
     void reset();
-    void setStackConvolutionWeight(const torch::Tensor &W, int layerIdx);
-    void setStackConvolutionBias(const torch::Tensor &b, int layerIdx);
-    void setStackOutputWeight(const torch::Tensor &W, int layerIdx);
-    void setStackOutputBias(const torch::Tensor &b, int layerIdx);
-    void setStackSkipWeight(const torch::Tensor &W, int layerIdx);
-    void setStackSkipBias(const torch::Tensor &b, int layerIdx);
-    void setStackCondWeight(const torch::Tensor &W, int layerIdx);
-    void setStackCondBias(const torch::Tensor &b, int layerIdx);
-    void setInputWeight(const torch::Tensor &W);
-    void setInputBias(const torch::Tensor &b);
-    void setOutputWeight(const torch::Tensor &W, int layerIdx);
-    void setOutputBias(const torch::Tensor &b, int layerIdx);
+    void setStackConvolutionWeight(const glotnet::ConstArrayView &W, int layerIdx);
+    void setStackConvolutionBias(const glotnet::ConstArrayView &b, int layerIdx);
+    void setStackOutputWeight(const glotnet::ConstArrayView &W, int layerIdx);
+    void setStackOutputBias(const glotnet::ConstArrayView &b, int layerIdx);
+    void setStackSkipWeight(const glotnet::ConstArrayView &W, int layerIdx);
+    void setStackSkipBias(const glotnet::ConstArrayView &b, int layerIdx);
+    void setStackCondWeight(const glotnet::ConstArrayView &W, int layerIdx);
+    void setStackCondBias(const glotnet::ConstArrayView &b, int layerIdx);
+    void setInputWeight(const glotnet::ConstArrayView &W);
+    void setInputBias(const glotnet::ConstArrayView &b);
+    void setOutputWeight(const glotnet::ConstArrayView &W, int layerIdx);
+    void setOutputBias(const glotnet::ConstArrayView &b, int layerIdx);
 
     inline int getOutputChannels() const {return output_channels;};
     inline int getInputChannels() const {return input_channels;};

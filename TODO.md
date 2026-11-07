@@ -14,14 +14,17 @@
 
 Goal: C++ code usable from CMake-based audio plugins without linking libtorch.
 
-- [ ] Remove torch dependency from `ext/src/`
-  - `Convolution`, `ConvolutionLayer`, `ConvolutionStack`, `WaveNet` include
-    `<torch/extension.h>` and take `torch::Tensor` in weight/bias setters
-  - Replace with plain arrays / Eigen types (e.g. `Eigen::Map`)
-- [ ] Move tensor <-> core type conversion into `ext/bind/`
-- [ ] CMake: add torch-free `glotnet_core` library target (Eigen only)
-- [ ] CMake: Python module target links `glotnet_core` + torch
-- [ ] CMake option to build without Python/torch (e.g. `GLOTNET_BUILD_PYTHON`)
+- [x] Remove torch dependency from `ext/src/`: setters take
+      `glotnet::ConstArrayView` (`ext/src/ArrayView.h`, pointer + shape in
+      torch layout); shapes validated in core (`std::invalid_argument`)
+- [x] Tensor -> view conversion in `ext/bind/TensorView.h` (`glotnet::view`)
+- [x] CMake: torch-free `glotnet_core` static library (alias `GlotNet::core`)
+- [x] CMake: Python module links `glotnet_core` + torch
+- [x] CMake option `GLOTNET_BUILD_PYTHON` (ON by default)
+- [ ] Namespaces: `ConvolutionLayer`, `ConvolutionStack`, `WaveNet` are in the
+      global namespace, and `ConvolutionLayer.h` has `using namespace glotnet;`
+- [ ] Separate public headers (e.g. `include/glotnet/`) from sources
+- [ ] Only set `CMAKE_CXX_STANDARD` when top-level (`PROJECT_IS_TOP_LEVEL`)
 - [ ] Make the project consumable via `add_subdirectory` / `FetchContent`
 - [ ] C++ unit tests for the core library (independent of pytest)
 
