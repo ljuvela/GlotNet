@@ -8,9 +8,15 @@ This repository implements
 
 ## Installation
 
-Installing and testing the package requires building the C++ extensions. The extensions are built with CMake, driven by [scikit-build-core](https://scikit-build-core.readthedocs.io) when running `pip install`. A C++17 compiler is required (on macOS, the Xcode Command Line Tools: `xcode-select --install`).
+Pre-built wheels (Linux x86_64/aarch64, macOS arm64, Python 3.11+) are published to PyPI:
+```bash
+pip install glotnet
+```
+The C++ extension is compiled against a specific PyTorch version, so each GlotNet release requires a matching `torch` minor version (currently `torch==2.15.*`).
 
-Pre-built packages for pip are work in progress, but not active right now. If you would like to contribute, please see the Issues page.
+### Building from source
+
+Installing from source requires building the C++ extensions. The extensions are built with CMake, driven by [scikit-build-core](https://scikit-build-core.readthedocs.io) when running `pip install`. A C++17 compiler is required (on macOS, the Xcode Command Line Tools: `xcode-select --install`).
 
 The following commands should get you into working state on most systems (tested on Linux and Mac)
 ```bash

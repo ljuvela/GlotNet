@@ -1,7 +1,9 @@
 [build-system]
 requires = [
     "scikit-build-core>=0.10",
-    "torch",
+    # Must match the runtime torch pin below: the extension uses the
+    # (unstable) libtorch C++ ABI, so wheels only work with the same minor.
+    "torch==2.15.*",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -13,12 +15,16 @@ authors = [
 ]
 description = "GlotNet: Differentiable Audio Processing Library for Neural Vocoding in PyTorch"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
+license = "Apache-2.0"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
 ]
 dependencies = [
-    "torch",
+    "torch==2.15.*",
     "torchaudio",
     "numpy",
     "soundfile",
@@ -39,6 +45,35 @@ wheel.packages = ["glotnet"]
 # Persistent build directory: enables incremental C++ rebuilds
 build-dir = "build/{wheel_tag}"
 
+# Keep the sdist small: only the Eigen headers are needed for the build
+sdist.exclude = [
+    "third_party/eigen/*",
+    "!third_party/eigen/Eigen/**",
+    "!third_party/eigen/COPYING.*",
+    "build/", "dist/", "*.egg-info/",
+]
+
 [tool.cibuildwheel]
-# Install CPU-only PyTorch (build system won't have CUDA)
-before-build = "python -m pip config set global.extra-index-url https://download.pytorch.org/whl/cpu"
+# CPython versions with torch 2.15 wheels; skip free-threaded (cp3XXt) builds
+build = "cp311-* cp312-* cp313-* cp314-* cp315-*"
+skip = "*-musllinux_*"
+build-frontend = "build"
+test-requires = ["pytest"]
+test-sources = ["test"]
+test-command = "pytest -q test"
+
+[tool.cibuildwheel.linux]
+# torch wheels are manylinux_2_28; build against CPU-only torch (the
+# extension has no CUDA code, and the CPU and CUDA builds share the ABI)
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+environment = { PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu" }
+# Never vendor libtorch into the wheel: it is loaded from the installed torch
+repair-wheel-command = """auditwheel repair -w {dest_dir} {wheel} \
+    --exclude 'libtorch*.so*' --exclude 'libc10*.so*'"""
+
+[tool.cibuildwheel.macos]
+archs = ["arm64"]  # torch no longer ships Intel macOS wheels
+environment = { MACOSX_DEPLOYMENT_TARGET = "14.0" }
+# Nothing to vendor (libtorch comes from the torch package), so skip delocate
+repair-wheel-command = ""

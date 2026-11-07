@@ -1,4 +1,4 @@
-torch
+torch==2.15.*
 torchaudio
 numpy
 soundfile

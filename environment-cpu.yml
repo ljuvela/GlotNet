@@ -17,5 +17,5 @@ dependencies:
   - pip
   - pip:
       - --index-url https://download.pytorch.org/whl/cpu
-      - torch
+      - torch==2.15.*  # keep in sync with pyproject.toml
       - torchaudio

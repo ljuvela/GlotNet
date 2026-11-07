@@ -17,5 +17,5 @@ dependencies:
   - tensorboard
   - pip
   - pip:
-      - torch
+      - torch==2.15.*  # keep in sync with pyproject.toml
       - torchaudio

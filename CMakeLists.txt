@@ -48,6 +48,16 @@ set_target_properties(${python_module_name} PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN ON
 )
+
+# The installed module lives in site-packages/glotnet/ and finds libtorch in
+# site-packages/torch/lib/ (torch is a runtime dependency, never bundled).
+if(APPLE)
+    set_target_properties(${python_module_name} PROPERTIES
+        INSTALL_RPATH "@loader_path/../torch/lib")
+elseif(UNIX)
+    set_target_properties(${python_module_name} PROPERTIES
+        INSTALL_RPATH "$ORIGIN/../torch/lib")
+endif()
 target_compile_definitions(${python_module_name} PRIVATE
     TORCH_EXTENSION_NAME=${python_module_name}
 )

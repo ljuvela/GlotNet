@@ -1,98 +1,108 @@
-name: Build and upload to PyPI
+# Build wheels + sdist and publish to PyPI.
+#
+#   - Pull requests touching the build: build and test wheels only
+#   - Manual run (Actions tab): build, optionally upload to TestPyPI
+#   - Published GitHub release: build and upload to PyPI
+#
+# Uploads use PyPI trusted publishing (OIDC), no API tokens. Configure a
+# trusted publisher on pypi.org / test.pypi.org for this repository with
+# workflow "pypi-cibuildwheel.yml" and environment "pypi" / "testpypi".
+#
+# cibuildwheel settings live in pyproject.toml ([tool.cibuildwheel]).
+name: Wheels
 
-# on:
-#   push:
-#     branches: [ master ]
-#   pull_request:
-#     branches: [ master ]
-
-# Build on every branch push, tag push, and pull request change:
-# on: [push, pull_request]
-# Alternatively, to publish when a (published) GitHub Release is created, use the following:
 on:
-  # push:
-  # pull_request:
+  pull_request:
+    paths:
+      - "CMakeLists.txt"
+      - "pyproject.toml"
+      - "ext/**"
+      - ".github/workflows/pypi-cibuildwheel.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Upload to TestPyPI"
+        type: boolean
+        default: false
   release:
-    types:
-      - published
+    types: [ published ]
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-11]
-        #os: [macos-11]
+        # native runners: Linux x86_64, Linux aarch64, macOS arm64
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install build dependencies
-        run: |
-          git submodule update --init --recursive
-          python3 -m pip install torch torchaudio
-          python3 -m pip install cibuildwheel
-
-      # - name: Build wheels
-      #   uses: pypa/cibuildwheel@v2.12.3
-      
-      - name: Build wheels
-        run: python3 -m cibuildwheel --output-dir wheelhouse
-        env:
-          # disable repair wheel to accomodate torch @rpath
-          CIBW_REPAIR_WHEEL_COMMAND: ''
-          CIBW_BEFORE_TEST: python3 -m pip install -r requirements.txt
-          CIBW_TEST_COMMAND: pytest {package}/test
-          # Disable building PyPy wheels on all platforms
-          # Disable musllinux builds
-          CIBW_SKIP: 'pp* *-musllinux*'
-          # Mac architectures
-          CIBW_ARCHS_MACOS: x86_64 arm64
-          CIBW_TEST_SKIP: '*_arm64'
-          # Linux architectures, skip 32-bit because torch is 64-bit only
-          CIBW_ARCHS_LINUX: auto64
-
-      - uses: actions/upload-artifact@v3
+      - uses: actions/checkout@v7
         with:
+          submodules: recursive
+
+      - uses: pypa/cibuildwheel@v4.3.5
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
-    name: Build source distribution
+    name: Source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install build dependencies
-        run: |
-          git submodule update --init --recursive
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - name: Build sdist
+        env:
+          PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v7
         with:
+          name: cibw-sdist
           path: dist/*.tar.gz
 
-  upload_pypi:
-    needs: [build_wheels, build_sdist]
+  publish_testpypi:
+    name: Upload to TestPyPI
+    needs: [ build_wheels, build_sdist ]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
     runs-on: ubuntu-latest
-    # upload to PyPI on every tag starting with 'v'
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    # alternatively, to publish when a GitHub Release is created, use the following rule:
-    # if: github.event_name == 'release' && github.event.action == 'published'
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/glotnet
+    permissions:
+      id-token: write
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v8
         with:
-          # unpacks default artifact into dist/
-          # if `name: artifact` is omitted, the action will create extra parent dir
-          name: artifact
+          pattern: cibw-*
           path: dist
+          merge-multiple: true
 
-      - uses: pypa/gh-action-pypi-publish@v1.5.0
+      - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          # password: ${{ secrets.pypi_password }}
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
-          # To test: repository_url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
+
+  publish_pypi:
+    name: Upload to PyPI
+    needs: [ build_wheels, build_sdist ]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/glotnet
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
