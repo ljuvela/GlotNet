@@ -149,6 +149,150 @@ I want support for mixture distributions from the location-scale family
 
 Especially interesting is is a mixture of one Gaussian and one Laplacian, which combines L2 and L1 residual minimisation. This is novel in the WaveNet/GlotNet context, and also matches well with speech science: unvoiced residual is close to Gaussian, voiced residual is close to Laplacian. Both are continous, so reshaping the sampling with all-pole filters is also possible.
 
+### Implementation plan (draft, to review)
+
+Current state:
+- `GaussianDensity` is the only location-scale distribution (2 params: m, log_s)
+- Python GlotNet AR reference (`glotnet.py:235`) and C++ `GlotNetAR.cpp:82`
+  shift only the mean by the LPC prediction for `sample_after_filtering`, and
+  `setDistribution` hardcodes "only gaussian can be shifted"
+- **Existing bug:** `trainer_glotnet.py:163` and `:236` do
+  `params = params + p_curr`. `p_curr` has 1 channel, so it broadcasts and
+  shifts log_s too. Training and inference disagree for Gaussian - Lauri: good, this needs to be fixed, only the means should shift
+  `sample_after_filtering`. Fix this first, in its own commit
+- C++ `distributions::create(name, num_bits)` and the binding
+  `set_distribution(name, num_bits)` cannot describe a component list
+- `evaluate.py` (smoke test) computes the mass per mu-law bin for the Gaussian
+  by hand. A `cdf` method on every location-scale distribution would make the
+  bits/sample comparison generic
+
+Design decisions (to review):
+- [ ] One class `LocationScaleMixture(components)`. `components` is a tuple of
+      family names from {'gaussian', 'laplace', 'logistic'}, e.g.
+      `('gaussian', 'laplace')`, `('gaussian',) * 4`, `('logistic',) * 10`.
+      Config: `distribution='mixture'`, `mixture_components=(...)`.
+      Mixed families cost nothing extra: the NLL is a logsumexp over the
+      per-component log-probabilities either way - Lauri: good
+- [ ] Parameter layout in channel blocks: `[logits(K), locs(K), log_scales(K)]`,
+      so `params_dim = 3K` (PixelCNN++ layout). K = 1 needs no logit, but keep
+      3K for uniformity. `GaussianDensity` stays as is for old checkpoints.
+      Test that a K = 1 Gaussian mixture gives the same NLL - Lauri: good
+- [ ] Shared location option, `mixture_shared_loc=True`: one location and K
+      scales, so `params_dim = 2K + 1`. For Gaussian + Laplace this is literally
+      "L2 + L1 around the same prediction", which is the interpretation in the
+      motivation above. Independent locations are the general case.
+      Proposal: implement both, since only the slicing differs - Lauri: it's a special case, but connected to my hypothesis, let's keep this
+- [ ] Discretization: optional `discretize_bits` (default None = continuous
+      density). If set, the likelihood is the CDF mass of a linear bin of width
+      2/(2^bits - 1), and the edge bins absorb the tails at ±1. This works for
+      every family with a closed-form CDF: Gaussian (erf), Laplace, logistic
+      (sigmoid). "Discretized logistic mixture" = `('logistic',)*10` + 
+      `discretize_bits=16`, as in Parallel WaveNet. Discretization bounds the
+      likelihood, so the entropy floor matters less. Keep it for continuous use
+- [ ] Entropy floor: the same hinge on every component's log_scale. An unused
+      component can collapse otherwise (its weight goes to 0 and its scale
+      shrinks freely). The log scale floor stays in C++ sampling - Lauri: we could connect this to the number of bits in the original signal, then the entropy floor has a clear interpretation and units: floor is the entropy of uniform categorical distribution at 16 bit bins (for 16bit signed integer)
+- [ ] Temperature: scales every component's scale (as the Gaussian does) and
+      leaves the mixture weights alone. T = 0 returns the location of the most
+      probable component. That is the mode only approximately, which is fine
+      as a greedy path. Optional later: sharpen the weights too
+      (logits / T_w), or set the Laplace weight from voicing at inference - Lauri: I haven't tried weight sharpening before, keep in todo for later
+- [ ] GlotNet `sample_after_filtering`: shifting all locations by the LPC
+      prediction is exact for location-scale mixtures (unlike categorical), so
+      the mixture supports it. Replace the name check with a
+      `shiftLocation(params, offset)` virtual in C++. It returns false or throws
+      for categorical. Python gets a matching `shift_location(params, p)` used
+      by the trainer and the AR reference. That also fixes the bug above.
+      With discretization the bins follow the signal x, not e - Lauri: good
+- [ ] Output layer init: identical-family components start symmetric. Spread
+      the initial location/scale biases (e.g. log scales over [-5, -2]) so
+      they do not stay identical. Gaussian + Laplace differ by family, but
+      spread them too: - Lauri: any components in the signal are likely zero-mean, but spreading the scales is good. Group initialisations by family (no reason to have Gaussian or Laplacian components start with higher scales than the other)
+
+Implementation steps (one commit each):
+0. [ ] Fix the `params + p_curr` bug in `TrainerGlotNet` (shift channel 0
+       only). Regression test: the trainer NLL equals the Python AR reference
+       NLL for `sample_after_filtering=True`
+1. [x] `glotnet/losses/location_scale.py`: per-family `log_prob`, `cdf`,
+       `sample` (inverse CDF: Laplace `m - b*sign(u)*log1p(-2|u|)`, logistic
+       `m + s*(log u - log1p(-u))`, Gaussian `randn`). Tests against
+       `torch.distributions.{Normal,Laplace}` and a logistic `TransformedDistribution`
+       Also in this step:
+       - Stable `log_cdf` (Gaussian `log_ndtr`)
+       - `log_mass(lo, hi)` for discretized likelihoods: open edge bins,
+         reflection into the left tail, and the midpoint rule below 0.01
+         scale units. Gradients stay finite at ±inf edges
+       - `entropy` / `log_scale_from_entropy`, and
+         `uniform_bin_entropy(num_bits)` = log(2 / 2^bits), for the
+         bit-depth entropy floor (step 2)
+       Tests are in `test/test_distribution/test_location_scale.py` and were
+       mutation-checked. Note: `torch.special.ndtr` / `Normal.cdf` lose
+       precision in the left tail even in float64, so the reference uses `erfc`
+2. [ ] Python `LocationScaleMixture`: `nll` (log_softmax + logsumexp, with the
+       optional discretized branch using log-CDF differences and stable tails
+       as in PixelCNN++), entropy-floor hinge, `sample`, `cdf`,
+       `shift_location`, `log_stats()` (mean weight and min log-scale per
+       component, for TensorBoard). `use_extension=True` raises until step 3.
+       Tests: against `MixtureSameFamily` for same-family mixtures and by hand
+       for mixed families, K=1 == GaussianDensity, discretized mass sums to 1
+       over all bins, sample histograms vs the density, gradcheck
+3. [ ] C++ `LocationScaleMixture` in `Distributions.h/.cpp`. Component enum,
+       preallocated weight buffer, inverse-CDF component choice (as in
+       Categorical), then a per-family draw. `paramsDim()` = 3K or 2K+1.
+       Factory: replace `create(name, num_bits)` with
+       `create(const DistributionSpec&)`, where
+       `struct DistributionSpec { name; num_bits; components; shared_loc; }`.
+       Keep a `(name, num_bits)` overload. Add the `shiftLocation` virtual and
+       use it in `GlotNetAR` instead of `x_dist[0] += p_curr`. Bindings:
+       `sample_mixture`, and `set_distribution(name, num_bits=8,
+       components=[], shared_loc=False)`. Torch-free checks in
+       `test/cpp/test_core.cpp`
+4. [ ] Wiring:
+       - Python distributions expose `cpp_spec()` (a dict) instead of
+         `cpp_name`/`num_bits` special-casing in `set_cpp_distribution`
+       - Config: `mixture_components`, `mixture_shared_loc`, `discretize_bits`
+       - Trainer registry entry
+       - `CHECKPOINT_MODEL_FIELDS` += the new fields
+       - `_log_training_step` uses `criterion.log_stats()`. Gaussian and
+         categorical implement it too, which removes the isinstance check
+       - GlotNet trainer allows `sample_after_filtering` for location-scale
+         distributions
+5. [ ] Tests:
+       - C++ == Python AR reference at T = 0 (WaveNet; GlotNet with and
+         without sample_after_filtering)
+       - Sampling statistics at T = 0.7 (as for categorical)
+       - Trainer fit/generate
+       - Checkpoint round trip with components
+6. [ ] Smoke test on the same utterance as `glotnet_smoke`, scoring everything
+       in bits per mu-law sample through `cdf`. Generalise `evaluate.py` to
+       any distribution with a `cdf`. Candidates:
+       - Gaussian (baseline)
+       - Gaussian + Laplace, independent locations
+       - Gaussian + Laplace, shared location
+       - 4 Gaussians
+       - 10 discretized logistics (16 bit)
+       Science check for the motivation: on GlotNet (excitation), plot the
+       Laplace component's mean responsibility per frame against the voicing
+       decision. The hypothesis predicts a high responsibility in voiced
+       frames and a low one in unvoiced frames
+
+References (verify venues/years before citing):
+- Bishop (1994), Mixture Density Networks, Aston University tech. report NCRG/94/004
+- Graves (2013), Generating Sequences With Recurrent Neural Networks, arXiv:1308.0850
+- Salimans et al. (2017), PixelCNN++, ICLR (discretized logistic mixture)
+- van den Oord et al. (2018), Parallel WaveNet: Fast High-Fidelity Speech
+  Synthesis, ICML (10-component discretized logistic mixture, 16-bit audio)
+- Ping et al. (2019), ClariNet, ICLR (single Gaussian; notes on mixture
+  instability and the log-scale floor)
+- Gazor & Zhang (2003), Speech probability distribution, IEEE Signal
+  Processing Letters (Laplacian / Gamma fit of speech samples)
+- Tukey (1960), A survey of sampling from contaminated distributions
+  (Gaussian mixtures as robust error models); Huber (1964), Robust
+  estimation of a location parameter, Ann. Math. Stat. (L2/L1 hybrid loss)
+- Novelty claim: do a literature search before writing it up. Look at
+  Laplace/Gaussian-Laplace output distributions in neural vocoders and
+  LPCNet-family excitation models
+
 ## Performance bottlenecks
 
 - Identify performance bottlenecks in C++ inference code and proposed improvements. 
