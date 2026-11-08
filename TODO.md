@@ -210,9 +210,14 @@ Design decisions (to review):
       spread them too: - Lauri: any components in the signal are likely zero-mean, but spreading the scales is good. Group initialisations by family (no reason to have Gaussian or Laplacian components start with higher scales than the other)
 
 Implementation steps (one commit each):
-0. [ ] Fix the `params + p_curr` bug in `TrainerGlotNet` (shift channel 0
-       only). Regression test: the trainer NLL equals the Python AR reference
-       NLL for `sample_after_filtering=True`
+0. [x] Fix the `params + p_curr` bug in `TrainerGlotNet` (shift channel 0
+       only). Done with `GaussianDensity.shift_location(params, offset)`, used
+       in `fit` and `validate`. The mixture gets the same method in step 2.
+       Regression test (`test_trainer_glotnet.py`, fit and validate): hooks on
+       the model and the criterion check that the mean moves by exactly
+       `p_curr` and `log_s` is unchanged. It fails on the old code.
+       Checkpoints trained with Gaussian `sample_after_filtering` before this
+       fix learned a log_s offset of -p and should be retrained
 1. [x] `glotnet/losses/location_scale.py`: per-family `log_prob`, `cdf`,
        `sample` (inverse CDF: Laplace `m - b*sign(u)*log1p(-2|u|)`, logistic
        `m + s*(log u - log1p(-u))`, Gaussian `randn`). Tests against

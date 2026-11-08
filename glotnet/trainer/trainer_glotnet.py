@@ -160,7 +160,8 @@ class TrainerGlotNet(TrainerWaveNet):
                 params = self.model(input, c)
 
                 if self.sample_after_filtering:
-                    params = params + p_curr
+                    # shift the location only (not log_s) by the LPC prediction
+                    params = self.criterion.shift_location(params, p_curr)
                     loss = self.criterion(x=x_curr[..., self.config.padding:],
                                         params=params[..., self.config.padding:])
                 else:
@@ -233,7 +234,8 @@ class TrainerGlotNet(TrainerWaveNet):
                 params = self.model(input, c)
 
                 if self.sample_after_filtering:
-                    params = params + p_curr
+                    # shift the location only (not log_s) by the LPC prediction
+                    params = self.criterion.shift_location(params, p_curr)
                     loss = self.criterion(x=x_curr[..., self.config.padding:],
                                         params=params[..., self.config.padding:])
                 else:

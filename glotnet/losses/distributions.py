@@ -73,6 +73,15 @@ class GaussianDensity(Distribution):
         self.batch_nll = nll
         return nll
 
+    def shift_location(self, params, offset):
+        """ Distribution of x + offset: the mean moves, the scale does not
+
+        Args:
+            params: (batch, 2, time), channels (m, log_s)
+            offset: broadcastable to (batch, 1, time)
+        """
+        return torch.cat([params[:, 0:1, :] + offset, params[:, 1:, :]], dim=1)
+
     def forward(self, x, params):
         nll = self.nll(x, params)
         loss = self.weight_nll * nll.mean() 
