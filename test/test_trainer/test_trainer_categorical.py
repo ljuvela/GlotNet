@@ -80,3 +80,40 @@ def test_trainer_glotnet_categorical_rejects_sample_after_filtering(tempdir):
                          glotnet_sample_after_filtering=True)
     with pytest.raises(ValueError):
         TrainerGlotNet(config=config)
+
+
+def test_checkpoint_stores_distribution(tempdir):
+    config = make_config(tempdir)
+    trainer = TrainerWaveNet(config=config)
+    model_pt = os.path.join(tempdir, "model.pt")
+    trainer.save(model_path=model_pt)
+
+    saved = TrainerWaveNet.config_from_checkpoint(model_pt)
+    assert saved.distribution == 'categorical'
+    assert saved.num_bits == 8
+    assert saved.model_type == 'wavenet'
+
+    # a trainer built from the stored config loads the weights
+    trainer2 = TrainerWaveNet(config=saved)
+    trainer2.load(model_pt)
+    for p1, p2 in zip(trainer.model.parameters(), trainer2.model.parameters()):
+        assert torch.equal(p1, p2)
+
+    # mismatching distribution is reported, not a state_dict size error
+    gaussian = make_config(tempdir)
+    gaussian.distribution = 'gaussian'
+    with pytest.raises(ValueError, match="distribution"):
+        TrainerWaveNet(config=gaussian).load(model_pt)
+
+
+def test_checkpoint_plain_state_dict_still_loads(tempdir):
+    config = make_config(tempdir)
+    trainer = TrainerWaveNet(config=config)
+    model_pt = os.path.join(tempdir, "old.pt")
+    torch.save(trainer.model.state_dict(), model_pt)  # pre-v1 format
+
+    assert TrainerWaveNet.config_from_checkpoint(model_pt) is None
+    trainer2 = TrainerWaveNet(config=config)
+    trainer2.load(model_pt)
+    for p1, p2 in zip(trainer.model.parameters(), trainer2.model.parameters()):
+        assert torch.equal(p1, p2)

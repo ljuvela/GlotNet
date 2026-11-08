@@ -94,15 +94,25 @@ Implementation steps (one commit each):
        Fixed on the way: trainers' `model_ar` did not pass the distribution
        (always default Gaussian); `TrainerGlotNet.model_ar` was rebuilt on
        every access
-5. [ ] Tests: mu-law round trip and agreement with torchaudio (reference only);
-       `nll` == cross entropy; T -> 0 gives argmax; seeded C++ sampler histogram
-       vs softmax (chi-square, N ~ 1e5); C++ vs Python sampler statistics;
-       end-to-end `WaveNetAR(categorical).inference` shape/range;
-       torch-free categorical check in `test/cpp/test_core.cpp`
-6. [ ] Small training run first: categorical 8-bit vs Gaussian baseline on the
-       same data; compare NLL in bits/sample and listen
-7. [ ] Checkpoints: store distribution name and `num_bits` in the saved
-       config (relates to "Model weight loading for plugins" above)
+5. [x] Tests: mu-law vs torchaudio, NLL vs log-softmax, greedy/argmax,
+       seeded C++ and Python sampler histograms vs softmax (mutation-checked),
+       C++ == Python AR reference at T = 0 (WaveNet, conditional, GlotNet),
+       C++ vs Python AR sampling statistics at T = 0.7 (class-index mean/std;
+       a wrong C++ temperature gives std ratio ~1.2), trainers fit/generate,
+       torch-free sampler checks in `test/cpp/test_core.cpp`
+6. [x] Small training run first: categorical 8-bit vs Gaussian baseline on the
+       same data; compare NLL in bits/sample and listen.
+       Smoke test (one LibriTTS-R utterance, 5000 iters, laptop CPU):
+       teacher-forced 4.72 (categorical) vs 5.81 (Gaussian, mass per mu-law bin)
+       bits/sample; generation via C++ OK after reload from checkpoint.
+       Results: /Users/lauri/DATA/glotnet_smoke/RESULTS.md. Still to do: listen;
+       a real multi-speaker run before shipping pretrained models
+7. [x] Checkpoints: `Trainer.save` writes {format, version, config, model};
+       `Trainer.load` checks model_type/distribution/num_bits against the
+       trainer config (clear error instead of a state_dict size mismatch) and
+       still accepts plain state dicts; `Trainer.config_from_checkpoint(path)`
+       rebuilds the config. C++-side loading is still the separate
+       "Model weight loading for plugins" item
 
 References (verify venues/years before citing):
 - ITU-T Rec. G.711 (1972/1988), Pulse code modulation (PCM) of voice

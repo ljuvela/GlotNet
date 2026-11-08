@@ -43,6 +43,38 @@ def test_wavenet_ar_categorical_greedy_matches_reference(cond_channels):
     assert sampled.unique().numel() > 5, "greedy path should not be constant"
 
 
+
+def bump_logits(model, gain=3.0, center=160.0, width=8.0):
+    """ Output bias = Gaussian bump over the classes, so the sampled class
+        index has std ~ width * sqrt(T) and the temperature is measurable;
+        scaled weights keep the dependence on the fed-back samples """
+    k = torch.arange(model.output_channels, dtype=torch.float32)
+    with torch.no_grad():
+        model.output2.conv.weight.mul_(gain)
+        model.output2.conv.bias.copy_(-(k - center) ** 2 / (2 * width ** 2))
+    return model
+
+
+def test_wavenet_ar_categorical_sampling_statistics_match_reference():
+    """ T > 0: C++ and Python samplers use different RNGs, so compare the
+        per-timestep mean and std of the sampled class index.
+        (A C++ temperature of 1.0 instead of 0.7 gives std ratios ~1.2) """
+    torch.manual_seed(0)
+    model = bump_logits(make_wavenet_ar(CategoricalDensity(num_bits=8)))
+    batch, timesteps, temperature = 4000, 6, 0.7
+    x = torch.zeros(batch, 1, timesteps)
+    temp = torch.full((batch, 1, timesteps), temperature)
+
+    q_ref = mulaw.encode(model.forward(input=x, temperature=temp)).float()[:, 0, :]
+    q_ext = mulaw.encode(model.inference(input=x, temperature=temp)).float()[:, 0, :]
+
+    se = (q_ref.var(dim=0) / batch + q_ext.var(dim=0) / batch).sqrt()
+    mean_diff = (q_ref.mean(dim=0) - q_ext.mean(dim=0)).abs()
+    assert torch.all(mean_diff < 5 * se), (mean_diff, se)
+    std_ratio = q_ext.std(dim=0) / q_ref.std(dim=0)
+    assert torch.all((std_ratio - 1).abs() < 0.08), std_ratio
+
+
 def test_wavenet_ar_categorical_sampling():
     model = make_wavenet_ar(CategoricalDensity(num_bits=8))
     x = torch.zeros(2, 1, 500)

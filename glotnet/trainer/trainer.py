@@ -1,4 +1,5 @@
 import os
+from dataclasses import asdict
 import torch
 
 from torch.utils.data import Dataset, DataLoader
@@ -228,18 +229,52 @@ class Trainer(torch.nn.Module):
         writer = SummaryWriter(log_dir=self.config.log_dir)
         return writer
 
+    # config fields that must match between a checkpoint and the trainer
+    CHECKPOINT_MODEL_FIELDS = ('model_type', 'distribution', 'num_bits')
+    CHECKPOINT_FORMAT = 'glotnet-model'
+    CHECKPOINT_VERSION = 1
+
+    @staticmethod
+    def _read_checkpoint(model_path: str) -> dict:
+        """ Model checkpoint as {'config': dict or None, 'model': state_dict};
+            accepts plain state dicts saved by older versions """
+        data = torch.load(model_path, map_location='cpu')
+        if isinstance(data, dict) and data.get('format') == Trainer.CHECKPOINT_FORMAT:
+            return data
+        return {'config': None, 'model': data}
+
+    @staticmethod
+    def config_from_checkpoint(model_path: str) -> Config:
+        """ Config stored in a model checkpoint (None for older checkpoints) """
+        cfg = Trainer._read_checkpoint(model_path)['config']
+        return None if cfg is None else Config(**cfg)
+
     def load(self, model_path: str, optim_path: str = None):
         """ Load trainer model and optimizer states """
-        model_state_dict = torch.load(model_path, map_location='cpu')
-        self.model.load_state_dict(model_state_dict)
+        checkpoint = self._read_checkpoint(model_path)
+        saved_config = checkpoint['config']
+        if saved_config is not None:
+            for field in self.CHECKPOINT_MODEL_FIELDS:
+                if (field in saved_config
+                        and saved_config[field] != getattr(self.config, field)):
+                    raise ValueError(
+                        f"Checkpoint {model_path} has {field}={saved_config[field]!r}, "
+                        f"trainer config has {getattr(self.config, field)!r}")
+        self.model.load_state_dict(checkpoint['model'])
         if optim_path is None:
             return
         optim_state_dict = torch.load(optim_path, map_location='cpu')
         self.optim.load_state_dict(optim_state_dict)
 
     def save(self, model_path: str, optim_path: str = None):
-        """" Save model and optimizer state dictionaries"""
-        torch.save(self.model.state_dict(), model_path)
+        """" Save model (with its config) and optimizer state dictionaries"""
+        checkpoint = {
+            'format': self.CHECKPOINT_FORMAT,
+            'version': self.CHECKPOINT_VERSION,
+            'config': asdict(self.config),
+            'model': self.model.state_dict(),
+        }
+        torch.save(checkpoint, model_path)
         if optim_path is not None:
             torch.save(self.optim.state_dict(), optim_path)
 
