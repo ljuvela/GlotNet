@@ -1,6 +1,5 @@
 """ Trainers with distribution = 'categorical' """
 import os
-import tempfile
 import pytest
 import torch
 from glotnet.data import audio_io
@@ -9,12 +8,6 @@ from glotnet.config import Config
 from glotnet.losses.distributions import CategoricalDensity
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
 from glotnet.trainer.trainer_glotnet import TrainerGlotNet
-
-
-@pytest.fixture
-def tempdir():
-    with tempfile.TemporaryDirectory() as tempdir:
-        yield tempdir
 
 
 def make_config(tempdir, **kwargs):

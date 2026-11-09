@@ -229,6 +229,21 @@ class Trainer(torch.nn.Module):
         writer = SummaryWriter(log_dir=self.config.log_dir)
         return writer
 
+    def close(self):
+        """ Flush and close the TensorBoard writer
+
+        The writer flushes from a background thread, which may still be
+        writing event files after training returns; close() joins it.
+        Call before removing log_dir. Safe to call more than once.
+        """
+        self.writer.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
+
     # config fields that must match between a checkpoint and the trainer
     CHECKPOINT_MODEL_FIELDS = ('model_type', 'distribution', 'num_bits')
     CHECKPOINT_FORMAT = 'glotnet-model'

@@ -1,5 +1,4 @@
 import os
-import tempfile
 import pytest
 import torch
 from glotnet.data import audio_io
@@ -9,12 +8,6 @@ from glotnet.data.audio_dataset import AudioDataset
 
 from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 from glotnet.config import Config
-
-# pytest fixture for temporary directory
-@pytest.fixture
-def tempdir():
-    with tempfile.TemporaryDirectory() as tempdir:
-        yield tempdir
 
 
 def test_trainer_generate(tempdir):
@@ -190,7 +183,6 @@ def test_trainer_generate_condnet_sample_after_filtering(tempdir):
 
     dataset = trainer.create_dataset_training()
     x = trainer.generate(dataset)
-
 
 
 @pytest.mark.parametrize("phase", ["fit", "validate"])
