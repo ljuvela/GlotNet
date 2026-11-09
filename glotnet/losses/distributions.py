@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import glotnet.cpp_extensions as ext
+from glotnet.losses import location_scale
 from glotnet.sigproc import mulaw
 
 class Distribution(torch.nn.Module):
@@ -197,6 +198,228 @@ class CategoricalDensity(Distribution):
         greedy = temperature[:, 0, :] <= 0.0
         q = torch.where(greedy, params.argmax(dim=1), q)
         return mulaw.decode(q, self.mu).unsqueeze(1)
+
+
+class LocationScaleMixture(Distribution):
+    """ Mixture of location-scale densities (Gaussian, Laplace, logistic)
+
+        Parameter channels, K = len(components):
+            shared_loc=False: [logits (K), locs (K), log_scales (K)], params_dim 3K
+            shared_loc=True:  [logits (K), loc (1),  log_scales (K)], params_dim 2K + 1
+
+        Components may mix families, e.g. ('gaussian', 'laplace'). With
+        discretize_bits set, the likelihood is the probability mass of the
+        linear bin of the target (2**bits levels on [-1, 1], open edge bins,
+        as in PixelCNN++ / Parallel WaveNet) and samples are snapped to the bins.
+
+        Entropy floor: a hinge on each component's entropy at the entropy of
+        a uniform density over one bin of an entropy_floor_bits signal, i.e.
+        each family gets the log-scale floor with that entropy.
+    """
+
+    def __init__(self,
+                 components=('gaussian', 'laplace'),
+                 shared_loc: bool = False,
+                 discretize_bits: int = None,
+                 entropy_floor_bits: int = 16,
+                 temperature: float = 1.0,
+                 weight_nll: float = 1.0,
+                 weight_entropy_penalty: float = 0.1):
+        """
+        Args:
+            components: family name per component ('gaussian', 'laplace', 'logistic')
+            shared_loc: one location for all components
+            discretize_bits: None for a continuous density, else the bit depth
+                of the linear discretization of [-1, 1]
+            entropy_floor_bits: bit depth defining the entropy floor (None: no floor)
+            temperature: default sampling temperature (scales the component scales)
+            weight_nll, weight_entropy_penalty: loss weights
+        """
+        components = tuple(components)
+        if len(components) == 0:
+            raise ValueError("LocationScaleMixture needs at least one component")
+        families = [location_scale.get_family(name) for name in components]
+        if discretize_bits is not None and not 1 <= discretize_bits <= 24:
+            raise ValueError(f"discretize_bits must be in [1, 24], got {discretize_bits}")
+        K = len(components)
+        super().__init__(params_dim=(2 * K + 1) if shared_loc else 3 * K, out_dim=1)
+        self.components = components
+        self.num_components = K
+        self.shared_loc = shared_loc
+        self.discretize_bits = discretize_bits
+        self.entropy_floor_bits = entropy_floor_bits
+        self.temperature = temperature
+        self.weight_nll = weight_nll
+        self.weight_entropy_penalty = weight_entropy_penalty
+
+        # components grouped by family: one call per family, then reorder
+        self._groups = []  # (family, component indices)
+        for name in dict.fromkeys(components):
+            idx = [k for k, c in enumerate(components) if c == name]
+            self._groups.append((location_scale.get_family(name), idx))
+        order = torch.tensor([k for _, idx in self._groups for k in idx])
+        self.register_buffer('_inverse_order', torch.argsort(order), persistent=False)
+        self.register_buffer('_family_of_component', torch.tensor(
+            [g for g, (_, idx) in enumerate(self._groups) for _ in idx])[torch.argsort(order)],
+            persistent=False)
+
+        if entropy_floor_bits is None:
+            floor = torch.full((K,), -float('inf'))
+        else:
+            h = location_scale.uniform_bin_entropy(entropy_floor_bits)
+            floor = torch.tensor([f.log_scale_from_entropy(h) for f in families])
+        self.register_buffer('log_scale_floor', floor.view(1, K, 1), persistent=False)
+
+    # --- parameters ---
+
+    def _check_params(self, params):
+        if params.size(1) != self.params_dim:
+            raise ValueError(f'Expected params to have {self.params_dim} channels, got {params.size(1)}')
+
+    def split(self, params):
+        """ (logits, locs, log_scales), each (batch, K, time); a shared
+            location is expanded to K channels """
+        self._check_params(params)
+        K = self.num_components
+        logits = params[:, :K]
+        if self.shared_loc:
+            locs = params[:, K:K + 1].expand(-1, K, -1)
+            log_scales = params[:, K + 1:]
+        else:
+            locs = params[:, K:2 * K]
+            log_scales = params[:, 2 * K:]
+        return logits, locs, log_scales
+
+    def shift_location(self, params, offset):
+        """ Distribution of x + offset: every location moves, scales and weights do not """
+        self._check_params(params)
+        K = self.num_components
+        n_loc = 1 if self.shared_loc else K
+        return torch.cat([params[:, :K], params[:, K:K + n_loc] + offset,
+                          params[:, K + n_loc:]], dim=1)
+
+    def initial_bias(self, log_scale_range=(-5.0, -2.0)):
+        """ Output-layer bias: zero logits and locations; log scales spread
+            over the components of each family, at the same entropies for
+            every family (the entropies of Gaussians with log scales in
+            log_scale_range), so no family starts wider than another """
+        K = self.num_components
+        gaussian = location_scale.get_family('gaussian')
+        h_lo, h_hi = (gaussian.entropy(v) for v in log_scale_range)
+        log_scales = torch.zeros(K)
+        for family, idx in self._groups:
+            n = len(idx)
+            h = torch.linspace(h_lo, h_hi, n) if n > 1 else torch.tensor([(h_lo + h_hi) / 2])
+            log_scales[idx] = family.log_scale_from_entropy(h)
+        n_loc = 1 if self.shared_loc else K
+        return torch.cat([torch.zeros(K), torch.zeros(n_loc), log_scales])
+
+    # --- per-component evaluation ---
+
+    def _per_component(self, fn, locs, log_scales, *args):
+        """ fn(family, *args, loc, log_scale) per family group -> (batch, K, time) """
+        out = [fn(family, *args, locs[:, idx], log_scales[:, idx])
+               for family, idx in self._groups]
+        return torch.cat(out, dim=1).index_select(1, self._inverse_order)
+
+    def bin_edges(self, x):
+        """ Edges (lo, hi) of the discretization bin of each value; values
+            beyond [-1, 1] fall into the open edge bins """
+        n = 2 ** self.discretize_bits - 1  # number of steps between levels
+        step = 2.0 / n
+        q = torch.round((x.clamp(-1.0, 1.0) + 1.0) / step)
+        center = q * step - 1.0
+        inf = torch.full_like(x, float('inf'))
+        lo = torch.where(q <= 0, -inf, center - step / 2)
+        hi = torch.where(q >= n, inf, center + step / 2)
+        return lo, hi
+
+    def log_mass(self, lo, hi, params):
+        """ log P(lo < X < hi), lo and hi (batch, 1, time) """
+        logits, locs, log_scales = self.split(params)
+        lm = self._per_component(lambda f, lo, hi, m, s: f.log_mass(lo, hi, m, s),
+                                 locs, log_scales, lo, hi)
+        return torch.logsumexp(F.log_softmax(logits, dim=1) + lm, dim=1, keepdim=True)
+
+    def log_prob(self, x, params):
+        """ Log density (continuous), or log bin mass with discretize_bits """
+        if self.discretize_bits is not None:
+            return self.log_mass(*self.bin_edges(x), params)
+        logits, locs, log_scales = self.split(params)
+        lp = self._per_component(lambda f, x, m, s: f.log_prob(x, m, s),
+                                 locs, log_scales, x)
+        return torch.logsumexp(F.log_softmax(logits, dim=1) + lp, dim=1, keepdim=True)
+
+    def cdf(self, x, params):
+        """ Mixture CDF (of the continuous mixture, also when discretized) """
+        logits, locs, log_scales = self.split(params)
+        lc = self._per_component(lambda f, x, m, s: f.log_cdf(x, m, s),
+                                 locs, log_scales, x)
+        return torch.logsumexp(F.log_softmax(logits, dim=1) + lc, dim=1, keepdim=True).exp()
+
+    # --- loss ---
+
+    def nll(self, x, params):
+        """ Negative log-likelihood (nats), shape (batch, 1, time).
+            Continuous: of the density; discretized: of the bin mass """
+        nll = -self.log_prob(x, params)
+        logits, _, log_scales = self.split(params)
+        # hinge on the entropy floor, per component
+        self.batch_penalty = (self.log_scale_floor - log_scales).clamp(min=0.0).pow(2)
+        self.batch_nll = nll
+        self.batch_log_scale = log_scales.detach()
+        self.batch_weights = F.softmax(logits.detach(), dim=1)
+        return nll
+
+    def forward(self, x, params):
+        nll = self.nll(x, params)
+        return (self.weight_nll * nll.mean()
+                + self.weight_entropy_penalty * self.batch_penalty.mean())
+
+    def log_stats(self):
+        """ Statistics of the last nll() call, for logging """
+        stats = {'entropy_floor_penalty': self.batch_penalty.mean().item()}
+        weights = self.batch_weights.mean(dim=(0, 2))
+        min_log_scale = self.batch_log_scale.amin(dim=(0, 2))
+        for k, name in enumerate(self.components):
+            stats[f'mixture/{k}_{name}/weight'] = weights[k].item()
+            stats[f'mixture/{k}_{name}/min_log_scale'] = min_log_scale[k].item()
+        return stats
+
+    # --- sampling ---
+
+    def set_temperature(self, temp: float):
+        self.temperature = temp
+
+    def sample(self, params, use_extension=False, temperature=None):
+        """ Sample signal values, shape (batch, 1, time)
+
+        A component is drawn from the mixture weights (not tempered), then a
+        value from that component with its scale multiplied by the
+        temperature. Temperature 0 returns the location of the most probable
+        component. With discretize_bits, samples are snapped to the bins in [-1, 1].
+        """
+        if use_extension:
+            raise NotImplementedError("LocationScaleMixture has no C++ sampler yet")
+        logits, locs, log_scales = self.split(params)
+        if temperature is None:
+            temperature = self.temperature
+        temperature = torch.as_tensor(temperature, dtype=params.dtype, device=params.device)
+        temperature = temperature.expand(params.size(0), 1, params.size(2))
+
+        k = torch.distributions.Categorical(logits=logits.transpose(1, 2)).sample()
+        k = torch.where(temperature[:, 0] <= 0.0, logits.argmax(dim=1), k).unsqueeze(1)
+        loc = locs.gather(1, k)
+        log_scale = log_scales.gather(1, k)
+        # a standard draw from every family, then pick the component's family
+        z = torch.cat([family.sample_standard(loc) for family, _ in self._groups], dim=1)
+        z = z.gather(1, self._family_of_component[k])
+        x = loc + temperature * torch.exp(log_scale) * z
+
+        if self.discretize_bits is not None:
+            n = 2 ** self.discretize_bits - 1
+            x = torch.round((x.clamp(-1.0, 1.0) + 1.0) * (n / 2.0)) * (2.0 / n) - 1.0
+        return x
 
 
 class Identity(Distribution):

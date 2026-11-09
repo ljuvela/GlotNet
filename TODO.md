@@ -233,7 +233,7 @@ Implementation steps (one commit each):
        Tests are in `test/test_distribution/test_location_scale.py` and were
        mutation-checked. Note: `torch.special.ndtr` / `Normal.cdf` lose
        precision in the left tail even in float64, so the reference uses `erfc`
-2. [ ] Python `LocationScaleMixture`: `nll` (log_softmax + logsumexp, with the
+2. [x] Python `LocationScaleMixture`: `nll` (log_softmax + logsumexp, with the
        optional discretized branch using log-CDF differences and stable tails
        as in PixelCNN++), entropy-floor hinge, `sample`, `cdf`,
        `shift_location`, `log_stats()` (mean weight and min log-scale per
@@ -241,6 +241,28 @@ Implementation steps (one commit each):
        Tests: against `MixtureSameFamily` for same-family mixtures and by hand
        for mixed families, K=1 == GaussianDensity, discretized mass sums to 1
        over all bins, sample histograms vs the density, gradcheck
+       As implemented (`glotnet/losses/distributions.py`):
+       - Components are evaluated per family group (one call per family),
+         then reordered
+       - `log_prob`, `log_mass(lo, hi)`, `cdf`, `bin_edges`, `split`
+       - Discretization: 2^bits levels on [-1, 1] (step 2/(2^bits - 1)), open
+         edge bins, targets beyond ±1 go to the edge bins. Samples are
+         clipped and snapped to the levels
+       - Entropy floor: `entropy_floor_bits=16` (None disables it). Each
+         family's log-scale floor has the entropy of one bin; the hinge is
+         relu(floor - log_s)^2
+       - Sampling: the weights are not tempered. T scales the chosen
+         component's scale, and T = 0 gives the location of the argmax
+         component
+       - `initial_bias()`: zero logits and locations. The log scales are
+         spread within each family over the same entropies (Gaussian
+         log-scale range [-5, -2]); a single component takes the middle.
+         Not applied to the model yet (step 4)
+       - Not done yet: `log_stats()` for Gaussian/categorical, and the Python
+         GlotNet AR reference still shifts channel 0 in place (step 4)
+       Tests are in `test/test_distribution/test_mixture.py` and were
+       mutation-checked. They include a small maximum-likelihood fit: a
+       shared-location Gaussian + Laplace recovers its weight and both scales
 3. [ ] C++ `LocationScaleMixture` in `Distributions.h/.cpp`. Component enum,
        preallocated weight buffer, inverse-CDF component choice (as in
        Categorical), then a per-family draw. `paramsDim()` = 3K or 2K+1.
