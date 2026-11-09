@@ -34,11 +34,11 @@ class TrainerGlotNet(TrainerWaveNet):
         if config.input_channels % 3 != 0:
             raise ValueError("Input channels must be divisible by 3")
         self.sample_after_filtering = config.glotnet_sample_after_filtering
-        if self.sample_after_filtering and config.distribution != 'gaussian':
+        if self.sample_after_filtering and not hasattr(self.criterion, 'shift_location'):
             raise ValueError(
-                "glotnet_sample_after_filtering requires distribution 'gaussian' "
-                f"(got '{config.distribution}'): a categorical cannot be shifted "
-                "by the LPC prediction")
+                "glotnet_sample_after_filtering requires a location-scale distribution "
+                f"('gaussian' or 'mixture', got '{config.distribution}'): "
+                "a categorical cannot be shifted by the LPC prediction")
         self.lpc = LinearPredictor(n_fft=config.n_fft,
             hop_length=config.hop_length,
             win_length=config.win_length,

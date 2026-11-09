@@ -28,9 +28,16 @@ class Distribution(torch.nn.Module):
     def sample(self, params, use_extension=False) -> torch.Tensor:
         raise NotImplementedError
 
-class GaussianDensity(Distribution):
+    def cpp_spec(self):
+        """ Keyword arguments for the C++ AR models' set_distribution(),
+            or None if there is no C++ sampler """
+        return None
 
-    cpp_name = 'gaussian'
+    def log_stats(self) -> dict:
+        """ Scalars describing the last nll() call, for TensorBoard """
+        return {}
+
+class GaussianDensity(Distribution):
 
     def __init__(self,
                  num_bits: int = None,
@@ -74,6 +81,13 @@ class GaussianDensity(Distribution):
         self.batch_nll = nll
         return nll
 
+    def cpp_spec(self):
+        return {'name': 'gaussian'}
+
+    def log_stats(self):
+        return {'entropy_floor_penalty': self.batch_penalty.mean().item(),
+                'min_log_scale': self.batch_log_scale.min().item()}
+
     def shift_location(self, params, offset):
         """ Distribution of x + offset: the mean moves, the scale does not
 
@@ -112,8 +126,6 @@ class GaussianDensity(Distribution):
 
 class CategoricalDensity(Distribution):
 
-    cpp_name = 'categorical'
-
     """ Categorical distribution over mu-law quantized sample values
 
         The model outputs one logit per quantization level
@@ -141,6 +153,9 @@ class CategoricalDensity(Distribution):
 
     def set_temperature(self, temp: float):
         self.temperature = temp
+
+    def cpp_spec(self):
+        return {'name': 'categorical', 'num_bits': self.num_bits}
 
     def _check_params(self, params: torch.Tensor):
         if params.size(1) != self.params_dim:
@@ -376,6 +391,11 @@ class LocationScaleMixture(Distribution):
         return (self.weight_nll * nll.mean()
                 + self.weight_entropy_penalty * self.batch_penalty.mean())
 
+    def cpp_spec(self):
+        return {'name': 'mixture', 'components': list(self.components),
+                'shared_loc': self.shared_loc,
+                'discretize_bits': self.discretize_bits or 0}
+
     def log_stats(self):
         """ Statistics of the last nll() call, for logging """
         stats = {'entropy_floor_penalty': self.batch_penalty.mean().item()}
@@ -450,20 +470,18 @@ def set_cpp_distribution(impl, distribution: Distribution, output_channels: int)
     count matches the model outputs; other combinations remain valid for
     teacher-forced use and are rejected by check_cpp_distribution at inference.
     """
-    name = getattr(distribution, 'cpp_name', None)
-    if name is None or distribution.params_dim != output_channels:
+    spec = distribution.cpp_spec()
+    if spec is None or distribution.params_dim != output_channels:
         return
-    num_bits = distribution.num_bits if name == 'categorical' else 8
-    impl.set_distribution(name, num_bits)
+    impl.set_distribution(**spec)
 
 
 def check_cpp_distribution(impl, distribution: Distribution, output_channels: int):
     """ Validate before C++ inference and seed the sampler from torch's RNG """
-    name = getattr(distribution, 'cpp_name', None)
-    if name is None:
+    if distribution.cpp_spec() is None:
         raise ValueError(
-            f"{type(distribution).__name__} has no C++ sampler, "
-            "inference() supports GaussianDensity and CategoricalDensity")
+            f"{type(distribution).__name__} has no C++ sampler, inference() supports "
+            "GaussianDensity, CategoricalDensity and LocationScaleMixture")
     if distribution.params_dim != output_channels:
         raise ValueError(
             f"{type(distribution).__name__} needs {distribution.params_dim} "

@@ -302,7 +302,7 @@ Implementation steps (one commit each):
          in `process` and `processConditional`) and Python (C++ sampler KS
          tests, greedy == Python, discretized grid, seeding, per-timestep T).
          Mutation-checked
-4. [ ] Wiring:
+4. [x] Wiring:
        - Python distributions expose `cpp_spec()` (a dict) instead of
          `cpp_name`/`num_bits` special-casing in `set_cpp_distribution`
        - Config: `mixture_components`, `mixture_shared_loc`, `discretize_bits`
@@ -312,12 +312,49 @@ Implementation steps (one commit each):
          categorical implement it too, which removes the isinstance check
        - GlotNet trainer allows `sample_after_filtering` for location-scale
          distributions
-5. [ ] Tests:
+       As implemented:
+       - Config also has `entropy_floor_bits = 16` (mixture).
+         `loss_weight_entropy_hinge` applies to the mixture too
+       - The trainer copies `distribution.initial_bias()` into the output
+         layer bias
+       - Checkpoints check only the fields of the trainer's distribution
+         (categorical: `num_bits`; mixture: components, shared_loc,
+         discretize_bits), comparing lists and tuples equal (JSON configs
+         hold lists)
+       - The Python GlotNet AR reference uses `distribution.shift_location`
+       - **Fixed on the way:** the Python GlotNet AR reference only worked
+         with batch 1. The LPC prediction broadcast (B, order) x (B, 1, order)
+         to (B, B, order)
+5. [x] Tests:
        - C++ == Python AR reference at T = 0 (WaveNet; GlotNet with and
          without sample_after_filtering)
        - Sampling statistics at T = 0.7 (as for categorical)
        - Trainer fit/generate
        - Checkpoint round trip with components
+       As implemented:
+       - `test/test_model/test_mixture_ar.py`: greedy C++ == Python for 4
+         mixtures (independent, shared location, interleaved, discretized).
+         WaveNet with and without conditioning. GlotNet with batch 2, with and
+         without sample_after_filtering, with and without conditioning
+       - Discretized + sample_after_filtering puts x on the grid, in both
+         implementations and both C++ paths
+       - Statistics at T = 0.7: a C++ temperature of 1.0 gives std ratios
+         1.41-1.46. Also seeding and `cpp_spec`
+       - `test/test_trainer/test_trainer_mixture.py`:
+         - fit/generate (3 settings) with the initial bias applied
+         - GlotNet x {after filtering, discretized}
+         - the trainer shifts only the location channels
+         - checkpoint round trip, including a JSON config with lists
+         - mismatch errors for components and discretize_bits
+         - Gaussian checkpoints ignore the mixture fields
+         - Gaussian `log_stats`
+       Mutation-checked: a broken C++ temperature fails all statistics
+       tests; the old channel-0 shift in the Python reference fails exactly
+       the 8 sample_after_filtering greedy cases.
+       Statistics tests use batch 2000 (full suite ~8 s). Tolerances come from
+       the sampling noise, worst over 10 seeds: mixture mean 6 se and
+       |std ratio - 1| < 0.15 (noise up to 0.093, a broken temperature gives
+       ~0.4). Categorical < 0.1 (noise up to 0.061, a broken temperature gives ~0.2)
 6. [ ] Smoke test on the same utterance as `glotnet_smoke`, scoring everything
        in bits per mu-law sample through `cdf`. Generalise `evaluate.py` to
        any distribution with a `cdf`. Candidates:
@@ -347,6 +384,14 @@ References (verify venues/years before citing):
 - Novelty claim: do a literature search before writing it up. Look at
   Laplace/Gaussian-Laplace output distributions in neural vocoders and
   LPCNet-family excitation models
+
+## Configuration
+- use yaml instead of json for configs
+- yaml configs should comment what the various parameters do
+- both map into python dictionaries; maintain backward compatibility to dicts from json
+
+## Inference
+- openmp or similar parallelisation over batch elements in inference
 
 ## Performance bottlenecks
 

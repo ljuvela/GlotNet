@@ -229,12 +229,13 @@ class GlotNetAR(WaveNet):
 
             params = super().forward(input=context, cond_input=cond_context)
 
-            p_curr = context[:, 1:2, -1]
+            p_curr = context[:, 1:2, -1:]  # (batch, 1, 1)
 
             if self.sample_after_filtering:
-                params[:, 0:1, -1:] = p_curr + params[:, 0:1, -1:]
+                # distribution of the signal: locations shifted by the prediction
+                params_x = self.distribution.shift_location(params[..., -1:], p_curr)
                 x_curr = self.distribution.sample(
-                    params[..., -1:], temperature=temperature[..., t:t+1])
+                    params_x, temperature=temperature[..., t:t+1])
                 e_curr = x_curr - p_curr
             else:
                 e_curr = self.distribution.sample(
@@ -242,19 +243,19 @@ class GlotNetAR(WaveNet):
                 x_curr = p_curr + e_curr
 
             # update output 
-            output[:, :, t] = x_curr
+            output[:, :, t] = x_curr[..., 0]
 
             # advance context
             context = torch.roll(context, -1, dims=-1)
 
             # excitation
-            context[:, 0:1, -1] = e_curr
+            context[:, 0:1, -1] = e_curr[..., 0]
             # sample
-            context[:, 2:3, -1] = x_curr
+            context[:, 2:3, -1] = x_curr[..., 0]
             # prediction for next time step
             x_curr = context[:, 2:3, -self.lpc_order:]
-            a1 = torch.flip(-a[:, 1:, t], [1]) # TODO: no flip?
-            p_next = torch.sum(a1 * x_curr, dim=-1)
+            a1 = torch.flip(-a[:, 1:, t], [1]).unsqueeze(1)  # (batch, 1, order)
+            p_next = torch.sum(a1 * x_curr, dim=-1)  # (batch, 1)
             context[:, 1:2, -1] = p_next
 
         # remove padding

@@ -8,7 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 from glotnet.config import Config
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.model.autoregressive.wavenet import WaveNetAR
-from glotnet.losses.distributions import Distribution, GaussianDensity, CategoricalDensity
+from glotnet.losses.distributions import (Distribution, GaussianDensity, CategoricalDensity,
+                                          LocationScaleMixture)
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
@@ -68,13 +69,10 @@ class Trainer(torch.nn.Module):
             "nll", self.criterion.batch_nll.mean().item(), global_step=step)
         message = f"Iter {step}: loss = {loss.item()}"
 
-        # location-scale statistics (entropy floor hinge)
-        if isinstance(self.criterion, GaussianDensity):
-            penalty = self.criterion.batch_penalty.mean().item()
-            min_log_scale = self.criterion.batch_log_scale.min().item()
-            self.writer.add_scalar("entropy_floor_penalty", penalty, global_step=step)
-            self.writer.add_scalar("min_log_scale", min_log_scale, global_step=step)
-            message += f"\n     penalty = {penalty}, min log scale = {min_log_scale}"
+        # distribution statistics (entropy floor, mixture weights, ...)
+        for name, value in self.criterion.log_stats().items():
+            self.writer.add_scalar(name, value, global_step=step)
+            message += f"\n     {name} = {value}"
 
         if self.iter % 100 == 0:
             print(message)
@@ -92,6 +90,12 @@ class Trainer(torch.nn.Module):
                           weight_entropy_penalty=config.loss_weight_entropy_hinge)
         elif distribution is CategoricalDensity:
             kwargs = dict(num_bits=config.num_bits)
+        elif distribution is LocationScaleMixture:
+            kwargs = dict(components=tuple(config.mixture_components),
+                          shared_loc=config.mixture_shared_loc,
+                          discretize_bits=config.discretize_bits,
+                          entropy_floor_bits=config.entropy_floor_bits,
+                          weight_entropy_penalty=config.loss_weight_entropy_hinge)
         else:
             kwargs = {}
         return distribution(weight_nll=config.loss_weight_nll, **kwargs)
@@ -126,6 +130,10 @@ class Trainer(torch.nn.Module):
                         use_residual=cfg.use_residual,
                         cond_channels=wavenet_cond_channels,
                         cond_net=cond_net)
+        # distribution-specific output bias (mixture: spread component scales)
+        if hasattr(distribution, 'initial_bias'):
+            with torch.no_grad():
+                model.output2.conv.bias.copy_(distribution.initial_bias())
         return model
     
     def _temperature_from_voicing(
@@ -245,7 +253,11 @@ class Trainer(torch.nn.Module):
         self.close()
 
     # config fields that must match between a checkpoint and the trainer
-    CHECKPOINT_MODEL_FIELDS = ('model_type', 'distribution', 'num_bits')
+    CHECKPOINT_MODEL_FIELDS = ('model_type', 'distribution')
+    CHECKPOINT_DISTRIBUTION_FIELDS = {
+        'categorical': ('num_bits',),
+        'mixture': ('mixture_components', 'mixture_shared_loc', 'discretize_bits'),
+    }
     CHECKPOINT_FORMAT = 'glotnet-model'
     CHECKPOINT_VERSION = 1
 
@@ -269,9 +281,13 @@ class Trainer(torch.nn.Module):
         checkpoint = self._read_checkpoint(model_path)
         saved_config = checkpoint['config']
         if saved_config is not None:
-            for field in self.CHECKPOINT_MODEL_FIELDS:
+            fields = self.CHECKPOINT_MODEL_FIELDS + self.CHECKPOINT_DISTRIBUTION_FIELDS.get(
+                self.config.distribution, ())
+            # JSON configs hold lists where checkpoints hold tuples
+            norm = lambda v: tuple(v) if isinstance(v, (list, tuple)) else v
+            for field in fields:
                 if (field in saved_config
-                        and saved_config[field] != getattr(self.config, field)):
+                        and norm(saved_config[field]) != norm(getattr(self.config, field))):
                     raise ValueError(
                         f"Checkpoint {model_path} has {field}={saved_config[field]!r}, "
                         f"trainer config has {getattr(self.config, field)!r}")
@@ -479,6 +495,7 @@ class Trainer(torch.nn.Module):
     distributions = {
         "gaussian": GaussianDensity,
         "categorical": CategoricalDensity,
+        "mixture": LocationScaleMixture,
     }
 
     schedulers = {

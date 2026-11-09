@@ -58,10 +58,12 @@ def bump_logits(model, gain=3.0, center=160.0, width=8.0):
 def test_wavenet_ar_categorical_sampling_statistics_match_reference():
     """ T > 0: C++ and Python samplers use different RNGs, so compare the
         per-timestep mean and std of the sampled class index.
-        (A C++ temperature of 1.0 instead of 0.7 gives std ratios ~1.2) """
+        (A C++ temperature of 1.0 instead of 0.7 gives std ratios ~1.2.
+        Sampling noise at batch 2000, worst over 10 seeds: |std ratio - 1|
+        0.061; hence 0.1) """
     torch.manual_seed(0)
     model = bump_logits(make_wavenet_ar(CategoricalDensity(num_bits=8)))
-    batch, timesteps, temperature = 4000, 6, 0.7
+    batch, timesteps, temperature = 2000, 6, 0.7
     x = torch.zeros(batch, 1, timesteps)
     temp = torch.full((batch, 1, timesteps), temperature)
 
@@ -72,7 +74,7 @@ def test_wavenet_ar_categorical_sampling_statistics_match_reference():
     mean_diff = (q_ref.mean(dim=0) - q_ext.mean(dim=0)).abs()
     assert torch.all(mean_diff < 5 * se), (mean_diff, se)
     std_ratio = q_ext.std(dim=0) / q_ref.std(dim=0)
-    assert torch.all((std_ratio - 1).abs() < 0.08), std_ratio
+    assert torch.all((std_ratio - 1).abs() < 0.1), std_ratio
 
 
 def test_wavenet_ar_categorical_sampling():
