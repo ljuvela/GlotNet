@@ -263,7 +263,7 @@ Implementation steps (one commit each):
        Tests are in `test/test_distribution/test_mixture.py` and were
        mutation-checked. They include a small maximum-likelihood fit: a
        shared-location Gaussian + Laplace recovers its weight and both scales
-3. [ ] C++ `LocationScaleMixture` in `Distributions.h/.cpp`. Component enum,
+3. [x] C++ `LocationScaleMixture` in `Distributions.h/.cpp`. Component enum,
        preallocated weight buffer, inverse-CDF component choice (as in
        Categorical), then a per-family draw. `paramsDim()` = 3K or 2K+1.
        Factory: replace `create(name, num_bits)` with
@@ -274,6 +274,34 @@ Implementation steps (one commit each):
        `sample_mixture`, and `set_distribution(name, num_bits=8,
        components=[], shared_loc=False)`. Torch-free checks in
        `test/cpp/test_core.cpp`
+       As implemented:
+       - `Family` enum + `familyFromName`
+       - `LocationScaleMixture(components, shared_loc, discretize_bits = 0,
+         log_scale_floor = -14)`, matching the Python class: untempered
+         component choice; T scales the scale; T <= 0 gives the location of
+         the argmax component; discretized samples are clipped and snapped
+         (`nearbyint`, half to even like `torch.round`)
+       - `DistributionSpec { name, num_bits, components, shared_loc,
+         discretize_bits }`, with the `(name, num_bits)` overloads kept in
+         `create` and both `setDistribution`s
+       - `canShiftLocation()` / `shiftLocation()` on the base class
+         (Gaussian, mixture). `GlotNetAR` checks it instead of the name
+       - **Fixed on the way:** `GlotNetAR::processConditional` ignored
+         `sample_after_filtering` (always sampled e). That is invisible for
+         continuous location-scale distributions (x = p + e either way) but
+         wrong for discretized ones. Now it is the same as `process`
+       - Bindings: `set_distribution(name, num_bits=8, components=[],
+         shared_loc=False, discretize_bits=0)` and `sample_mixture(params,
+         temperature, components, shared_loc, discretize_bits, seed)`. The
+         Python `LocationScaleMixture.sample(use_extension=True)` uses it,
+         seeded from torch's RNG
+       - Tests: C++ (component frequencies, KS vs the mixture CDF at T = 1
+         and 0.5 with interleaved families, greedy, shared location, seeding,
+         grid and clipping, shiftLocation, factory errors, AR models;
+         discretized GlotNet with sample_after_filtering gives x on the grid
+         in `process` and `processConditional`) and Python (C++ sampler KS
+         tests, greedy == Python, discretized grid, seeding, per-timestep T).
+         Mutation-checked
 4. [ ] Wiring:
        - Python distributions expose `cpp_spec()` (a dict) instead of
          `cpp_name`/`num_bits` special-casing in `set_cpp_distribution`

@@ -35,9 +35,18 @@ public:
 
 
 // Distribution persists across set_parameters / forward calls
-void setDistribution(const std::string &name, int num_bits)
+// num_bits: categorical; components, shared_loc, discretize_bits: mixture
+void setDistribution(const std::string &name, int num_bits,
+                     const std::vector<std::string> &components,
+                     bool shared_loc, int discretize_bits)
 {
-    model.setDistribution(name, num_bits);
+    distributions::DistributionSpec spec;
+    spec.name = name;
+    spec.num_bits = num_bits;
+    spec.components = components;
+    spec.shared_loc = shared_loc;
+    spec.discretize_bits = discretize_bits;
+    model.setDistribution(spec);
 }
 
 void setSeed(uint64_t seed)
@@ -219,7 +228,9 @@ void init_wavenet_ar(py::module &m)
         .def("cond_forward", &glotnet::binding::WaveNetAR::cond_forward)
         .def("flush", &glotnet::binding::WaveNetAR::flush)
         .def("set_distribution", &glotnet::binding::WaveNetAR::setDistribution,
-             py::arg("name"), py::arg("num_bits") = 8)
+             py::arg("name"), py::arg("num_bits") = 8,
+             py::arg("components") = std::vector<std::string>{},
+             py::arg("shared_loc") = false, py::arg("discretize_bits") = 0)
         .def("set_seed", &glotnet::binding::WaveNetAR::setSeed)
         .def("set_parameters", &glotnet::binding::WaveNetAR::setParameters)
         .def("set_parameters_conditional", &glotnet::binding::WaveNetAR::setParametersConditional);

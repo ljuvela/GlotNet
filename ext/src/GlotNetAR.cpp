@@ -79,7 +79,7 @@ void GlotNetAR::process(const float *input_data,
 
         if (sample_after_filtering)
         {
-            x_dist[0] += p_curr;
+            dist->shiftLocation(x_dist_data, p_curr);
             // sample from distribution
             dist->sample(x_dist_data, &x_curr, 1u, &temperature[t]);
             e_curr = x_curr - p_curr;
@@ -158,13 +158,22 @@ void GlotNetAR::processConditional(const float *input_data,
             WaveNet::processConditional(input_buffer_data, cond.data(), x_dist_data, 1u);
         }
 
-        dist->sample(x_dist_data, &e_curr, 1u, &temperature[t]);
-
         // get current prediction from input
-        float p_curr = input_buffer[1];
+        const float p_curr = input_buffer[1];
+        float x_curr;
 
-        // compute current sample
-        float x_curr = e_curr + p_curr;
+        if (sample_after_filtering)
+        {
+            // distribution of the signal: locations shifted by the prediction
+            dist->shiftLocation(x_dist_data, p_curr);
+            dist->sample(x_dist_data, &x_curr, 1u, &temperature[t]);
+            e_curr = x_curr - p_curr;
+        }
+        else
+        {
+            dist->sample(x_dist_data, &e_curr, 1u, &temperature[t]);
+            x_curr = e_curr + p_curr;
+        }
 
         // Update signal buffer
         for (size_t i = lpc_order-1; i > 0; i--)
@@ -200,16 +209,25 @@ void GlotNetAR::processConditional(const float *input_data,
 
 void GlotNetAR::setDistribution(const std::string &dist_name, int num_bits)
 {
-    auto new_dist = distributions::create(dist_name, num_bits);
+    distributions::DistributionSpec spec;
+    spec.name = dist_name;
+    spec.num_bits = num_bits;
+    setDistribution(spec);
+}
+
+void GlotNetAR::setDistribution(const distributions::DistributionSpec &spec)
+{
+    auto new_dist = distributions::create(spec);
     if (new_dist->paramsDim() != static_cast<size_t>(output_channels))
         throw std::invalid_argument(
-            "GlotNetAR: distribution '" + dist_name + "' needs "
+            "GlotNetAR: distribution '" + spec.name + "' needs "
             + std::to_string(new_dist->paramsDim()) + " output channels, model has "
             + std::to_string(output_channels));
-    // the Gaussian mean can be shifted by the LPC prediction, a categorical cannot
-    if (sample_after_filtering && dist_name != "gaussian")
+    // location-scale distributions can be shifted by the LPC prediction, a categorical cannot
+    if (sample_after_filtering && !new_dist->canShiftLocation())
         throw std::invalid_argument(
-            "GlotNetAR: sample_after_filtering is only supported with 'gaussian'");
+            "GlotNetAR: sample_after_filtering needs a location-scale distribution "
+            "('gaussian' or 'mixture'), got '" + spec.name + "'");
     dist = std::move(new_dist);
 }
 

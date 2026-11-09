@@ -36,11 +36,11 @@ public:
         float *const output_data,
         int total_samples);
 
-    // "gaussian" or "categorical" (num_bits: mu-law bits for categorical).
+    // "gaussian", "categorical" or "mixture" (see distributions::DistributionSpec).
     // Throws std::invalid_argument if the distribution's paramsDim() does
-    // not match the output channels, or for categorical with
-    // sample_after_filtering (a categorical cannot be shifted by the
-    // LPC prediction).
+    // not match the output channels, or with sample_after_filtering for a
+    // distribution that cannot be shifted by the LPC prediction (categorical).
+    void setDistribution(const distributions::DistributionSpec &spec);
     void setDistribution(const std::string &dist_name = "gaussian", int num_bits = 8);
     // Reseed the sampler (call after setDistribution)
     void setSeed(uint64_t seed);

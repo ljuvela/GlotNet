@@ -116,10 +116,18 @@ void WaveNetAR::processConditional(
 
 void WaveNetAR::setDistribution(const std::string &dist_name, int num_bits)
 {
-    auto new_dist = distributions::create(dist_name, num_bits);
+    distributions::DistributionSpec spec;
+    spec.name = dist_name;
+    spec.num_bits = num_bits;
+    setDistribution(spec);
+}
+
+void WaveNetAR::setDistribution(const distributions::DistributionSpec &spec)
+{
+    auto new_dist = distributions::create(spec);
     if (new_dist->paramsDim() != static_cast<size_t>(output_channels))
         throw std::invalid_argument(
-            "WaveNetAR: distribution '" + dist_name + "' needs "
+            "WaveNetAR: distribution '" + spec.name + "' needs "
             + std::to_string(new_dist->paramsDim()) + " output channels, model has "
             + std::to_string(output_channels));
     dist = std::move(new_dist);

@@ -278,5 +278,72 @@ def test_errors():
     dist = LocationScaleMixture(('gaussian', 'laplace'))
     with pytest.raises(ValueError, match="channels"):
         dist.nll(torch.zeros(1, 1, 4), torch.zeros(1, 5, 4))
-    with pytest.raises(NotImplementedError):
-        dist.sample(torch.zeros(1, 6, 4), use_extension=True)
+    with pytest.raises(ValueError, match="channels"):
+        dist.sample(torch.zeros(1, 5, 4), use_extension=True)
+
+
+# --- C++ sampler (use_extension=True) ---
+
+EXT_CASES = [
+    (('gaussian', 'laplace', 'logistic'), False, None),
+    (('laplace', 'gaussian', 'laplace'), False, None),  # interleaved families
+    (('gaussian', 'laplace'), True, None),               # shared location
+]
+
+
+@pytest.mark.parametrize("components,shared_loc,bits", EXT_CASES)
+@pytest.mark.parametrize("temperature", [1.0, 0.5])
+def test_extension_sample_matches_mixture_cdf(components, shared_loc, bits, temperature):
+    """ Kolmogorov-Smirnov distance of C++ samples to the (tempered) mixture CDF """
+    dist = LocationScaleMixture(components, shared_loc=shared_loc, discretize_bits=bits)
+    n = 100_000
+    _, p = random_params(dist, batch=1, time=1, seed=4)
+    torch.manual_seed(0)
+    x = dist.sample(p.expand(1, -1, n).contiguous(), use_extension=True,
+                    temperature=temperature)[0, 0].sort().values
+    # temperature T multiplies the scales: add log T to the log scales
+    K = dist.num_components
+    n_loc = 1 if shared_loc else K
+    p_t = p.clone()
+    p_t[:, K + n_loc:] += math.log(temperature)
+    cdf = dist.cdf(x.view(-1, 1, 1), p_t.expand(n, -1, -1))[:, 0, 0]
+    ks = (cdf - torch.arange(1, n + 1) / n).abs().max()
+    assert ks < 2.0 / math.sqrt(n), ks
+
+
+def test_extension_sample_greedy_matches_python():
+    for shared_loc in [False, True]:
+        dist = LocationScaleMixture(('gaussian', 'laplace', 'gaussian'), shared_loc=shared_loc)
+        _, params = random_params(dist)
+        assert torch.equal(dist.sample(params, use_extension=True, temperature=0.0),
+                           dist.sample(params, temperature=0.0))
+
+
+def test_extension_sample_discretized_matches_python_grid():
+    dist = LocationScaleMixture(('gaussian', 'logistic'), discretize_bits=6)
+    _, params = random_params(dist, batch=4, time=300)
+    params[:, 2:4] *= 5  # locations beyond +-1: clipping
+    x = dist.sample(params, use_extension=True)
+    n = 2 ** 6 - 1
+    assert x.abs().max() <= 1.0 and (x.abs() == 1.0).any()
+    q = (x + 1) * n / 2
+    assert torch.allclose(q, q.round(), atol=1e-4)
+    # greedy: the same snapped value as the Python reference
+    assert torch.allclose(dist.sample(params, use_extension=True, temperature=0.0),
+                          dist.sample(params, temperature=0.0), atol=1e-6)
+
+
+def test_extension_sample_seeded_and_per_timestep_temperature():
+    dist = LocationScaleMixture(('gaussian', 'laplace'))
+    _, params = random_params(dist, batch=2, time=100)
+    torch.manual_seed(7)
+    x1 = dist.sample(params, use_extension=True)
+    torch.manual_seed(7)
+    x2 = dist.sample(params, use_extension=True)
+    assert torch.equal(x1, x2)
+    temp = torch.ones(2, 1, 100)
+    temp[..., ::2] = 0.0
+    x = dist.sample(params, use_extension=True, temperature=temp)
+    greedy = dist.sample(params, temperature=0.0)
+    assert torch.equal(x[..., ::2], greedy[..., ::2])
+    assert not torch.equal(x[..., 1::2], greedy[..., 1::2])

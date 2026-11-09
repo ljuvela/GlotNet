@@ -27,6 +27,12 @@ public:
     // Reseed the random number generator (default: seeded from std::random_device)
     virtual void seed(uint64_t value);
 
+    // Location-scale distributions can describe x + offset by moving their
+    // location parameters (GlotNet sample_after_filtering). Others cannot.
+    virtual bool canShiftLocation() const { return false; }
+    // params: one timestep (paramsDim()); throws std::logic_error unless canShiftLocation()
+    virtual void shiftLocation(float *params, float offset) const;
+
 protected:
     std::mt19937_64 generator;
 };
@@ -38,6 +44,8 @@ public:
     size_t paramsDim() const override { return 2; }
     void sample(const float *params, float *output, size_t timesteps, const float *temperature) override;
     void seed(uint64_t value) override;
+    bool canShiftLocation() const override { return true; }
+    void shiftLocation(float *params, float offset) const override { params[0] += offset; }
     void setVarianceShape(float shape);
 
 private:
@@ -70,8 +78,75 @@ private:
     std::uniform_real_distribution<double> uniform{0.0, 1.0};
 };
 
-// Factory: "gaussian" or "categorical" (num_bits used by categorical only).
-// Throws std::invalid_argument for unknown names.
+// Location-scale families of the mixture components
+enum class Family
+{
+    Gaussian,  // scale = standard deviation
+    Laplace,   // density exp(-|x - loc| / b) / (2 b)
+    Logistic   // CDF sigmoid((x - loc) / s)
+};
+
+// "gaussian", "laplace" or "logistic"; throws std::invalid_argument otherwise
+Family familyFromName(const std::string &name);
+
+// Mixture of location-scale densities, matching the Python
+// glotnet.losses.distributions.LocationScaleMixture. Parameters per timestep
+// (K components):
+//   shared_loc = false: [logits (K), locs (K), log_scales (K)]  -> 3K
+//   shared_loc = true:  [logits (K), loc (1),  log_scales (K)]  -> 2K + 1
+// Sampling: a component from softmax(logits) (not tempered), then
+// loc + temperature * scale * z with z from the component's family;
+// temperature <= 0 returns the location of the most probable component.
+// discretize_bits > 0 clips samples to [-1, 1] and snaps them to the
+// 2^bits levels. Log scales are floored at log_scale_floor, as in GaussianDensity.
+class LocationScaleMixture : public Distribution
+{
+public:
+    LocationScaleMixture(std::vector<Family> components, bool shared_loc = false,
+                         int discretize_bits = 0, float log_scale_floor = -14.0f);
+    size_t paramsDim() const override { return params_dim; }
+    void sample(const float *params, float *output, size_t timesteps, const float *temperature) override;
+    void seed(uint64_t value) override;
+    bool canShiftLocation() const override { return true; }
+    void shiftLocation(float *params, float offset) const override;
+
+    // One timestep: the sampled component index (exposed for tests)
+    size_t sampleComponent(const float *params);
+    // One timestep: the sampled value
+    float sampleOne(const float *params, float temperature);
+    // A standard (location 0, scale 1) draw from a family
+    float sampleStandard(Family family);
+
+    size_t numComponents() const { return num_components; }
+
+private:
+    const std::vector<Family> components;
+    const size_t num_components;
+    const bool shared_loc;
+    const int discretize_bits;
+    const float log_scale_floor;
+    const size_t params_dim;
+    std::vector<double> cdf; // preallocated, no allocation while sampling
+    std::uniform_real_distribution<double> uniform{0.0, 1.0};
+    std::normal_distribution<float> normal{0.0f, 1.0f};
+
+    double uniformOpen(); // in (0, 1)
+};
+
+// What to create: name "gaussian", "categorical" or "mixture".
+// num_bits: mu-law bits (categorical). components, shared_loc and
+// discretize_bits (0 = continuous): mixture only.
+struct DistributionSpec
+{
+    std::string name = "gaussian";
+    int num_bits = 8;
+    std::vector<std::string> components;
+    bool shared_loc = false;
+    int discretize_bits = 0;
+};
+
+// Factory. Throws std::invalid_argument for unknown names or invalid settings.
+std::unique_ptr<Distribution> create(const DistributionSpec &spec);
 std::unique_ptr<Distribution> create(const std::string &name, int num_bits = 8);
 
 } // distributions

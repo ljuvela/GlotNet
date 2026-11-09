@@ -399,13 +399,23 @@ class LocationScaleMixture(Distribution):
         temperature. Temperature 0 returns the location of the most probable
         component. With discretize_bits, samples are snapped to the bins in [-1, 1].
         """
-        if use_extension:
-            raise NotImplementedError("LocationScaleMixture has no C++ sampler yet")
-        logits, locs, log_scales = self.split(params)
+        self._check_params(params)
         if temperature is None:
             temperature = self.temperature
         temperature = torch.as_tensor(temperature, dtype=params.dtype, device=params.device)
         temperature = temperature.expand(params.size(0), 1, params.size(2))
+
+        if use_extension:
+            # seed drawn from torch's RNG, so torch.manual_seed makes it reproducible
+            seed = int(torch.randint(0, 2**62, (1,)).item())
+            x, = ext.sample_mixture(
+                params.transpose(1, 2).contiguous(),       # (B, T, P)
+                temperature.transpose(1, 2).contiguous(),  # (B, T, 1)
+                list(self.components), self.shared_loc,
+                self.discretize_bits or 0, seed)
+            return x.transpose(1, 2)  # (B, 1, T)
+
+        logits, locs, log_scales = self.split(params)
 
         k = torch.distributions.Categorical(logits=logits.transpose(1, 2)).sample()
         k = torch.where(temperature[:, 0] <= 0.0, logits.argmax(dim=1), k).unsqueeze(1)
