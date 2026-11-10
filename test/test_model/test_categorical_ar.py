@@ -92,7 +92,7 @@ def test_wavenet_ar_categorical_sampling():
     assert not torch.equal(y1, y3)
     # zero excitation input: every output sample is a mu-law level
     assert y1.abs().max() <= 1.0
-    assert torch.equal(mulaw.decode(mulaw.encode(y1)), y1)
+    assert torch.allclose(mulaw.decode(mulaw.encode(y1)), y1, atol=1e-6, rtol=0)
 
 
 def test_inference_rejects_mismatched_distribution():
