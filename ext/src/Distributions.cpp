@@ -70,7 +70,7 @@ float GaussianDensity::shapeVariance(float sigma)
 CategoricalDensity::CategoricalDensity(int num_bits)
     : num_bits(num_bits),
       num_classes(num_bits >= 1 && num_bits <= 16 ? size_t(1) << num_bits : 0),
-      mu(mulaw::muFromBits(num_bits)),
+      mu(static_cast<int>(num_classes) - 1),
       cdf(num_classes)
 {
     if (num_classes == 0)
