@@ -48,8 +48,9 @@ std::vector<at::Tensor> sample_categorical(
     const int64_t batch_size = params.size(0);
     const int64_t timesteps = params.size(1);
     TORCH_CHECK(temperature.scalar_type() == torch::kFloat32 && temperature.is_contiguous()
+                && temperature.device().is_cpu()
                 && temperature.sizes() == torch::IntArrayRef({batch_size, timesteps, 1}),
-                "temperature must be a contiguous float32 tensor (batch, time, 1)");
+                "temperature must be a contiguous float32 CPU tensor (batch, time, 1)");
 
     auto dist = CategoricalDensity(static_cast<int>(num_bits));
     TORCH_CHECK(params.size(2) == static_cast<int64_t>(dist.paramsDim()),
@@ -85,8 +86,9 @@ std::vector<at::Tensor> sample_mixture(
     const int64_t batch_size = params.size(0);
     const int64_t timesteps = params.size(1);
     TORCH_CHECK(temperature.scalar_type() == torch::kFloat32 && temperature.is_contiguous()
+                && temperature.device().is_cpu()
                 && temperature.sizes() == torch::IntArrayRef({batch_size, timesteps, 1}),
-                "temperature must be a contiguous float32 tensor (batch, time, 1)");
+                "temperature must be a contiguous float32 CPU tensor (batch, time, 1)");
 
     DistributionSpec spec;
     spec.name = "mixture";

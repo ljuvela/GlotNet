@@ -172,9 +172,8 @@ class Laplace(LocationScaleFamily):
         return torch.where(z < 0, left, right)
 
     def icdf_standard(self, u):
-        # z = -sign(u - 1/2) * log(1 - 2 |u - 1/2|)
-        v = u - 0.5
-        return -torch.sign(v) * torch.log1p(-2.0 * v.abs())
+        # both tails directly: log(2u) for u < 1/2, -log(2 (1 - u)) otherwise
+        return torch.where(u < 0.5, torch.log(2.0 * u), -torch.log1p(-u) - self._log2)
 
 
 class Logistic(LocationScaleFamily):

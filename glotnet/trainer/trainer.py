@@ -284,6 +284,10 @@ class Trainer(torch.nn.Module):
         if saved_config is not None:
             fields = self.CHECKPOINT_MODEL_FIELDS + self.CHECKPOINT_DISTRIBUTION_FIELDS.get(
                 self.config.distribution, ())
+            if (self.config.model_type == 'glotnet' and self.config.distribution == 'mixture'
+                    and (saved_config.get('discretize_bits') is not None
+                         or self.config.discretize_bits is not None)):
+                fields += ('glotnet_sample_after_filtering',)
             # JSON configs hold lists where checkpoints hold tuples
             norm = lambda v: tuple(v) if isinstance(v, (list, tuple)) else v
             for field in fields:
