@@ -365,6 +365,21 @@ class LocationScaleMixture(Distribution):
                                  locs, log_scales, x)
         return torch.logsumexp(F.log_softmax(logits, dim=1) + lp, dim=1, keepdim=True)
 
+    def responsibilities(self, x, params):
+        """ Posterior component probabilities p(k | x), shape (batch, K, time)
+
+        Uses the bin masses when discretized, else the densities.
+        """
+        logits, locs, log_scales = self.split(params)
+        if self.discretize_bits is not None:
+            lo, hi = self.bin_edges(x)
+            lp = self._per_component(lambda f, lo, hi, m, s: f.log_mass(lo, hi, m, s),
+                                     locs, log_scales, lo, hi)
+        else:
+            lp = self._per_component(lambda f, x, m, s: f.log_prob(x, m, s),
+                                     locs, log_scales, x)
+        return F.softmax(F.log_softmax(logits, dim=1) + lp, dim=1)
+
     def cdf(self, x, params):
         """ Mixture CDF (of the continuous mixture, also when discretized) """
         logits, locs, log_scales = self.split(params)

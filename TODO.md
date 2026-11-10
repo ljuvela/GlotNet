@@ -355,7 +355,7 @@ Implementation steps (one commit each):
        the sampling noise, worst over 10 seeds: mixture mean 6 se and
        |std ratio - 1| < 0.15 (noise up to 0.093, a broken temperature gives
        ~0.4). Categorical < 0.1 (noise up to 0.061, a broken temperature gives ~0.2)
-6. [ ] Smoke test on the same utterance as `glotnet_smoke`, scoring everything
+6. [x] Smoke test on the same utterance as `glotnet_smoke`, scoring everything
        in bits per mu-law sample through `cdf`. Generalise `evaluate.py` to
        any distribution with a `cdf`. Candidates:
        - Gaussian (baseline)
@@ -367,6 +367,32 @@ Implementation steps (one commit each):
        Laplace component's mean responsibility per frame against the voicing
        decision. The hypothesis predicts a high responsibility in voiced
        frames and a low one in unvoiced frames
+       Done (laptop, 5000 iterations, one seed). Scripts are in
+       `experiments/smoke/` (README: cluster instructions). Results are in
+       `/Users/lauri/DATA/glotnet_smoke_mixture/RESULTS.md`.
+       - Bits per mu-law sample:
+         - Gaussian 6.01
+         - Gaussian + Laplace 6.15, shared location 6.17
+         - 4 Gaussians 5.51, 10 discretized logistics 5.56
+         - categorical 4.72 (previous smoke test)
+       - Run-to-run noise is about 0.2 bits. At lr 1e-3 the loss oscillates
+         and most runs ended worse than their mid-run best
+       - The mixtures collapse onto one component: one Gaussian at 0.989 of 4,
+         one logistic at 0.994 of 10, GlotNet Laplace at 0.992
+       - Voicing check inconclusive: Laplace dominates everywhere
+         (responsibility 0.997 voiced, 0.974 unvoiced). The voicing heuristic
+         marks 84% of frames voiced
+       - Old `glotnet_smoke` Gaussian 5.81 → 5.79: `Normal.cdf` underflowed
+         on 217 tail samples
+       - **Fixed on the way:** `generate()` crashed after training on
+         CUDA/MPS (filters on the device, signals on the CPU);
+         `.gitignore` hid `experiments/`
+7. [ ] Follow-ups from the smoke test:
+       - lr schedule / lower lr, several seeds, before comparing distributions
+       - component collapse on multi-speaker data (minimum weight? weight
+         temperature?)
+       - voicing check with a real F0/voicing estimator
+       - listen to the generated files (several hit the ±0.99 clamp)
 
 References (verify venues/years before citing):
 - Bishop (1994), Mixture Density Networks, Aston University tech. report NCRG/94/004

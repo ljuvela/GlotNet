@@ -99,8 +99,10 @@ class TrainerGlotNet(TrainerWaveNet):
 
         model_ar = self.model_ar
         model_ar.load_state_dict(self.model.state_dict(), strict=False)
-        x_emph = self.pre_emphasis.emphasis(x)
-        a = self.lpc.estimate(x_emph[:, 0, :])
+        # LPC analysis on the trainer's device (its filters live there),
+        # C++ inference on the CPU
+        x_emph = self.pre_emphasis.emphasis(x.to(self.device))
+        a = self.lpc.estimate(x_emph[:, 0, :]).cpu()
 
         output = model_ar.inference(
             input=torch.zeros_like(x),

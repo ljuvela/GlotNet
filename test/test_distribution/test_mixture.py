@@ -282,6 +282,28 @@ def test_errors():
         dist.sample(torch.zeros(1, 5, 4), use_extension=True)
 
 
+@pytest.mark.parametrize("discretize_bits", [None, 8])
+def test_responsibilities(discretize_bits):
+    """ Bayes rule: w_k p_k(x) / sum_j w_j p_j(x), in component order """
+    components = ('laplace', 'gaussian', 'laplace')
+    dist = LocationScaleMixture(components, discretize_bits=discretize_bits)
+    x, params = random_params(dist, dtype=torch.float64)
+    r = dist.responsibilities(x, params)
+    assert r.shape == (x.size(0), 3, x.size(2))
+    assert torch.allclose(r.sum(dim=1), torch.ones_like(r[:, 0]))
+    # by hand, one single-component mixture per component
+    logits, locs, log_scales = dist.split(params)
+    w = torch.softmax(logits, dim=1)
+    terms = []
+    for k, name in enumerate(components):
+        single = LocationScaleMixture((name,), discretize_bits=discretize_bits)
+        p_k = torch.cat([torch.zeros_like(x), locs[:, k:k + 1], log_scales[:, k:k + 1]], dim=1)
+        terms.append(w[:, k:k + 1] * single.log_prob(x, p_k).exp())
+    expected = torch.cat(terms, dim=1)
+    expected = expected / expected.sum(dim=1, keepdim=True)
+    assert torch.allclose(r, expected, atol=1e-10)
+
+
 # --- C++ sampler (use_extension=True) ---
 
 EXT_CASES = [

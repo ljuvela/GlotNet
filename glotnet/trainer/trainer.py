@@ -216,7 +216,8 @@ class Trainer(torch.nn.Module):
             cond_input=c,
             temperature=temperature)
         output = output[:, :, model_ar.receptive_field:] # remove padding
-        output = self.pre_emphasis.deemphasis(output)
+        # de-emphasis on the trainer's device (its filter lives there)
+        output = self.pre_emphasis.deemphasis(output.to(self.device)).cpu()
         return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
