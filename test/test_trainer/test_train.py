@@ -1,6 +1,5 @@
 
 import os
-import tempfile
 import pytest
 import torch
 from glotnet.data import audio_io
@@ -11,11 +10,6 @@ from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 from glotnet.train import main as train_main
 from glotnet.train import parse_args
 
-# pytest fixture for temporary directory
-@pytest.fixture
-def tempdir():
-    with tempfile.TemporaryDirectory() as tempdir:
-        yield tempdir
 
 @pytest.fixture
 def config(tempdir):
@@ -81,7 +75,6 @@ def test_train_glotnet(tempdir, config):
         '--device', 'cpu',
         ])
     train_main(args)
-
 
 
 def test_train_with_validation(tempdir, config):
