@@ -72,7 +72,8 @@ class Config:
     n_fft: int = 1024
     n_mels: int = 80
     mel_fmin: float = 0.0
-    mel_fmax: float = 8000
+    # None = Nyquist (sample_rate / 2)
+    mel_fmax: float = None
     pre_emphasis: float = 0.0
 
     lpc_order: int = 10

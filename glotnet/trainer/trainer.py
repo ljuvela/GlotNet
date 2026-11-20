@@ -254,7 +254,7 @@ class Trainer(torch.nn.Module):
         self.close()
 
     # config fields that must match between a checkpoint and the trainer
-    CHECKPOINT_MODEL_FIELDS = ('model_type', 'distribution')
+    CHECKPOINT_MODEL_FIELDS = ('model_type', 'distribution', 'sample_rate')
     CHECKPOINT_DISTRIBUTION_FIELDS = {
         'categorical': ('num_bits',),
         'mixture': ('mixture_components', 'mixture_shared_loc', 'discretize_bits'),

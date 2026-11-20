@@ -10,19 +10,21 @@ numbers are on the training utterance.
 | file | what it does |
 |---|---|
 | `runs.py` | the run table (single source of truth); `python runs.py` lists the run names |
-| `train.py` | trains one run and generates the utterance with C++ inference (`--prepare-only` writes `OUT/data/utt16k.wav`) |
+| `train.py` | trains one run and generates the utterance with C++ inference (`--prepare-only` writes `OUT/data/utt16k.wav`; `--sample-rate 24000` gives `utt24k.wav`) |
 | `evaluate.py` | teacher-forced bits per mu-law sample for all runs → `OUT/evaluation.json` and a markdown table |
 | `voicing_check.py` | GlotNet Gaussian + Laplace: Laplace responsibility per frame vs voicing → `OUT/<run>/voicing_check.json`, `voicing_frames.csv` (+ `.png` if matplotlib is installed) |
 | `run_local.sh` | everything on one machine (laptop, workstation, interactive node) |
-| `slurm/train_array.sbatch` | one run per array task |
-| `slurm/evaluate.sbatch` | evaluation + voicing check, after the array |
+| `slurm/triton_train_array.sbatch` | Triton: one run per array task (CPU, sources `env.sh`) |
+| `slurm/triton_evaluate.sbatch` | Triton: evaluation + voicing check, after the array |
 
 Runs (`runs.py`): `wn_gaussian`, `wn_gl` (Gaussian + Laplace), `wn_gl_shared`
 (shared location), `wn_mog4` (4 Gaussians), `wn_dmol10` (10 discretized
 logistics, 16 bit), `gn_gl_shared` (GlotNet, Gaussian + Laplace, shared
 location). All share: residual/skip channels 32, dilations 1..256 (receptive field
 1046), 80-band mel conditioning, pre-emphasis 0.85, Adam lr 1e-3, batch 4 × 4000
-samples, 5000 iterations.
+samples, 5000 iterations. The sample rate is 16 kHz by default; `--sample-rate`
+(Triton script: `SAMPLE_RATE=24000`) resamples the utterance and sets
+`Config.sample_rate`, with segments of 0.25 s. Use a separate `OUT` per rate.
 
 Outputs, per run, in `OUT/<run>/`: `model.pt` (self-describing checkpoint),
 `history.json` (loss and distribution statistics every 50 iterations),
@@ -85,21 +87,27 @@ Laptop (Apple M-series, 10 cores): 3 runs in parallel with 3 threads each, about
    On a GPU node, `test/test_trainer/test_trainer_device.py` also checks
    training on CUDA followed by C++ (CPU) generation.
 4. **Data**: as above, into project/scratch storage.
-5. **Run.** Edit the commented `#SBATCH --account/--partition` lines in both
-   scripts for your site, then from the repository root:
+5. **Run** (Triton; the scripts source `env.sh` and default to the group's
+   scratch paths for `UTTERANCE` and `OUT`). From the repository root:
    ```bash
-   export UTTERANCE=$UTT OUT=/scratch/<project>/glotnet_smoke_mixture
+   export OUT=/scratch/elec/t412-speechsynth/$USER/glotnet_runs/smoke_mixture
+   # prepare the 16 kHz utterance once, so array tasks don't race on it
+   python -I experiments/smoke/train.py --prepare-only \
+       --utterance /scratch/elec/t412-speechsynth/DATA/LibriTTS-R/LibriTTS_R/dev-clean/1272/128104/1272_128104_000003_000002.wav \
+       --out "$OUT"
    # quick check first (2 tasks, 20 iterations)
-   ITERS=20 sbatch --array=0,5 --time=00:10:00 experiments/smoke/slurm/train_array.sbatch
+   OUT=${OUT%/*}/smoke_tiny ITERS=20 sbatch --array=0,5 --time=00:15:00 \
+       experiments/smoke/slurm/triton_train_array.sbatch
    # full run
-   jid=$(sbatch --parsable experiments/smoke/slurm/train_array.sbatch)
-   sbatch --dependency=afterok:$jid experiments/smoke/slurm/evaluate.sbatch
+   jid=$(sbatch --parsable experiments/smoke/slurm/triton_train_array.sbatch)
+   sbatch --dependency=afterok:$jid experiments/smoke/slurm/triton_evaluate.sbatch
    squeue -u $USER
    ```
    Logs: `glotnet-smoke_<jobid>_<task>.out` in the submit directory and
    `$OUT/train_<run>.log`. CPU is enough for these models (32 channels); for a
-   GPU, set `DEVICE=cuda` and uncomment `--gpus=1`. Generation always runs on
-   the CPU (C++ inference); `Trainer.generate` handles a model on the GPU.
+   GPU, edit the script (`--device cuda`, `--gpus=1 --gres=min-cuda-cc:80`:
+   torch 2.15 has no V100 kernels). Generation always runs on the CPU (C++
+   inference); `Trainer.generate` handles a model on the GPU.
 
 ## Notes for the next (Claude) session on the cluster
 

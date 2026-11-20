@@ -11,12 +11,20 @@ from glotnet.config import Config
 from glotnet.trainer.trainer import Trainer
 from glotnet.trainer.trainer_glotnet import TrainerGlotNet
 
-SAMPLE_RATE = 16000
-UTTERANCE_FILE = 'utt16k.wav'
+SAMPLE_RATE = 16000        # default; train.py --sample-rate overrides it
+SEGMENT_DURATION = 0.25    # seconds (4000 samples at 16 kHz)
+
+
+def utterance_file(sample_rate: int) -> str:
+    """ Resampled utterance in OUT/data, e.g. utt16k.wav, utt24k.wav, utt22050.wav """
+    if sample_rate % 1000 == 0:
+        return f'utt{sample_rate // 1000}k.wav'
+    return f'utt{sample_rate}.wav'
+
 
 # shared by all runs (same as the categorical smoke test, glotnet_smoke)
 BASE = dict(
-    sample_rate=SAMPLE_RATE, segment_len=4000, batch_size=4,
+    batch_size=4,
     residual_channels=32, skip_channels=32, postnet_channels=64,
     dilations=(1, 2, 4, 8, 16, 32, 64, 128, 256),
     learning_rate=1e-3, pre_emphasis=0.85,
@@ -39,12 +47,14 @@ RUNS = {
 }
 
 
-def make_config(run: str, out_dir: str) -> Config:
+def make_config(run: str, out_dir: str, sample_rate: int = SAMPLE_RATE) -> Config:
     settings = dict(BASE)
     settings.update(RUNS[run])
     settings.update(
+        sample_rate=sample_rate,
+        segment_len=round(SEGMENT_DURATION * sample_rate),
         dataset_audio_dir_training=os.path.join(out_dir, 'data'),
-        dataset_filelist_training=[UTTERANCE_FILE],
+        dataset_filelist_training=[utterance_file(sample_rate)],
         log_dir=os.path.join(out_dir, run, 'logs'))
     return Config(**settings)
 
@@ -59,7 +69,7 @@ def load_trainer(run_dir: str, out_dir: str, log_dir: str, device='cpu'):
     model_pt = os.path.join(run_dir, 'model.pt')
     config = Trainer.config_from_checkpoint(model_pt)
     config.dataset_audio_dir_training = os.path.join(out_dir, 'data')
-    config.dataset_filelist_training = [UTTERANCE_FILE]
+    config.dataset_filelist_training = [utterance_file(config.sample_rate)]
     config.log_dir = log_dir
     trainer = trainer_class(config)(config=config, device=device)
     trainer.load(model_pt)
