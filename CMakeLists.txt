@@ -73,17 +73,28 @@ endif()
 # or directly with CMake when a Python interpreter with torch is available.
 find_package(Python 3 REQUIRED COMPONENTS Interpreter Development.Module)
 
-# Locate the Torch CMake config from the torch Python package
+# Locate torch from the torch Python package. The extension is CPU-only, so
+# link libtorch_cpu/c10/torch_python directly instead of find_package(Torch):
+# with a CUDA build of torch, TorchConfig requires a full CUDA toolkit (nvcc)
+# matching torch's CUDA version, even though nothing here uses CUDA.
 execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "import torch; print(torch.utils.cmake_prefix_path)"
-    OUTPUT_VARIABLE Torch_CMAKE_PREFIX
+    COMMAND "${Python_EXECUTABLE}" -c
+        "import os, torch; print(os.path.dirname(torch.__file__) + ';' + str(int(getattr(torch._C, '_GLIBCXX_USE_CXX11_ABI', True))))"
+    OUTPUT_VARIABLE Torch_PY_INFO
     OUTPUT_STRIP_TRAILING_WHITESPACE
     COMMAND_ERROR_IS_FATAL ANY
 )
-list(APPEND CMAKE_PREFIX_PATH "${Torch_CMAKE_PREFIX}")
-find_package(Torch REQUIRED)
-find_library(TORCH_PYTHON_LIBRARY torch_python REQUIRED
-    PATHS "${TORCH_INSTALL_PREFIX}/lib" NO_DEFAULT_PATH)
+list(GET Torch_PY_INFO 0 TORCH_INSTALL_PREFIX)
+list(GET Torch_PY_INFO 1 TORCH_CXX11_ABI)
+set(TORCH_INCLUDE_DIRS
+    "${TORCH_INSTALL_PREFIX}/include"
+    "${TORCH_INSTALL_PREFIX}/include/torch/csrc/api/include")
+foreach(lib torch_cpu c10 torch_python)
+    string(TOUPPER ${lib} LIB)
+    find_library(${LIB}_LIBRARY ${lib} REQUIRED
+        PATHS "${TORCH_INSTALL_PREFIX}/lib" NO_DEFAULT_PATH)
+endforeach()
+set(TORCH_LIBRARIES ${TORCH_CPU_LIBRARY} ${C10_LIBRARY})
 
 set(python_module_name cpp_extensions)
 
@@ -115,6 +126,12 @@ endif()
 target_compile_definitions(${python_module_name} PRIVATE
     TORCH_EXTENSION_NAME=${python_module_name}
 )
+# torch headers require C++20 (the core library stays C++17)
+target_compile_features(${python_module_name} PRIVATE cxx_std_20)
+if(NOT APPLE AND NOT MSVC)
+    target_compile_definitions(${python_module_name} PRIVATE
+        _GLIBCXX_USE_CXX11_ABI=${TORCH_CXX11_ABI})
+endif()
 
 target_link_libraries(${python_module_name} PRIVATE glotnet_core)
 
