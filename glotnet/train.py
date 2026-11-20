@@ -71,6 +71,13 @@ def main(args):
     if args.compile:
         trainer.model = torch.compile(trainer.model)
 
+    try:
+        _train_loop(trainer, config, gen_data)
+    finally:
+        trainer.close()  # flush the last TensorBoard events
+
+
+def _train_loop(trainer, config, gen_data):
     loss_best = 1e9
     current_patience = config.max_patience
 

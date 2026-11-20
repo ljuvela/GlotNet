@@ -1,6 +1,5 @@
 
 import os
-import tempfile
 import pytest
 import torch
 from glotnet.data import audio_io
@@ -9,12 +8,6 @@ from glotnet.trainer.trainer import Trainer as TrainerWaveNet
 
 from glotnet.copy_synthesis import main as copy_synthesis
 from glotnet.copy_synthesis import parse_args
-
-# pytest fixture for temporary directory
-@pytest.fixture
-def tempdir():
-    with tempfile.TemporaryDirectory() as tempdir:
-        yield tempdir
 
 
 @pytest.fixture

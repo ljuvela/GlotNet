@@ -1,5 +1,5 @@
 import os
-import tempfile
+import threading
 import pytest
 import torch
 from glotnet.data import audio_io
@@ -8,13 +8,6 @@ from glotnet.data.audio_dataset import AudioDataset
 
 from glotnet.trainer.trainer import Trainer as TrainerWaveNet
 from glotnet.config import Config
-
-
-# pytest fixture for temporary directory
-@pytest.fixture
-def tempdir():
-    with tempfile.TemporaryDirectory() as tempdir:
-        yield tempdir
 
 
 def test_trainer(tempdir):
@@ -215,3 +208,24 @@ def test_trainer_generate_condnet(tempdir):
 
     x = trainer.generate(dataset)
 
+
+
+def _event_writer_threads():
+    from tensorboard.summary.writer.event_file_writer import _AsyncWriterThread
+    return [t for t in threading.enumerate()
+            if isinstance(t, _AsyncWriterThread) and t.is_alive()]
+
+
+def test_trainer_close_joins_writer_thread(tempdir):
+    """ close() must stop the TensorBoard flush thread, so nothing writes
+        into log_dir after training (rmtree race: ENOTEMPTY on CI) """
+    config = Config(batch_size=1, dilations=[1], residual_channels=4,
+                    skip_channels=4, log_dir=os.path.join(tempdir, 'logs'))
+    before = set(_event_writer_threads())
+    with TrainerWaveNet(config=config) as trainer:
+        trainer.writer.add_scalar("x", 1.0, global_step=0)
+        assert set(_event_writer_threads()) - before, "writer thread expected"
+    assert not set(_event_writer_threads()) - before, "close() must join the writer thread"
+    trainer.close()  # idempotent
+    event_files = os.listdir(config.log_dir)
+    assert len(event_files) == 1 and event_files[0].startswith('events.out.tfevents')

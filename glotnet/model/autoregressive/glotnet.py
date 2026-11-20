@@ -2,6 +2,7 @@ import torch
 from typing import List
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity, Identity
+from glotnet.losses.distributions import set_cpp_distribution, check_cpp_distribution
 import glotnet.cpp_extensions as ext
 
 import torch.nn.functional as F
@@ -71,6 +72,7 @@ class GlotNetAR(WaveNet):
         if distribution is None:
             distribution = Identity()
         self.distribution = distribution
+        set_cpp_distribution(self._impl, distribution, self.output_channels)
 
     def _pad(self, x: torch.Tensor = None):
         if x is not None:
@@ -140,6 +142,7 @@ class GlotNetAR(WaveNet):
         if cond_input is not None and cond_input.device != torch.device('cpu'):
             raise RuntimeError(f"Cond input device must be cpu, got {cond_input.device}")
 
+        check_cpp_distribution(self._impl, self.distribution, self.output_channels)
         output = GlotNetARFunction.apply(
             self._impl, input, a,
             self.stack.weights_conv, self.stack.biases_conv,
@@ -226,12 +229,13 @@ class GlotNetAR(WaveNet):
 
             params = super().forward(input=context, cond_input=cond_context)
 
-            p_curr = context[:, 1:2, -1]
+            p_curr = context[:, 1:2, -1:]  # (batch, 1, 1)
 
             if self.sample_after_filtering:
-                params[:, 0:1, -1:] = p_curr + params[:, 0:1, -1:]
+                # distribution of the signal: locations shifted by the prediction
+                params_x = self.distribution.shift_location(params[..., -1:], p_curr)
                 x_curr = self.distribution.sample(
-                    params[..., -1:], temperature=temperature[..., t:t+1])
+                    params_x, temperature=temperature[..., t:t+1])
                 e_curr = x_curr - p_curr
             else:
                 e_curr = self.distribution.sample(
@@ -239,19 +243,19 @@ class GlotNetAR(WaveNet):
                 x_curr = p_curr + e_curr
 
             # update output 
-            output[:, :, t] = x_curr
+            output[:, :, t] = x_curr[..., 0]
 
             # advance context
             context = torch.roll(context, -1, dims=-1)
 
             # excitation
-            context[:, 0:1, -1] = e_curr
+            context[:, 0:1, -1] = e_curr[..., 0]
             # sample
-            context[:, 2:3, -1] = x_curr
+            context[:, 2:3, -1] = x_curr[..., 0]
             # prediction for next time step
             x_curr = context[:, 2:3, -self.lpc_order:]
-            a1 = torch.flip(-a[:, 1:, t], [1]) # TODO: no flip?
-            p_next = torch.sum(a1 * x_curr, dim=-1)
+            a1 = torch.flip(-a[:, 1:, t], [1]).unsqueeze(1)  # (batch, 1, order)
+            p_next = torch.sum(a1 * x_curr, dim=-1)  # (batch, 1)
             context[:, 1:2, -1] = p_next
 
         # remove padding

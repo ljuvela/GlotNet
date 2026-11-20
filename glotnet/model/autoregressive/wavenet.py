@@ -2,6 +2,7 @@ import torch
 from typing import List
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.losses.distributions import Distribution, GaussianDensity, Identity
+from glotnet.losses.distributions import set_cpp_distribution, check_cpp_distribution
 import glotnet.cpp_extensions as ext
 
 import torch.nn.functional as F
@@ -63,6 +64,7 @@ class WaveNetAR(WaveNet):
         if distribution is None:
             distribution = Identity()
         self.distribution = distribution
+        set_cpp_distribution(self._impl, distribution, self.output_channels)
 
     def _pad(self, x: torch.Tensor = None):
         if x is not None:
@@ -110,6 +112,7 @@ class WaveNetAR(WaveNet):
             cond_input = self._pad(cond_input)
             temperature = self._pad(temperature)
 
+        check_cpp_distribution(self._impl, self.distribution, self.output_channels)
         output = WaveNetARFunction.apply(
             self._impl, input,
             self.stack.weights_conv, self.stack.biases_conv,

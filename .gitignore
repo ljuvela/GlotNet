@@ -19,7 +19,9 @@ scripts/
 
 # Experiment artefacts and configs
 runs/
-experiments/
+# experiments/ holds artefacts, except the tracked smoke-test scripts
+experiments/*
+!experiments/smoke/
 
 # slurm .out files
 *.out

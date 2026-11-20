@@ -1,4 +1,5 @@
 import os
+from dataclasses import asdict
 import torch
 
 from torch.utils.data import Dataset, DataLoader
@@ -7,7 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 from glotnet.config import Config
 from glotnet.model.feedforward.wavenet import WaveNet
 from glotnet.model.autoregressive.wavenet import WaveNetAR
-from glotnet.losses.distributions import Distribution, GaussianDensity
+from glotnet.losses.distributions import (Distribution, GaussianDensity, CategoricalDensity,
+                                          LocationScaleMixture)
 from glotnet.data.audio_dataset import AudioDataset
 from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
@@ -59,6 +61,22 @@ class Trainer(torch.nn.Module):
         self.device = device
         super().to(device)
 
+    def _log_training_step(self, loss: torch.Tensor):
+        """ Log loss and distribution statistics for the current batch """
+        step = self.iter_global
+        self.writer.add_scalar("loss", loss.item(), global_step=step)
+        self.writer.add_scalar(
+            "nll", self.criterion.batch_nll.mean().item(), global_step=step)
+        message = f"Iter {step}: loss = {loss.item()}"
+
+        # distribution statistics (entropy floor, mixture weights, ...)
+        for name, value in self.criterion.log_stats().items():
+            self.writer.add_scalar(name, value, global_step=step)
+            message += f"\n     {name} = {value}"
+
+        if self.iter % 100 == 0:
+            print(message)
+
     def _create_criterion(self) -> Distribution:
         """ Create scoring distribution instance from config """
         config = self.config
@@ -67,10 +85,20 @@ class Trainer(torch.nn.Module):
         if distribution is None:
             raise NotImplementedError(
                 f"Distribution {config.distribution} not supported")
-        dist = distribution(entropy_floor=config.entropy_floor,
-                            weight_entropy_penalty=config.loss_weight_entropy_hinge,
-                            weight_nll=config.loss_weight_nll)
-        return dist
+        if distribution is GaussianDensity:
+            kwargs = dict(entropy_floor=config.entropy_floor,
+                          weight_entropy_penalty=config.loss_weight_entropy_hinge)
+        elif distribution is CategoricalDensity:
+            kwargs = dict(num_bits=config.num_bits)
+        elif distribution is LocationScaleMixture:
+            kwargs = dict(components=tuple(config.mixture_components),
+                          shared_loc=config.mixture_shared_loc,
+                          discretize_bits=config.discretize_bits,
+                          entropy_floor_bits=config.entropy_floor_bits,
+                          weight_entropy_penalty=config.loss_weight_entropy_hinge)
+        else:
+            kwargs = {}
+        return distribution(weight_nll=config.loss_weight_nll, **kwargs)
 
     def _create_model(self, distribution: Distribution) -> WaveNet:
         """ Create model instance from config """
@@ -102,6 +130,10 @@ class Trainer(torch.nn.Module):
                         use_residual=cfg.use_residual,
                         cond_channels=wavenet_cond_channels,
                         cond_net=cond_net)
+        # distribution-specific output bias (mixture: spread component scales)
+        if hasattr(distribution, 'initial_bias'):
+            with torch.no_grad():
+                model.output2.conv.bias.copy_(distribution.initial_bias())
         return model
     
     def _temperature_from_voicing(
@@ -141,6 +173,7 @@ class Trainer(torch.nn.Module):
                 activation=cfg.activation,
                 use_residual=cfg.use_residual,
                 cond_channels=wavenet_cond_channels,
+                distribution=distribution,
                 cond_net=cond_net,)
         return self._model_ar
 
@@ -183,7 +216,8 @@ class Trainer(torch.nn.Module):
             cond_input=c,
             temperature=temperature)
         output = output[:, :, model_ar.receptive_field:] # remove padding
-        output = self.pre_emphasis.deemphasis(output)
+        # de-emphasis on the trainer's device (its filter lives there)
+        output = self.pre_emphasis.deemphasis(output.to(self.device)).cpu()
         return output.clamp(min=-0.99, max=0.99)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
@@ -204,18 +238,79 @@ class Trainer(torch.nn.Module):
         writer = SummaryWriter(log_dir=self.config.log_dir)
         return writer
 
+    def close(self):
+        """ Flush and close the TensorBoard writer
+
+        The writer flushes from a background thread, which may still be
+        writing event files after training returns; close() joins it.
+        Call before removing log_dir. Safe to call more than once.
+        """
+        self.writer.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
+
+    # config fields that must match between a checkpoint and the trainer
+    CHECKPOINT_MODEL_FIELDS = ('model_type', 'distribution')
+    CHECKPOINT_DISTRIBUTION_FIELDS = {
+        'categorical': ('num_bits',),
+        'mixture': ('mixture_components', 'mixture_shared_loc', 'discretize_bits'),
+    }
+    CHECKPOINT_FORMAT = 'glotnet-model'
+    CHECKPOINT_VERSION = 1
+
+    @staticmethod
+    def _read_checkpoint(model_path: str) -> dict:
+        """ Model checkpoint as {'config': dict or None, 'model': state_dict};
+            accepts plain state dicts saved by older versions """
+        data = torch.load(model_path, map_location='cpu')
+        if isinstance(data, dict) and data.get('format') == Trainer.CHECKPOINT_FORMAT:
+            return data
+        return {'config': None, 'model': data}
+
+    @staticmethod
+    def config_from_checkpoint(model_path: str) -> Config:
+        """ Config stored in a model checkpoint (None for older checkpoints) """
+        cfg = Trainer._read_checkpoint(model_path)['config']
+        return None if cfg is None else Config(**cfg)
+
     def load(self, model_path: str, optim_path: str = None):
         """ Load trainer model and optimizer states """
-        model_state_dict = torch.load(model_path, map_location='cpu')
-        self.model.load_state_dict(model_state_dict)
+        checkpoint = self._read_checkpoint(model_path)
+        saved_config = checkpoint['config']
+        if saved_config is not None:
+            fields = self.CHECKPOINT_MODEL_FIELDS + self.CHECKPOINT_DISTRIBUTION_FIELDS.get(
+                self.config.distribution, ())
+            if (self.config.model_type == 'glotnet' and self.config.distribution == 'mixture'
+                    and (saved_config.get('discretize_bits') is not None
+                         or self.config.discretize_bits is not None)):
+                fields += ('glotnet_sample_after_filtering',)
+            # JSON configs hold lists where checkpoints hold tuples
+            norm = lambda v: tuple(v) if isinstance(v, (list, tuple)) else v
+            for field in fields:
+                if (field in saved_config
+                        and norm(saved_config[field]) != norm(getattr(self.config, field))):
+                    raise ValueError(
+                        f"Checkpoint {model_path} has {field}={saved_config[field]!r}, "
+                        f"trainer config has {getattr(self.config, field)!r}")
+        self.model.load_state_dict(checkpoint['model'])
         if optim_path is None:
             return
         optim_state_dict = torch.load(optim_path, map_location='cpu')
         self.optim.load_state_dict(optim_state_dict)
 
     def save(self, model_path: str, optim_path: str = None):
-        """" Save model and optimizer state dictionaries"""
-        torch.save(self.model.state_dict(), model_path)
+        """" Save model (with its config) and optimizer state dictionaries"""
+        checkpoint = {
+            'format': self.CHECKPOINT_FORMAT,
+            'version': self.CHECKPOINT_VERSION,
+            'config': asdict(self.config),
+            'model': self.model.state_dict(),
+        }
+        torch.save(checkpoint, model_path)
         if optim_path is not None:
             torch.save(self.optim.state_dict(), optim_path)
 
@@ -260,31 +355,10 @@ class Trainer(torch.nn.Module):
 
                 self.batch_loss = loss
 
-                # logging 
-                self.writer.add_scalar("loss", loss.item(), global_step=self.iter_global)
-                # TODO: log scale parameter
-                self.writer.add_scalar(
-                    "nll",
-                    self.criterion.batch_nll.mean().item(),
-                    global_step=self.iter_global)
-
-                penalty = self.criterion.batch_penalty.mean().item()
-                self.writer.add_scalar(
-                    "entropy_floor_penalty",
-                    penalty,
-                    global_step=self.iter_global)
-
-                self.writer.add_scalar(
-                    "min_log_scale",
-                    self.criterion.batch_log_scale.min().item(),
-                    global_step=self.iter_global)
+                self._log_training_step(loss)
 
                 self.optim.step()
                 self.optim.zero_grad()
-
-                if self.iter % 100 == 0:
-                    print(f"Iter {self.iter_global}: loss = {loss.item()}")
-                    print(f"     penalty = {penalty}, min log scale = {self.criterion.batch_log_scale.min().item()}")
 
                 self.iter += 1
                 self.iter_global += 1
@@ -424,7 +498,9 @@ class Trainer(torch.nn.Module):
     }
 
     distributions = {
-        "gaussian": GaussianDensity
+        "gaussian": GaussianDensity,
+        "categorical": CategoricalDensity,
+        "mixture": LocationScaleMixture,
     }
 
     schedulers = {

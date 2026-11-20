@@ -28,10 +28,22 @@ class Config:
     condnet_dilations: Tuple[int] = (1,)
 
     # Distribution
-    distribution: str = 'gaussian'
+    distribution: str = 'gaussian'  # 'gaussian', 'categorical' or 'mixture'
     loss_weight_nll: float = 1.0
+    # gaussian and mixture
     loss_weight_entropy_hinge: float = 0.1
+    # gaussian only: log-scale floor
     entropy_floor: float = -9.0
+    # categorical only: mu-law bits (2**num_bits classes)
+    num_bits: int = 8
+    # mixture only: component families ('gaussian', 'laplace', 'logistic')
+    mixture_components: Tuple[str, ...] = ('gaussian', 'laplace')
+    # mixture only: one location shared by all components
+    mixture_shared_loc: bool = False
+    # mixture only: None = continuous density, else bin mass on 2**bits levels in [-1, 1]
+    discretize_bits: int = None
+    # mixture only: entropy floor = entropy of one bin of a signal with this bit depth
+    entropy_floor_bits: int = 16
 
     # Optimizer
     optimizer: str = 'adam'
