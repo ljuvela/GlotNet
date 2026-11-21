@@ -57,6 +57,8 @@ class Config:
     logging_interval: int = 100
     validation_interval: int = 5000
     max_patience: int = 10
+    # validation items generated (autoregressive, C++) for TensorBoard at each validation
+    generate_num_items: int = 4
 
 
     # Audio properties

@@ -12,7 +12,7 @@ from glotnet.sigproc.lpc import LinearPredictor
 from glotnet.sigproc.emphasis import Emphasis
 import numpy as np
 
-from typing import Union
+from typing import Sequence, Union
 
 # https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/2
 torch.backends.cudnn.benchmark = True
@@ -73,24 +73,24 @@ class TrainerGlotNet(TrainerWaveNet):
     def generate(self,
                  dataset: AudioDataset,
                  temperature_voiced: torch.Tensor = None,
-                 temperature_unvoiced: torch.Tensor = None
+                 temperature_unvoiced: torch.Tensor = None,
+                 indices: Sequence[int] = (0,)
                  ):
         """ Generate samples in autoregressive inference mode
-        
+
         Args:
             dataset: dataset to generate from (defaut: validation dataset)
-
             temperature_voiced: scaling factor for sampling noise in voiced regions
-        """
+            indices: dataset items to generate, as one batch
 
-        minibatch = dataset.__getitem__(0)
-        x, c = self._unpack_minibatch(minibatch)
-        c = c.unsqueeze(0)
-        if self.model.cond_net is not None:
-            c = self.model.cond_net(c)
-        x = x.unsqueeze(0)
+        Returns:
+            output (len(indices), 1, segment_len)
+        """
+        x, c = self._batch_from_dataset(dataset, indices)
         x = x.to('cpu')
         if c is not None:
+            if self.model.cond_net is not None:
+                c = self.model.cond_net(c)
             c = torch.nn.functional.interpolate(
                         input=c, size=x.size(-1), mode='linear')
             c = c.to('cpu')
@@ -110,10 +110,11 @@ class TrainerGlotNet(TrainerWaveNet):
             temperature=temperature)
         output = output[:, :, model_ar.receptive_field:] # remove padding
 
-        norm = output.abs().max()
-        if norm > 1.0:
-            print(f"output abs max was {norm}")
-            output = output / norm
+        # normalise each item separately if it exceeds the range
+        norm = output.abs().amax(dim=(1, 2), keepdim=True)
+        if (norm > 1.0).any():
+            print(f"output abs max was {norm.max().item()}")
+            output = output / norm.clamp(min=1.0)
         return output.clamp(min=-0.99, max=0.99)
 
 

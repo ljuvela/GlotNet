@@ -15,7 +15,7 @@ from glotnet.sigproc.melspec import LogMelSpectrogram
 from glotnet.sigproc.emphasis import Emphasis
 import numpy as np
 
-from typing import Union
+from typing import Sequence, Union
 
 DeviceType = Union[str, torch.device]
 class Trainer(torch.nn.Module):
@@ -181,22 +181,22 @@ class Trainer(torch.nn.Module):
                  dataset: AudioDataset,
                  temperature_voiced: float = None,
                  temperature_unvoiced: float = None,
-                 use_temperature_from_voicing: bool = True
+                 use_temperature_from_voicing: bool = True,
+                 indices: Sequence[int] = (0,)
                  ):
         """ Generate samples in autoregressive inference mode
-        
+
         Args:
             dataset: dataset to generate from (defaut: validation dataset)
             temperature: scaling factor for sampling noise
+            indices: dataset items to generate, as one batch
+
+        Returns:
+            output (len(indices), 1, segment_len)
         """
-
-        minibatch = dataset.__getitem__(0)
-        x, c = self._unpack_minibatch(minibatch)
-
-        x = x.unsqueeze(0)
+        x, c = self._batch_from_dataset(dataset, indices)
         x = x.to('cpu')
         if c is not None:
-            c = c.unsqueeze(0)
             if self.model.cond_net is not None:
                 c = self.model.cond_net(c)
             c = torch.nn.functional.interpolate(
@@ -205,6 +205,8 @@ class Trainer(torch.nn.Module):
 
         if use_temperature_from_voicing:
             temperature = self._temperature_from_voicing(c, temperature_voiced, temperature_unvoiced)
+        elif temperature_voiced is None:
+            temperature = None
         else:
             temperature = temperature_voiced * torch.ones_like(x)
 
@@ -219,6 +221,12 @@ class Trainer(torch.nn.Module):
         # de-emphasis on the trainer's device (its filter lives there)
         output = self.pre_emphasis.deemphasis(output.to(self.device)).cpu()
         return output.clamp(min=-0.99, max=0.99)
+
+    def _batch_from_dataset(self, dataset: AudioDataset, indices: Sequence[int]):
+        """ Dataset items stacked into one batch on the trainer's device: (x, c or None) """
+        items = [dataset[i] for i in indices]
+        minibatch = tuple(torch.stack(parts) for parts in zip(*items))
+        return self._unpack_minibatch(minibatch)
 
     def create_optimizer(self) -> torch.optim.Optimizer:
         """ Create optimizer instance from config """
@@ -485,11 +493,12 @@ class Trainer(torch.nn.Module):
         if dataset is None:
             self._data_loader_validation = None
         else:
+            # every validation segment once, in a fixed order
             self._data_loader_validation = DataLoader(
-                self.dataset_training,
+                self.dataset_validation,
                 batch_size=self.config.batch_size,
-                shuffle=self.config.shuffle,
-                drop_last=True,
+                shuffle=False,
+                drop_last=False,
                 num_workers=self.config.dataloader_workers)
 
 

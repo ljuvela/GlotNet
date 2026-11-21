@@ -418,6 +418,35 @@ References (verify venues/years before citing):
 
 ## Inference
 - openmp or similar parallelisation over batch elements in inference
+  - [ ] Batches already work but run serially: the bindings loop over `b` with one
+        stateful model (`ext/bind/WaveNetAR.h`, `ext/bind/GlotNetAR.h`,
+        `forward`/`cond_forward`). OpenMP needs one model copy per thread
+        (layer buffers, distribution and its RNG), with weights shared or copied
+        once per `set_parameters`. Seeding: one RNG stream per batch element
+        (e.g. seed + b), so results do not depend on the thread count
+  - [ ] Test: batch output == per-item output with the same seeds, for 1 and N threads
+  - [ ] Users: `Trainer.generate(indices=...)` (TensorBoard generation of
+        `generate_num_items` validation segments in `glotnet.train`), copy synthesis
+
+## Voicing / sampling temperature
+
+`Trainer._temperature_from_voicing` is a hack: voiced if the summed energy of
+the lower half of the mel bands is > 1.1 x the upper half. What it computes
+depends on n_mels, mel_fmax and the sample rate (at 24 kHz with fmax = Nyquist,
+the split moves up compared to 16 kHz / 8 kHz). OK for the first LibriTTS-R
+experiments (`glotnet.train` generates with T = 1 anyway); replace later.
+- [ ] Options: a real F0/voicing estimator (e.g. from the data pipeline, given
+      to `generate` as a frame-rate voicing track); let the model's own output
+      decide (e.g. mixture weights or predicted scale); or no heuristic, a
+      single global temperature
+- [ ] Same estimator for the smoke-test voicing check (`voicing_check.py`)
+
+## LibriTTS-R training (24 kHz)
+
+`experiments/libritts_r/`: train-clean-100 / dev-clean subset, LPC order 20,
+runs wn_gaussian, wn_categorical, gn_gaussian, gn_gl_shared.
+- [ ] GPU smoke test (gpu-debug, 200 iterations), then set `max_iters` from the speed
+- [ ] Checkpoints do not store `iter_global` (no proper resume across jobs)
 
 ## Performance bottlenecks
 

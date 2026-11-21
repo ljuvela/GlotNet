@@ -14,7 +14,12 @@ def parse_args(args=None):
         description = "GlotNet main training script")
     parser.add_argument(
         '--config', help='configuration in json format')
-    parser.add_argument('--log_dir')
+    parser.add_argument('--log_dir', default=None,
+        help="TensorBoard and checkpoint directory (overrides config.log_dir)")
+    parser.add_argument('--seed', type=int, default=None,
+        help="torch random seed (default: not set)")
+    parser.add_argument('--max_iters', type=int, default=None,
+        help="override config.max_iters (e.g. for a short test run)")
     parser.add_argument('--saves_dir',
         help="Directory for saving model artefacts")
     parser.add_argument('--audio_dir_train', type=str, default=None,
@@ -47,6 +52,13 @@ def main(args):
         config.cond_channels = None
         config.dataset_compute_mel = False
 
+    if args.log_dir is not None:
+        config.log_dir = args.log_dir
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+    if args.max_iters is not None:
+        config.max_iters = args.max_iters
+
     if args.audio_dir_train is not None:
         config.dataset_audio_dir_training = args.audio_dir_train
     if args.audio_dir_val is not None:
@@ -77,9 +89,33 @@ def main(args):
         trainer.close()  # flush the last TensorBoard events
 
 
+def generation_indices(num_segments: int, num_items: int) -> list:
+    """ num_items segment indices spread evenly over the dataset (the file
+        lists are sorted by speaker, so the items come from different speakers) """
+    num_items = min(num_items, num_segments)
+    return torch.linspace(0, num_segments - 1, num_items).round().long().tolist()
+
+
+def _log_generated(trainer, config, gen_data, indices, log_reference: bool):
+    """ Generate the items as one batch (temperature 1) and add them to TensorBoard """
+    x = trainer.generate(dataset=gen_data, indices=indices)
+    for k, i in enumerate(indices):
+        trainer.writer.add_audio(f"generated_T1.0/{k}", x[k, 0, :],
+                                 global_step=trainer.iter_global,
+                                 sample_rate=config.sample_rate)
+        if log_reference:
+            reference = gen_data[i][0][0, config.padding:]  # same samples as the output
+            trainer.writer.add_audio(f"reference/{k}", reference,
+                                     global_step=trainer.iter_global,
+                                     sample_rate=config.sample_rate)
+
+
 def _train_loop(trainer, config, gen_data):
     loss_best = 1e9
     current_patience = config.max_patience
+    indices = generation_indices(len(gen_data), config.generate_num_items)
+    print(f"generating {len(indices)} items at each validation: segments {indices}")
+    first = True
 
     while trainer.iter_global < config.max_iters:
         trainer.fit(num_iters=config.validation_interval,
@@ -87,11 +123,8 @@ def _train_loop(trainer, config, gen_data):
         trainer.save(
             model_path=os.path.join(trainer.writer.log_dir, 'model-latest.pt'),
             optim_path=os.path.join(trainer.writer.log_dir, 'optim-latest.pt'))
-        x = trainer.generate(dataset=gen_data)
-        trainer.writer.add_audio("generated audio_temp_1.0",
-                                 x[:, 0, :],
-                                 global_step=trainer.iter_global,
-                                 sample_rate=config.sample_rate)
+        _log_generated(trainer, config, gen_data, indices, log_reference=first)
+        first = False
 
         if trainer.dataset_validation is None:
             print(f"Validation data not provided, skipping validation step")
